@@ -2,7 +2,8 @@
 namespace McpServer\Mcp\Tool;
 
 /**
- * Common behavior hints for ToolInterface::getAnnotations().
+ * Sets of behavior hints a tool returns from ToolInterface::getAnnotations(),
+ * such as that it only reads.
  */
 final class ToolAnnotations
 {

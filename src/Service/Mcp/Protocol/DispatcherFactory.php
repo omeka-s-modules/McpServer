@@ -19,8 +19,8 @@ class DispatcherFactory implements FactoryInterface
             $serverInfo['title'] = $title;
         }
         return new Dispatcher(
-            $services->get('McpServer\Mcp\ToolManager'),
-            $services->get('McpServer\Mcp\ToolRunner'),
+            $services->get('McpServer\ToolManager'),
+            $services->get('McpServer\ToolRunner'),
             $services->get('Omeka\Logger'),
             $serverInfo,
             $this->getInstructions($title)

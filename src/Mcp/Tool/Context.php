@@ -2,9 +2,10 @@
 namespace McpServer\Mcp\Tool;
 
 /**
- * The circumstances of one tool call.
+ * What a tool knows about the call it's answering, apart from its arguments:
+ * for now, the protocol version.
  *
- * The server builds this; tools only read it. New details, such as who is
+ * The server builds this, and tools only read it. New details, such as who is
  * calling once signing in is supported, or the site of a per-site endpoint,
  * will arrive as new methods.
  */

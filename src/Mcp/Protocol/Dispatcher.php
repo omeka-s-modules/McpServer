@@ -359,7 +359,7 @@ class Dispatcher
     protected function callTool(array $params, Context $context): array
     {
         $name = $params['name'] ?? null;
-        if (!is_string($name) || !$this->toolRunner->has($name)) {
+        if (!is_string($name) || !$this->toolRunner->canRun($name)) {
             throw new ProtocolException(
                 sprintf('Unknown tool: %s', is_string($name) ? $name : '(no name given)'),
                 ProtocolException::INVALID_PARAMS

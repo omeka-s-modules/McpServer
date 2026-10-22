@@ -349,8 +349,9 @@ the migration in the admin.
 
 Other Omeka modules can add their own tools. Implement
 `McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
-tools and how to read data so that visibility stays correct. Then register the tool under
-the `mcp_server` key in your module's configuration:
+tools and how to read data so that visibility stays correct. This module's own tools, in
+`src/Mcp/Tool/Builtin/`, are working examples. Then register the tool under the
+`mcp_server` key in your module's configuration:
 
 ```php
 'mcp_server' => [

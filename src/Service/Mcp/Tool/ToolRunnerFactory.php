@@ -9,6 +9,6 @@ class ToolRunnerFactory implements FactoryInterface
 {
     public function __invoke(ContainerInterface $services, $requestedName, ?array $options = null)
     {
-        return new ToolRunner($services->get('McpServer\Mcp\ToolManager'), $services->get('Omeka\Logger'));
+        return new ToolRunner($services->get('McpServer\ToolManager'), $services->get('Omeka\Logger'));
     }
 }

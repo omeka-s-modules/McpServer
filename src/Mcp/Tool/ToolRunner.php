@@ -29,13 +29,13 @@ class ToolRunner
     /**
      * Whether a tool may be called by this name.
      */
-    public function has(string $name): bool
+    public function canRun(string $name): bool
     {
         return in_array($name, $this->tools->getToolNames(), true);
     }
 
     /**
-     * Run a tool. Check has() first.
+     * Run a tool. Check canRun() first.
      */
     public function run(string $name, array $arguments, Context $context): ToolResult
     {

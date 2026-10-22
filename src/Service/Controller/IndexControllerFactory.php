@@ -11,7 +11,7 @@ class IndexControllerFactory implements FactoryInterface
     {
         return new IndexController(
             $services->get('Omeka\AuthenticationService'),
-            fn () => $services->get('McpServer\Mcp\Dispatcher'),
+            fn () => $services->get('McpServer\Dispatcher'),
             $services->get('Omeka\Logger')
         );
     }

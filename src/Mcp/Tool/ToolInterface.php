@@ -25,22 +25,25 @@ namespace McpServer\Mcp\Tool;
  *
  * Rules for tools:
  *
- * - Read and write only through Omeka's API manager, which applies the caller's
- *   permissions and hides what they may not see. Today every caller is
- *   anonymous; once signing in is supported, the same calls will show each
- *   person what their account allows. Never use the entity manager or raw SQL
- *   to reach resources, with two exceptions, both kept in the
- *   McpServer\ResourceCounter service. One is counting, which the API can't
- *   do: a grouped Doctrine query may read only the values or media of
- *   resources whose IDs the API returned, so the API still decides what's
- *   visible, and core's Doctrine filters still hide private rows. The other
- *   is checking whether a property or class is in use, or used only in value
- *   annotations, which the API can't do fast: the check reads a row or two,
- *   and tells no more than core's "used" filter, apart from whether the
- *   values are annotations. Never use raw SQL, which those filters don't reach, and
- *   otherwise never list or count media except by item IDs the API returned:
- *   core hides the media of private items in the API, not in the filters.
- *   Reading a linked media's title is fine, since core's own pages show it.
+ * - Read and write only through Omeka's API manager, which applies the
+ *   caller's permissions and hides what they may not see. Today every caller
+ *   is anonymous; once signing in is supported, the same calls will show
+ *   each person what their account allows.
+ * - Don't use the entity manager to reach resources, except in two cases,
+ *   both kept in the McpServer\ResourceCounter service:
+ *   - Counting, which the API can't do. A grouped Doctrine query may read
+ *     only the values or media of resources whose IDs the API returned, so
+ *     the API still decides what's visible, and core's Doctrine filters
+ *     still hide private rows.
+ *   - Checking whether a property or class is in use, or used only in value
+ *     annotations, which the API can't do fast. The check reads a row or
+ *     two, and reveals no more than core's "used" filter does, apart from
+ *     whether the values are annotations.
+ * - Never use raw SQL, which core's Doctrine filters don't reach.
+ * - Never list or count media except by item IDs the API returned, because
+ *   core hides the media of private items in the API, not in its Doctrine
+ *   filters. Reading a linked media's title is fine, since core's own pages
+ *   show it.
  * - Keep no state between calls. Each call is a separate HTTP request.
  * - Before changing anything, check that the caller may do it, since a client
  *   can repeat a call after signing in.
