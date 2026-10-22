@@ -14,7 +14,7 @@ use Omeka\Api\Representation\MediaRepresentation;
  *
  * For tools with a ResourceFormatter in $formatter.
  */
-trait ReadsFields
+trait ReadsFieldsTrait
 {
     /**
      * Get the schema properties for reading one field.
@@ -40,11 +40,11 @@ trait ReadsFields
                 'default' => 1,
                 'description' => 'With "field", the page of values to return, starting at 1.',
             ],
-            'value' => [
+            'position' => [
                 'type' => 'integer',
                 'minimum' => 1,
                 'default' => 1,
-                'description' => 'With "field" and "offset", which of the property\'s values to read, by its position, starting at 1.',
+                'description' => 'With "field" and "offset", which of the property\'s values to read, by its position among them, starting at 1.',
             ],
             'offset' => [
                 'type' => 'integer',
@@ -80,11 +80,11 @@ trait ReadsFields
             $terms = array_keys(array_filter($resource->values(), fn ($property) => $property['values']));
             throw new ToolException(sprintf('This %s has no values for "%s". Its fields are: %s.', $label, $term, implode(', ', $terms)));
         }
-        if ($reader->has('value') || $reader->has('offset')) {
+        if ($reader->has('position') || $reader->has('offset')) {
             return $this->readValue($resource, $reader, $term, $total);
         }
         $page = $reader->getInt('page', 1, 1, AbstractSearchTool::PAGE_MAX);
-        $field = $this->formatter->field($resource, $term, $page);
+        $field = $this->formatter->fieldPage($resource, $term, $page);
         $output = [
             'id' => $resource->id(),
             'title' => $resource->displayTitle(),
@@ -117,9 +117,9 @@ trait ReadsFields
     protected function readValue(AbstractResourceEntityRepresentation $resource, ArgumentReader $reader, string $term, int $total): ToolResult
     {
         $this->refusePage($reader);
-        $position = $reader->getInt('value', 1, 1);
+        $position = $reader->getInt('position', 1, 1);
         if ($position > $total) {
-            throw new ToolException(sprintf('%s has %d value%s here, so "value" can be at most %d.', $term, $total, 1 === $total ? '' : 's', $total));
+            throw new ToolException(sprintf('%s has %d value%s here, so "position" can be at most %d.', $term, $total, 1 === $total ? '' : 's', $total));
         }
         $offset = $reader->getInt('offset', 0, 0);
         $chunk = $this->formatter->valueChunk($resource, $term, $position, $offset);
@@ -128,7 +128,7 @@ trait ReadsFields
             'title' => $resource->displayTitle(),
             'field' => $term,
             'label' => $chunk['label'],
-            'value' => $position,
+            'position' => $position,
             'total' => $total,
         ];
         return $this->getChunkResult($output, $chunk, $offset);
@@ -140,10 +140,10 @@ trait ReadsFields
     protected function readContent(MediaRepresentation $media, ArgumentReader $reader): ToolResult
     {
         $this->refusePage($reader);
-        // A value of 1, the default, is allowed, since models often send
+        // A position of 1, the default, is allowed, since models often send
         // defaults.
-        if (1 !== $reader->getInt('value', 1, 1)) {
-            throw new ToolException('"content" is a single text, so it takes "offset" but not "value".');
+        if (1 !== $reader->getInt('position', 1, 1)) {
+            throw new ToolException('"content" is a single text, so it takes "offset" but not "position".');
         }
         $offset = $reader->getInt('offset', 0, 0);
         $chunk = $this->formatter->contentChunk($media, $offset);
@@ -199,7 +199,7 @@ trait ReadsFields
         $notes = [];
         $cutFields = [];
         $readable = [];
-        $annotationsCut = false;
+        $annotationTextsCut = false;
         $annotationListsCut = false;
         foreach ($output['values'] ?? [] as $term => $property) {
             if (isset($property['total'])) {
@@ -209,7 +209,7 @@ trait ReadsFields
             foreach ($positions as $position) {
                 $readable[] = [$term, $position];
             }
-            $annotationsCut = $annotationsCut || $inAnnotations;
+            $annotationTextsCut = $annotationTextsCut || $inAnnotations;
             $annotationListsCut = $annotationListsCut || $this->hasCutAnnotationList($property['values']);
         }
         if (!empty($output['content']['truncated'])) {
@@ -235,7 +235,7 @@ trait ReadsFields
             );
         }
         $notes[] = $this->getTextsNote($readable, array_keys(array_filter([
-            'annotations' => $annotationsCut,
+            'annotations' => $annotationTextsCut,
             'module_data' => !empty($output['module_data_truncated']),
         ])));
         if ($annotationListsCut) {
@@ -318,7 +318,7 @@ trait ReadsFields
             $last = array_pop($names);
             $list = $names ? sprintf('%s%s and %s', implode(', ', $names), count($names) > 1 ? ',' : '', $last) : $last;
             [$term, $position] = $readable[0];
-            $example = json_encode(['field' => $term] + ($position ? ['value' => $position] : []) + ['offset' => ResourceFormatter::TEXT_LIMIT]);
+            $example = json_encode(['field' => $term] + ($position ? ['position' => $position] : []) + ['offset' => ResourceFormatter::TEXT_LIMIT]);
             $notes[] = sprintf(
                 '%s %s cut after %s first %s characters.',
                 // The content is named last, so it starts the sentence only
@@ -331,7 +331,7 @@ trait ReadsFields
             $notes[] = $names
                 ? sprintf(
                     'To read the rest of one, call again with %s "offset" %d, such as %s.',
-                    array_filter(array_column($readable, 1)) ? 'its "field", its "value", and' : 'its "field" and',
+                    array_filter(array_column($readable, 1)) ? 'its "field", its "position", and' : 'its "field" and',
                     ResourceFormatter::TEXT_LIMIT, $example
                 )
                 : sprintf('To read the rest, call again with %s.', $example);

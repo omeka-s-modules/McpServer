@@ -4,7 +4,7 @@ namespace McpServer\Mcp\Tool;
 /**
  * Common behavior hints for ToolInterface::getAnnotations().
  */
-final class Annotations
+final class ToolAnnotations
 {
     // A tool that only reads this installation's data.
     const READ_ONLY = [

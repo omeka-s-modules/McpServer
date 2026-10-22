@@ -184,7 +184,7 @@ at a time.
 | `field` | string | Return only this property's values, by term, such as `dcterms:subject`, 100 to a page. Not with `detailed`. |
 | `page` | integer | With `field`, the page of values, starting at 1. |
 | `offset` | integer | With `field`, read one value's text from this character, starting at 0. Not with `page`. |
-| `value` | integer | With `offset`, which of the field's values to read, by position, starting at 1. Default 1. |
+| `position` | integer | With `offset`, which of the field's values to read, starting at 1. Default 1. |
 
 ### count_values
 
@@ -235,7 +235,7 @@ rather than a file, includes that text as `content`, cut like a long value.
 |---|---|---|
 | `id` | integer | The media's ID. Required. |
 | `image` | boolean | Include the image. Default `true`. |
-| `field`, `page`, `offset`, `value` | | The same as in `get_item`. `field` can also be `content`, to read an HTML media's text with `offset`. |
+| `field`, `page`, `offset`, `position` | | The same as in `get_item`. `field` can also be `content`, to read an HTML media's text with `offset`. |
 
 ### search_item_sets
 
@@ -259,7 +259,7 @@ has, a link to its public page, and anything other modules add. To list its item
 |---|---|---|
 | `id` | integer | The item set's ID. Required. |
 | `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
-| `field`, `page`, `offset`, `value` | | The same as in `get_item`. |
+| `field`, `page`, `offset`, `position` | | The same as in `get_item`. |
 
 ## Example prompts
 

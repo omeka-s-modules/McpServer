@@ -221,7 +221,7 @@ class ResourceFormatter
             $data->{$key} = $this->withoutContext($value);
         }
         $textsCut = 0;
-        $data = $this->cutValues($data, $textsCut);
+        $data = $this->cutTexts($data, $textsCut);
         $totals = $this->cutLists($data, '');
         return [
             'module_data' => get_object_vars($data),
@@ -262,7 +262,7 @@ class ResourceFormatter
     {
         $textsCut = 0;
         // Decode to objects, so empty maps stay {} when encoded again.
-        $jsonLd = $this->cutValues(json_decode(json_encode($resource, ToolResult::JSON_FLAGS)), $textsCut);
+        $jsonLd = $this->cutTexts(json_decode(json_encode($resource, ToolResult::JSON_FLAGS)), $textsCut);
         $cut = $this->cutLists($jsonLd, '');
         if (isset($jsonLd->{'@reverse'}) && $jsonLd->{'@reverse'} instanceof stdClass) {
             $cut += $this->cutLists($jsonLd->{'@reverse'}, '@reverse ');
@@ -448,7 +448,7 @@ class ResourceFormatter
      * @return array|null ['label', 'total', 'values'], or null when the
      *   resource has no values for the property
      */
-    public function field(AbstractResourceEntityRepresentation $resource, string $term, int $page): ?array
+    public function fieldPage(AbstractResourceEntityRepresentation $resource, string $term, int $page): ?array
     {
         $property = $resource->values()[$term] ?? null;
         if (!$property || !$property['values']) {
@@ -662,11 +662,11 @@ class ResourceFormatter
      *
      * @param int $count Incremented for each text cut
      */
-    protected function cutValues($data, int &$count)
+    protected function cutTexts($data, int &$count)
     {
         if (is_array($data)) {
             foreach ($data as $key => $item) {
-                $data[$key] = $this->cutValues($item, $count);
+                $data[$key] = $this->cutTexts($item, $count);
             }
             return $data;
         }
@@ -676,7 +676,7 @@ class ResourceFormatter
                     $count += mb_strlen($item) > self::TEXT_LIMIT ? 1 : 0;
                     $data->{$key} = $this->cut($item);
                 } else {
-                    $data->{$key} = $this->cutValues($item, $count);
+                    $data->{$key} = $this->cutTexts($item, $count);
                 }
             }
         }

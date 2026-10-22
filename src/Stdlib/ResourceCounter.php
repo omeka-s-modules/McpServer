@@ -147,7 +147,7 @@ class ResourceCounter
      */
     public function isUsedOnlyInAnnotations(int $propertyId): bool
     {
-        return !$this->hasValueOn($propertyId, false) && $this->hasValueOn($propertyId, true);
+        return !$this->hasVisibleValue($propertyId, false) && $this->hasVisibleValue($propertyId, true);
     }
 
     /**
@@ -359,7 +359,7 @@ class ResourceCounter
      * Whether the caller can see a value of a property, either in a value
      * annotation or on some other resource.
      */
-    protected function hasValueOn(int $propertyId, bool $inAnnotation): bool
+    protected function hasVisibleValue(int $propertyId, bool $inAnnotation): bool
     {
         return (bool) $this->entityManager->createQueryBuilder()
             ->select('x.id')

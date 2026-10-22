@@ -13,7 +13,7 @@ use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
  */
 abstract class AbstractGetTool implements ToolInterface
 {
-    use ReadsFields;
+    use ReadsFieldsTrait;
 
     const FORMATS = ['concise', 'detailed'];
 
@@ -65,7 +65,7 @@ abstract class AbstractGetTool implements ToolInterface
 
     public function getAnnotations(): array
     {
-        return Annotations::READ_ONLY;
+        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult
@@ -98,7 +98,7 @@ abstract class AbstractGetTool implements ToolInterface
         }
         if ($textsCut) {
             $notes[] = sprintf(
-                'Text was cut after its first %s characters, where it ends "[truncated, N characters]". To read the rest of a property\'s value, call again with its "field", its "value" (its position, from 1), and "offset" %d, without "detailed". Each call returns up to %s characters, and says where the next one starts. Text cut elsewhere, such as in an annotation, can\'t be read further through these tools.',
+                'Text was cut after its first %s characters, where it ends "[truncated, N characters]". To read the rest of a property\'s value, call again with its "field", its "position" (from 1), and "offset" %d, without "detailed". Each call returns up to %s characters, and says where the next one starts. Text cut elsewhere, such as in an annotation, can\'t be read further through these tools.',
                 number_format(ResourceFormatter::TEXT_LIMIT), ResourceFormatter::TEXT_LIMIT, number_format(ResourceFormatter::CHUNK_LIMIT)
             );
         }

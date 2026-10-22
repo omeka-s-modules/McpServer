@@ -115,7 +115,7 @@ class CountValues implements ToolInterface
 
     public function getAnnotations(): array
     {
-        return Annotations::READ_ONLY;
+        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult
@@ -135,7 +135,7 @@ class CountValues implements ToolInterface
         $filters = $this->queryBuilder->buildFilters(
             $reader,
             $resource,
-            array_fill_keys(array_keys(ResourceQueryBuilder::RESOURCE_FILTERS), '"resource_type" chooses what to count.')
+            array_fill_keys(array_keys(ResourceQueryBuilder::FILTER_RESOURCES), '"resource_type" chooses what to count.')
         );
         $ids = $this->counter->getResourceIds($resource, $filters);
         if (null === $ids) {

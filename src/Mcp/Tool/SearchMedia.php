@@ -71,7 +71,7 @@ class SearchMedia extends AbstractSearchTool
         return ['item_set' => $advice, 'has_media' => $advice] + parent::getFilterAdvice();
     }
 
-    protected function getEmptyHint(array $query): string
+    protected function getEmptyNote(array $query): string
     {
         if (isset($query['media_type'])) {
             return 'No media matched. Media types must match exactly; get_overview lists the ones in use.';
@@ -79,6 +79,6 @@ class SearchMedia extends AbstractSearchTool
         if (isset($query['item_id'])) {
             return 'No media matched: the item has no media, or isn\'t visible.';
         }
-        return parent::getEmptyHint($query);
+        return parent::getEmptyNote($query);
     }
 }

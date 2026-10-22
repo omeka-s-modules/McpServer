@@ -12,7 +12,7 @@ use Omeka\File\ThumbnailManager;
 
 class GetMedia implements ToolInterface
 {
-    use ReadsFields;
+    use ReadsFieldsTrait;
 
     // Largest image file sent. A large thumbnail is usually far smaller.
     const IMAGE_BYTES_MAX = 2000000;
@@ -72,7 +72,7 @@ class GetMedia implements ToolInterface
 
     public function getAnnotations(): array
     {
-        return Annotations::READ_ONLY;
+        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult

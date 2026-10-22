@@ -49,7 +49,7 @@ abstract class AbstractSearchTool implements ToolInterface
 
     public function getAnnotations(): array
     {
-        return Annotations::READ_ONLY;
+        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult
@@ -158,15 +158,15 @@ abstract class AbstractSearchTool implements ToolInterface
             ),
         ];
         $note = 0 === $output['total_results']
-            ? $this->getEmptyHint($query)
-            : $this->getSortHint($query, $results, $output['total_results']);
+            ? $this->getEmptyNote($query)
+            : $this->getSortNote($query, $results, $output['total_results']);
         return ToolResult::json($output, $note);
     }
 
     /**
      * Say why a search may have found nothing.
      */
-    protected function getEmptyHint(array $query): string
+    protected function getEmptyNote(array $query): string
     {
         return $this->queryBuilder->explainEmpty($query, $this->getLabel());
     }
@@ -179,7 +179,7 @@ abstract class AbstractSearchTool implements ToolInterface
      * in descending, and values that link to other resources have none
      * either. A page that only looks sorted would mislead a model.
      */
-    protected function getSortHint(array $query, array $results, int $total): ?string
+    protected function getSortNote(array $query, array $results, int $total): ?string
     {
         $term = $query['sort_by'] ?? '';
         if (!$results || !str_contains($term, ':')) {
@@ -195,9 +195,9 @@ abstract class AbstractSearchTool implements ToolInterface
                 $label, $term
             );
         }
-        $hints = [];
+        $notes = [];
         if ($withField < $total) {
-            $hints[] = sprintf(
+            $notes[] = sprintf(
                 'Only %d of the %d matching %s have a value for %s. Those without one have nothing to sort on, so they are listed %s; a "where" condition with "exists" on %s leaves them out.',
                 $withField, $total, $label, $term, 'asc' === $query['sort_order'] ? 'first' : 'last', $term
             );
@@ -211,11 +211,11 @@ abstract class AbstractSearchTool implements ToolInterface
         if ($withoutText) {
             // Core sorts on stored text, which links to resources and URIs
             // without a label don't have, and "exists" keeps these results.
-            $hints[] = sprintf(
+            $notes[] = sprintf(
                 '%d of the %s on this page have only links, to other resources or to URIs without a label, for %s. Those have no text to sort on, so they sort as if they had no value, and aren\'t in %s order.',
                 $withoutText, $label, $term, $term
             );
         }
-        return $hints ? implode(' ', $hints) : null;
+        return $notes ? implode(' ', $notes) : null;
     }
 }

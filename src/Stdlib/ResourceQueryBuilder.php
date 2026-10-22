@@ -11,7 +11,7 @@ use McpServer\Mcp\Tool\ArgumentReader;
  * modules extend through the api.search.query event. This only maps named,
  * documented arguments onto them, resolving terms, labels, and slugs so a model
  * never needs Omeka's internal IDs or query syntax. Every resource takes the
- * same arguments, except those RESOURCE_FILTERS limits to some resources. A
+ * same arguments, except those FILTER_RESOURCES limits to some resources. A
  * filter added here must work for every resource's API adapter, or be listed
  * there.
  */
@@ -23,7 +23,7 @@ class ResourceQueryBuilder
     // Filters only some resources take, and which. Core's media search has no
     // item set or media filter, since media belong to item sets only through
     // their item, and only media have a media type.
-    const RESOURCE_FILTERS = [
+    const FILTER_RESOURCES = [
         'item_set' => ['items'],
         'has_media' => ['items'],
         'media_type' => ['media'],
@@ -118,7 +118,7 @@ class ResourceQueryBuilder
         }
         return array_filter(
             $schema,
-            fn ($name) => in_array($resource, self::RESOURCE_FILTERS[$name] ?? [$resource], true),
+            fn ($name) => in_array($resource, self::FILTER_RESOURCES[$name] ?? [$resource], true),
             ARRAY_FILTER_USE_KEY
         );
     }
@@ -137,7 +137,7 @@ class ResourceQueryBuilder
      */
     public function buildFilters(ArgumentReader $reader, string $resource, array $advice = []): array
     {
-        foreach (self::RESOURCE_FILTERS as $name => $resources) {
+        foreach (self::FILTER_RESOURCES as $name => $resources) {
             if (!in_array($resource, $resources, true) && $reader->has($name)) {
                 throw new ToolException(trim(sprintf(
                     '"%s" filters only %s, not %s. %s',

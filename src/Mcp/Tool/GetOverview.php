@@ -72,7 +72,7 @@ class GetOverview implements ToolInterface
 
     public function getAnnotations(): array
     {
-        return Annotations::READ_ONLY;
+        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult
