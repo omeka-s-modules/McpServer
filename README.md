@@ -1,8 +1,8 @@
 # MCP Server for Omeka S
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Omeka S. It
-lets AI assistants such as Claude search your collection, read items and their metadata,
-look at images, and count what's there, all without leaving the conversation.
+lets AI assistants such as Claude search your items, read their metadata, look at images,
+and count what's there, all without leaving the conversation.
 
 The server runs inside Omeka as a module and adds one endpoint to your installation:
 
@@ -55,7 +55,7 @@ your own address.
 
 1. Open **Settings**, then **Connectors**.
 2. Click **Add custom connector**.
-3. Give it a name, such as the name of your collection, and enter your address as the URL.
+3. Give it a name, such as your installation's title, and enter your address as the URL.
 
 ### Claude Code
 
@@ -105,10 +105,10 @@ npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport ht
 
 | Tool | What it does |
 |---|---|
-| `get_overview` | Describes the collection: counts, dates, and what search can filter on |
+| `get_overview` | Describes the installation: counts, dates, and what search can filter on |
 | `search_items` | Finds items by words, filters, and conditions on fields |
 | `get_item` | Reads one item in full |
-| `count_values` | Counts the most common values of a field, such as creators, subjects, or image rights |
+| `count_values` | Counts a field's values, most common first or alphabetically, such as creators, subjects, or image rights |
 | `search_media` | Finds media by words, type, item, and conditions on fields |
 | `get_media` | Reads one media, with its image for the assistant to look at |
 | `search_item_sets` | Finds item sets by words and conditions on fields |
@@ -119,7 +119,7 @@ they need. All tools are read-only.
 
 ### get_overview
 
-Describes the collection. Returns:
+Describes the installation. Returns:
 
 - how many items there are, how many have media, and how many media there are
 - when an item was last added, and last modified
@@ -263,15 +263,15 @@ has, a link to its public page, and anything other modules add. To list its item
 
 ## Example prompts
 
-- "What's in this collection, and how big is it?"
+- "Give me an overview: what kinds of items are here, and how many?"
 - "Find letters written in the 1700s and summarize what they're about."
 - "Who are the most frequent creators, and what are the most common subjects?"
 - "Look at the photographs of the harbor and describe what they show."
 - "Which items are linked to the item about the town hall?"
 - "Which items have PDF files?"
 - "What is each of the item sets about, and which are the largest?"
-- "What has changed in the collection recently?"
-- "Are there inconsistent spellings or rarely used fields in this collection's metadata?"
+- "What has been added or changed recently?"
+- "Are there inconsistent spellings or rarely used fields in the metadata?"
 
 ## Privacy and security
 
@@ -282,7 +282,8 @@ has, a link to its public page, and anything other modules add. To list its item
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
   never applies. A request that carries an Omeka API key in its URL is refused.
 - **The endpoint is public,** like your public site and Omeka's REST API. Anyone who
-  knows the address can use it.
+  knows the address can use it. If that's a concern, rate-limit it at the web server, as
+  you would any public endpoint.
 
 Signing in, so that a person's assistant can see what their Omeka account allows, is
 planned for a later version, using the sign-in flow Claude and other assistants already
@@ -306,6 +307,8 @@ says so, and says how to read the rest, if there is a way.
   Narrow larger sets with filters. Media can reach this much sooner than items, as when
   each page of a scanned book is its own media. Above 200,000 items, `get_overview`
   leaves out its media type counts.
+- `count_values` shortens values longer than 300 characters and marks them as cut. To
+  find what has one, search with a `starts_with` condition on its text.
 - Value annotations, such as a date's "approximate", are shown with their values but
   can't be searched or counted. When a search or count finds nothing because of that, the
   result says so and says where to read them.
@@ -367,10 +370,11 @@ Names from other modules start with the module's name, as above. A tool's name s
 never change once released, because clients remember permissions by name.
 
 For counts, and to check whether a property or class is in use, use the
-`McpServer\ResourceCounter` service, which keeps its queries within what the caller may
-see. To return results, use `ToolResult::json()`, and put any
-guidance for the assistant, such as why nothing matched, in its note rather than in the
-data.
+`McpServer\ResourceCounter` service, which keeps its queries within what the caller can
+see. Read a tool's arguments with `ArgumentReader`, and throw a `ToolException` for an
+error the assistant should see and can act on, such as a bad argument. Return results
+with `ToolResult::json()`, and put any guidance for the assistant, such as why nothing
+matched, in its note rather than in the data.
 
 ## Why the protocol is built in
 

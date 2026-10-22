@@ -233,7 +233,7 @@ class SearchFilters
             // MySQL's full-text index skips stopwords and short words, so a
             // search for "the" finds nothing rather than everything.
             return sprintf(
-                'No %s matched. Full-text search ignores very common words and words shorter than three letters, so if the query was made only of those, try more specific words, or "contains". Otherwise the collection may have nothing on this.',
+                'No %s matched. Full-text search ignores very common words and words shorter than three letters, so if the query was made only of those, try more specific words, or "contains". Otherwise the installation may have nothing on this.',
                 $noun
             );
         }

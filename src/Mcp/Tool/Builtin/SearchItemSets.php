@@ -12,7 +12,7 @@ class SearchItemSets extends AbstractSearchTool
 
     public function getDescription(): string
     {
-        return 'Search and filter item sets, the collections items are grouped into, by their title, '
+        return 'Search and filter item sets, the groups items belong to (called collections in Omeka Classic), by their title, '
             . 'description, and other metadata. Returns a page of short summaries: id, title, description, how '
             . 'many items the set has, and a link to its public page, plus the total number of matches. Call '
             . 'get_item_set with an id to read one in full, and search_items with "item_set" to list its items.'

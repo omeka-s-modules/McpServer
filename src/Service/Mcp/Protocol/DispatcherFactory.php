@@ -32,11 +32,11 @@ class DispatcherFactory implements FactoryInterface
      */
     protected function getInstructions(string $title): string
     {
-        $collection = '' === $title ? 'an Omeka S collection' : sprintf('the Omeka S collection "%s"', $title);
+        $installation = '' === $title ? 'an Omeka S installation' : sprintf('the Omeka S installation "%s"', $title);
         return sprintf(
             'This server searches and reads %s: items with their metadata, media, and item sets. '
             . 'Results contain only content that is public on the site.',
-            $collection
+            $installation
         );
     }
 }

@@ -24,9 +24,9 @@ use Omeka\Entity\ValueAnnotation;
  *
  * It also checks whether a property or class is in use. Core's "used" filter
  * answers that by joining every value or resource, which takes seconds on a
- * large collection. isUsed() reads one row instead, through the same Doctrine
- * filters, so it gives the same answer. isUsedOnlyInAnnotations() works the
- * same way, reading a row or two.
+ * large installation. isUsed() reads one row instead, through the same
+ * Doctrine filters, so it gives the same answer. isUsedOnlyInAnnotations()
+ * works the same way, reading a row or two.
  *
  * Tools in other modules that need counts should use this service, rather than
  * querying Doctrine themselves.

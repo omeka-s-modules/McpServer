@@ -12,7 +12,7 @@ class SearchItems extends AbstractSearchTool
 
     public function getDescription(): string
     {
-        return 'Search and filter the collection\'s items. Returns a page of short summaries: id, title, '
+        return 'Search and filter items. Returns a page of short summaries: id, title, '
             . 'class, description, date, creator, and a link to the item\'s public page, plus the total number '
             . 'of matches. A summary\'s date is the first of dcterms:date, dcterms:created, or dcterms:issued '
             . 'that the item has, so check which field an item uses before sorting on it. Call get_item with an '
