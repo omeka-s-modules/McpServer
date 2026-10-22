@@ -1,0 +1,3 @@
+language/debug.*
+node_modules
+/vendor

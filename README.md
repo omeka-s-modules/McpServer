@@ -1,0 +1,369 @@
+# MCP Server for Omeka S
+
+A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Omeka S. It
+lets AI assistants such as Claude search your collection, read items and their metadata,
+look at images, and count what's there, all without leaving the conversation.
+
+The server runs inside Omeka as a module and adds one endpoint to your installation:
+
+```
+https://example.org/mcp
+```
+
+- **Read-only.** Assistants can't create, change, or delete anything.
+- **Public content only.** Assistants see what a visitor to your public site sees.
+- **No setup for users.** There's no sign-in or API key: add the address to an assistant
+  and start asking.
+
+## Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Connecting an assistant](#connecting-an-assistant)
+- [Tools](#tools)
+- [Example prompts](#example-prompts)
+- [Privacy and security](#privacy-and-security)
+- [Limits](#limits)
+- [Troubleshooting](#troubleshooting)
+- [Protocol support](#protocol-support)
+- [Adding tools from other modules](#adding-tools-from-other-modules)
+- [Why the protocol is built in](#why-the-protocol-is-built-in)
+- [License](#license)
+
+## Requirements
+
+- Omeka S 4.2.1 or later.
+- For assistants that run in the cloud, such as Claude on the web, your Omeka installation
+  must be reachable from the internet. An installation on `localhost` works only with
+  assistants running on the same computer, such as Claude Code.
+
+## Installation
+
+1. Copy the module into Omeka's `modules` directory, in a folder named `McpServer`.
+2. In the Omeka admin, go to **Modules** and click **Install** next to MCP Server.
+
+There's nothing to configure. The endpoint is `/mcp` under your Omeka base URL. Use that
+address exactly, with no slash at the end.
+
+## Connecting an assistant
+
+Any MCP client that supports remote servers over Streamable HTTP can connect. No
+authentication is needed. In the examples below, replace `https://example.org/mcp` with
+your own address.
+
+### Claude (web and desktop)
+
+1. Open **Settings**, then **Connectors**.
+2. Click **Add custom connector**.
+3. Give it a name, such as the name of your collection, and enter your address as the URL.
+
+### Claude Code
+
+```sh
+claude mcp add --transport http omeka https://example.org/mcp
+```
+
+### VS Code
+
+Add the server to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "omeka": {
+      "type": "http",
+      "url": "https://example.org/mcp"
+    }
+  }
+}
+```
+
+### Cursor
+
+Add the server to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "omeka": {
+      "url": "https://example.org/mcp"
+    }
+  }
+}
+```
+
+### MCP Inspector
+
+To check that the server responds, list its tools with the
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector):
+
+```sh
+npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport http --method tools/list
+```
+
+## Tools
+
+| Tool | What it does |
+|---|---|
+| `get_overview` | Describes the collection: counts, dates, and what search can filter on |
+| `search_items` | Finds items by words, filters, and conditions on fields |
+| `get_item` | Reads one item in full |
+| `count_values` | Counts the most common values of a field, such as creators, subjects, or image rights |
+| `search_media` | Finds media by words, type, item, and conditions on fields |
+| `get_media` | Reads one media, with its image for the assistant to look at |
+| `search_item_sets` | Finds item sets by words and conditions on fields |
+| `get_item_set` | Reads one item set in full, with its item count |
+
+Assistants usually start with `get_overview`, then search or count, then read the items
+they need. All tools are read-only.
+
+### get_overview
+
+Describes the collection. Takes no parameters. Returns:
+
+- how many items there are, how many have media, and how many media there are
+- when an item was last added, and last modified
+- the media types in use, with how many media and items have each
+- the item sets, with their IDs and item counts
+- the classes items use, and the properties in use
+- the sites, with their summaries
+
+### search_items
+
+Finds items, a page at a time, as short summaries with a link to each item's public page.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `query` | string | Words to search for, ranked by relevance. Matches whole words only. |
+| `contains` | string | Text that must appear somewhere in an item's values, even inside a word. |
+| `item_set` | integer[] | Only items in any of these item sets, by ID. At most 100. |
+| `class` | string | Only items of this class, by term (`dcterms:Text`) or label (`Text`). |
+| `site` | string | Only items in this site, by slug. |
+| `has_media` | boolean | Only items with media (`true`) or without (`false`). |
+| `where` | object[] | Conditions on fields, all of which must hold. At most 10. See below. |
+| `sort` | string | `relevance`, `added`, `modified`, `title`, or a property term such as `dcterms:date`. |
+| `order` | string | `asc` or `desc`. |
+| `page` | integer | Page number, starting at 1. |
+| `per_page` | integer | Results per page, from 1 to 50. Default 10. |
+
+Each `where` condition has a `field` (a property term), an `op`, and usually a `value`:
+
+| `op` | Matches results whose field… |
+|---|---|
+| `equals` | is exactly the value |
+| `contains` | contains the value |
+| `starts_with` | starts with the value. Dates usually start with the year, so `17` finds the 1700s. |
+| `ends_with` | ends with the value |
+| `links_to` | links to the item with this ID |
+| `exists` | has any value (no `value` needed) |
+| `missing` | has no value (no `value` needed) |
+
+### get_item
+
+Reads one item in full: every value with its label, its media, its item sets, a link to
+its public page, and in `module_data`, anything other modules add, such as map locations.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | integer | The item's ID. Required. |
+| `response_format` | string | `concise` (the default) for readable values with labels, or `detailed` for Omeka's own JSON-LD, which also lists everything that links to this one. |
+
+### count_values
+
+Counts the values of one field, most common first, with how many items have each. Takes
+the same filters as `search_items`, so it can count within a subset, such as the most
+common subjects among paintings. A value that links to another item counts by that item's
+title.
+
+It counts items by default. Media and item sets have metadata of their own, such as the
+rights and credits recorded for each image, and `resource_type` counts theirs instead.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `field` | string | The property to count, such as `dcterms:subject`. Required. |
+| `limit` | integer | How many values to return, from 1 to 100. Default 20. |
+| `resource_type` | string | `items` (the default), `media`, or `item_sets`. |
+| `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
+| `query`, `contains`, `item_set`, `class`, `site`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
+
+### search_media
+
+Finds media, the files and other content attached to items, such as images, pages, and
+PDFs. Media can have their own metadata, such as a page's description or transcription.
+Results are short summaries with the item each media belongs to.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `media_type` | string | Only media of this exact type, such as `application/pdf`. |
+| `item` | integer | Only media of this item, by ID, in the order they were added unless sorted otherwise. |
+| `query`, `contains`, `class`, `site`, `where`, `sort`, `order` | | The same as in `search_items`. |
+| `page` | integer | Page number, starting at 1. |
+| `per_page` | integer | Results per page, from 1 to 50. Default 20. |
+
+`item_set` and `has_media` are for items only. To search the media of an item set, find
+its items with `search_items`, then list each item's media with `item`.
+
+### get_media
+
+Reads one media: its metadata, the item it belongs to, and links to its file. When the
+media has a thumbnail, as images and usually PDFs and videos do, the result includes that
+image, so the assistant can see what the media shows.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | integer | The media's ID. Required. |
+| `image` | boolean | Include the image. Default `true`. |
+
+### search_item_sets
+
+Finds item sets by their title, description, and other metadata. Results are short
+summaries with each set's description and item count. `get_overview` already lists up to
+200 item sets, so this is for searching them by what they're about, or for installations
+with more.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `query`, `contains`, `class`, `site`, `where`, `sort`, `order` | | The same as in `search_items`. |
+| `page` | integer | Page number, starting at 1. |
+| `per_page` | integer | Results per page, from 1 to 50. Default 20. |
+
+### get_item_set
+
+Reads one item set in full: its title, description, and other values, how many items it
+has, a link to its public page, and anything other modules add. To list its items, use
+`search_items` with `item_set`.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | integer | The item set's ID. Required. |
+| `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
+
+## Example prompts
+
+- "What's in this collection, and how big is it?"
+- "Find letters written in the 1700s and summarize what they're about."
+- "Who are the most frequent creators, and what are the most common subjects?"
+- "Look at the photographs of the harbor and describe what they show."
+- "Which items are linked to the item about the town hall?"
+- "Which items have PDF files?"
+- "What is each of the item sets about, and which are the largest?"
+- "What has changed in the collection recently?"
+- "Are there inconsistent spellings or rarely used fields in this collection's metadata?"
+
+## Privacy and security
+
+- **Only public content is visible.** Every request is anonymous, and every read goes
+  through Omeka's own API, so Omeka's visibility rules apply unchanged. Private items,
+  private media, and private values never appear, and neither do links to them.
+- **Nothing can be changed.** All tools are read-only.
+- **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
+  never applies. A request that carries an Omeka API key in its URL is refused.
+- **The endpoint is public,** like your public site and Omeka's REST API. Anyone who
+  knows the address can use it.
+
+Signing in, so that a person's assistant can see what their Omeka account allows, is
+planned for a later version, using the sign-in flow Claude and other assistants already
+offer.
+
+## Limits
+
+These keep each answer within what assistants accept. Assistants are told when something
+was cut short.
+
+- Values longer than 2,000 characters, such as long transcriptions, are cut.
+- Lists longer than 100 entries, such as an item's values for one field, are cut, with
+  their full length given. An item lists at most 50 of its media.
+- `get_media` sends the large thumbnail (800 pixels by default), never the original file.
+- `count_values` counts across at most 200,000 matching items, media, or item sets.
+  Narrow larger sets with filters.
+- Full-text search (`query`) matches whole words, so "letter" doesn't find "letters", and
+  it ignores very common words. Use `contains` to match part of a word.
+
+## Troubleshooting
+
+**Claude on the web can't connect.** Claude connects from Anthropic's servers, so your
+installation must be reachable from the internet. A `localhost` address won't work.
+
+**The connection fails at an address ending in a slash.** Use `/mcp`, not `/mcp/`.
+Omeka redirects `/mcp/` to `/mcp`, and not every client follows the redirect.
+
+**Results have no links to public pages.** Assistants link only to pages on sites a
+visitor can see. Assign the items and item sets to a public site, and their links appear.
+
+**Searches miss items,** for example after importing directly into the database. Rebuild
+the full-text index: on the admin **Settings** page, check **Index full-text search** and
+save.
+
+**Assistants get links but no images.** `get_media` reads thumbnails from Omeka's
+default local file storage. With other file storage, assistants get links to the files
+instead.
+
+**The connection stops working after an upgrade.** While Omeka needs a database
+migration, `/mcp` redirects to the maintenance page like every other public page. Run
+the migration in the admin.
+
+## Protocol support
+
+- **Transport:** Streamable HTTP. Requests are `POST /mcp` with a JSON body, and every
+  response is a single JSON body. The server never opens an event stream and keeps no
+  session.
+- **Protocol versions:** 2025-06-18, 2025-11-25, and 2026-07-28.
+- **Capabilities:** tools.
+- **Testing:** the implementation is tested with the official MCP conformance suite,
+  `@modelcontextprotocol/conformance`.
+
+## Adding tools from other modules
+
+Other Omeka modules can add their own tools. Implement
+`McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
+tools and how to read data so that visibility stays correct. Then register the tool under
+the `mcp_server` key in your module's configuration:
+
+```php
+'mcp_server' => [
+    'tools' => [
+        'factories' => [
+            'mymodule_search_things' => Service\SearchThingsFactory::class,
+        ],
+    ],
+],
+```
+
+Names from other modules start with the module's name, as above. A tool's name should
+never change once released, because clients remember permissions by name.
+
+## Why the protocol is built in
+
+The server speaks MCP with its own small implementation rather than a PHP MCP library.
+For a server like this one, MCP over HTTP comes down to a handful of JSON-RPC methods, and
+as of October 2026 none of the PHP libraries fit Omeka well:
+
+- The official SDK, `mcp/sdk` (0.9), is still experimental and changes its API in every
+  minor release. It needs about ten packages plus a PSR-7 implementation, which Omeka
+  doesn't include, and packages bundled inside a module load ahead of Omeka's own copies.
+- `logiscape/mcp-sdk-php`, used by TYPO3, requires a newer version of `psr/log` than the
+  one Omeka's logging is built on.
+- `laravel/mcp` and `symfony/mcp-bundle` require their own frameworks. The Symfony bundle
+  also requires PHP 8.2 and a newer `symfony/console` than Omeka ships.
+- The standalone SDKs' authentication assumes an outside identity provider, with no way
+  to let anonymous requests through while signed-in requests see more. When this server
+  adds signing in, Omeka will be the identity provider: anonymous visitors will still see
+  public content, and signing in will widen what a person sees.
+
+WordPress made the same choice for its MCP adapter. The protocol code is kept apart from
+the tools, in the controller and `src/Mcp/Protocol/`, and tools are written against this
+module's own interface, so a library could replace that layer later without changing any
+tool.
+
+## License
+
+MCP Server is Copyright © 2026-present Corporation for Digital Scholarship, Vienna,
+Virginia, USA http://digitalscholar.org
+
+The Corporation for Digital Scholarship distributes the Omeka source code under
+the GNU General Public License, version 3 (GPLv3). The full text of this license
+is given in the license file.
+
+The Omeka name is a registered trademark of the Corporation for Digital Scholarship.
+
+All rights not expressly granted are reserved.
