@@ -12,6 +12,8 @@ use Omeka\File\ThumbnailManager;
 
 class GetMedia implements ToolInterface
 {
+    use ReadsFields;
+
     // Largest image file sent. A large thumbnail is usually far smaller.
     const IMAGE_BYTES_MAX = 2000000;
 
@@ -63,7 +65,7 @@ class GetMedia implements ToolInterface
                     'default' => true,
                     'description' => 'Include the image. Turn it off to read only the metadata.',
                 ],
-            ],
+            ] + $this->getFieldSchema(true),
             'required' => ['id'],
         ];
     }
@@ -82,17 +84,20 @@ class GetMedia implements ToolInterface
         } catch (NotFoundException $e) {
             throw new ToolException(sprintf('No media with id %d exists or is visible to you.', $id));
         }
+        $field = $this->readField($media, $reader, 'media');
+        if ($field) {
+            return $field;
+        }
         $detail = $this->formatter->media($media);
-        if (!$reader->getBool('image', true)) {
-            return ToolResult::json($detail);
-        }
-        $image = $this->getThumbnail($media);
-        if (null === $image) {
-            return ToolResult::json($detail, isset($detail['original_url'])
+        $notes = array_filter([$this->getCutNote($detail)]);
+        $image = $reader->getBool('image', true) ? $this->getThumbnail($media) : null;
+        if ($reader->getBool('image', true) && null === $image) {
+            $notes[] = isset($detail['original_url'])
                 ? 'No image of this media is available here. original_url links to its file.'
-                : 'This media has no image or file to show.');
+                : 'This media has no image or file to show.';
         }
-        return ToolResult::json($detail)->withImage($image, 'image/jpeg');
+        $result = ToolResult::json($detail, $notes ? implode(' ', $notes) : null);
+        return $image ? $result->withImage($image, 'image/jpeg') : $result;
     }
 
     /**

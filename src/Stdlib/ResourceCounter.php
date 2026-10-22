@@ -158,24 +158,30 @@ class ResourceCounter
     }
 
     /**
-     * Get the most common values of a property among the given resources,
-     * with how many resources have each.
+     * Get a page of the values of a property among the given resources, with
+     * how many resources have each.
      *
-     * The database sorts and limits, so a field with many distinct values,
+     * The database sorts and pages, so a field with many distinct values,
      * such as titles, never loads them all. A value counts by VALUE_LABEL. A
      * link to a resource the caller can't see has no label, so it doesn't
      * count.
      *
      * @param int[] $ids From getResourceIds()
+     * @param bool $byValue Sort alphabetically by value, rather than most
+     *   common first. Either order is stable, so pages don't overlap.
      * @return array List of ['label', 'resources']
      */
-    public function countValues(int $propertyId, array $ids, int $limit): array
+    public function countValues(int $propertyId, array $ids, int $limit, int $offset = 0, bool $byValue = false): array
     {
-        return $this->createValueQuery($propertyId, $ids)
+        $qb = $this->createValueQuery($propertyId, $ids)
             ->select(self::VALUE_LABEL . ' AS label', 'COUNT(DISTINCT v.resource) AS resources')
-            ->groupBy('label')
-            ->orderBy('resources', 'DESC')
-            ->addOrderBy('label', 'ASC')
+            ->groupBy('label');
+        if ($byValue) {
+            $qb->orderBy('label', 'ASC');
+        } else {
+            $qb->orderBy('resources', 'DESC')->addOrderBy('label', 'ASC');
+        }
+        return $qb->setFirstResult($offset)
             ->setMaxResults($limit)
             ->getQuery()
             ->getScalarResult();

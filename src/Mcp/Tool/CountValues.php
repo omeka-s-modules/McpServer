@@ -26,9 +26,11 @@ use McpServer\Stdlib\SearchOptions;
  */
 class CountValues implements ToolInterface
 {
-    const LIMIT_DEFAULT = 20;
+    const PER_PAGE_DEFAULT = 20;
 
-    const LIMIT_MAX = 100;
+    const PER_PAGE_MAX = 100;
+
+    const SORTS = ['count', 'value'];
 
     // Longest value shown, since a field may hold long text.
     const VALUE_LIMIT = 300;
@@ -64,7 +66,11 @@ class CountValues implements ToolInterface
             . "\n\n"
             . 'Counts items by default. Media and item sets have metadata of their own, such as the rights and '
             . 'credits of each image: set "resource_type" to count theirs. Counting media also takes '
-            . '"media_type", such as "image/jpeg". Item sets and media presence filter only items.';
+            . '"media_type", such as "image/jpeg". Item sets and media presence filter only items.'
+            . "\n\n"
+            . 'Returns a page of values; distinct_values says how many there are, and "page" reaches the rest. '
+            . 'Sort by "value" to list them alphabetically, which puts variant spellings of the same value '
+            . 'side by side.';
     }
 
     public function getInputSchema(): array
@@ -76,12 +82,25 @@ class CountValues implements ToolInterface
                     'type' => 'string',
                     'description' => 'The property to count, by term, e.g. "dcterms:subject".',
                 ],
-                'limit' => [
+                'sort' => [
+                    'type' => 'string',
+                    'enum' => self::SORTS,
+                    'default' => 'count',
+                    'description' => '"count" for the most common values first, or "value" for alphabetical order.',
+                ],
+                'page' => [
                     'type' => 'integer',
                     'minimum' => 1,
-                    'maximum' => self::LIMIT_MAX,
-                    'default' => self::LIMIT_DEFAULT,
-                    'description' => sprintf('How many of the most common values to return, from 1 to %d.', self::LIMIT_MAX),
+                    'maximum' => AbstractSearchTool::PAGE_MAX,
+                    'default' => 1,
+                    'description' => 'Page of values to return, starting at 1.',
+                ],
+                'per_page' => [
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'maximum' => self::PER_PAGE_MAX,
+                    'default' => self::PER_PAGE_DEFAULT,
+                    'description' => sprintf('Values per page, from 1 to %d.', self::PER_PAGE_MAX),
                 ],
                 'resource_type' => [
                     'type' => 'string',
@@ -107,7 +126,9 @@ class CountValues implements ToolInterface
             throw new ToolException('"field" is needed: a property term such as "dcterms:subject".');
         }
         $propertyId = $this->options->findProperty($field);
-        $limit = $reader->getInt('limit', self::LIMIT_DEFAULT, 1, self::LIMIT_MAX);
+        $page = $reader->getInt('page', 1, 1, AbstractSearchTool::PAGE_MAX);
+        $perPage = $reader->getInt('per_page', self::PER_PAGE_DEFAULT, 1, self::PER_PAGE_MAX);
+        $byValue = 'value' === $reader->getEnum('sort', self::SORTS, 'count');
         $resource = $reader->getEnum('resource_type', ResourceQueryBuilder::RESOURCES, 'items');
         // Named for the resource, such as "item sets", in messages.
         $label = $this->queryBuilder->label($resource);
@@ -125,7 +146,7 @@ class CountValues implements ToolInterface
         }
         $values = [];
         $totals = ['resources' => 0, 'values' => 0];
-        $rows = $ids ? $this->counter->countValues($propertyId, $ids, $limit) : [];
+        $rows = $ids ? $this->counter->countValues($propertyId, $ids, $perPage, ($page - 1) * $perPage, $byValue) : [];
         foreach ($rows as $row) {
             $values[] = [
                 // A linked resource with no title shows as get_item shows it.
@@ -133,8 +154,9 @@ class CountValues implements ToolInterface
                 $resource => (int) $row['resources'],
             ];
         }
-        if ($rows) {
-            // With no rows, both totals are 0.
+        if ($rows || ($ids && $page > 1)) {
+            // With no rows on the first page, both totals are 0. A later page
+            // can be empty while there are values.
             $totals = $this->counter->countValueTotals($propertyId, $ids);
         }
         $output = [
@@ -142,6 +164,8 @@ class CountValues implements ToolInterface
             'matching_' . $resource => count($ids),
             $resource . '_with_field' => $totals['resources'],
             'distinct_values' => $totals['values'],
+            'page' => $page,
+            'per_page' => $perPage,
             'values' => $values,
         ];
         $note = null;

@@ -46,6 +46,9 @@ namespace McpServer\Mcp\Tool;
  * - Return data with ToolResult::json(), and put guidance for the model, such
  *   as why nothing matched, in its note, never in the data. Markers that
  *   describe the data, such as a total for a cut list, belong in the data.
+ * - When a tool caps or cuts its output, mark it in the data, and in the note
+ *   say how to reach the rest, such as an argument that pages through it,
+ *   or say there's no way to. Nothing should be cut silently.
  *
  * Abilities added later, such as structured output or required scopes, will
  * be optional interfaces a tool can also implement. This interface won't gain

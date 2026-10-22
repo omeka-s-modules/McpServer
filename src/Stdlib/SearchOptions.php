@@ -34,16 +34,21 @@ class SearchOptions
     }
 
     /**
-     * Get the item sets, by title, with their item counts.
+     * Get a page of the item sets, by title, with their item counts.
      *
      * @return array [list of ['id', 'title', 'items'], total]
      */
-    public function getItemSets(): array
+    public function getItemSets(int $page = 1): array
     {
-        return $this->cache['item_sets'] ??= (function () {
+        return $this->cache['item_sets'][$page] ??= (function () use ($page) {
             // Counts every set at once, rather than a query per set.
             $this->counter->getGroupedCounts();
-            $response = $this->api->search('item_sets', ['sort_by' => 'title', 'sort_order' => 'asc', 'limit' => self::OVERVIEW_LIMIT]);
+            $response = $this->api->search('item_sets', [
+                'sort_by' => 'title',
+                'sort_order' => 'asc',
+                'page' => $page,
+                'per_page' => self::OVERVIEW_LIMIT,
+            ]);
             $counts = $this->counter->countItemsInSets(array_map(fn ($itemSet) => $itemSet->id(), $response->getContent()));
             $itemSets = array_map(fn ($itemSet) => [
                 'id' => $itemSet->id(),

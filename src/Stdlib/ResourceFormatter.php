@@ -39,6 +39,10 @@ class ResourceFormatter
     // other items, before it's cut.
     const LIST_LIMIT = 100;
 
+    // Most characters of one text read at a time, from an offset, to read
+    // the rest of a text cut at TEXT_LIMIT.
+    const CHUNK_LIMIT = 10000;
+
     // Where a summary looks for an item's date, in order.
     const DATE_TERMS = ['dcterms:date', 'dcterms:created', 'dcterms:issued'];
 
@@ -128,7 +132,7 @@ class ResourceFormatter
             'media' => array_map(fn ($media) => $this->mediaEntry($media), array_slice($media, 0, self::MEDIA_LIMIT)),
             'media_total' => count($media),
             'item_sets' => array_values($itemSets),
-            'module_data' => $this->moduleData($item, array_keys($values)),
+            ...$this->moduleData($item, array_keys($values)),
         ]);
     }
 
@@ -165,7 +169,7 @@ class ResourceFormatter
             ...$this->dates($itemSet),
             'items' => $itemSet->itemCount(),
             'values' => $values,
-            'module_data' => $this->moduleData($itemSet, array_keys($values)),
+            ...$this->moduleData($itemSet, array_keys($values)),
         ]);
     }
 
@@ -194,23 +198,33 @@ class ResourceFormatter
      * reading it brings their data along without any change on their side.
      * What remains after leaving out JSON-LD syntax, core's own "o:" keys, and
      * the resource's property values is theirs. It's passed on as is, apart
-     * from cut long values and the @context noise.
+     * from the @context noise, and cut as the JSON-LD form is cut, with
+     * module_data_totals giving the full length of each list cut, and
+     * module_data_truncated saying whether a text was.
      *
      * @param array $terms The terms of the resource's values, already given
+     * @return array The fields: module_data, module_data_totals, and
+     *     module_data_truncated
      */
     protected function moduleData(AbstractResourceEntityRepresentation $resource, array $terms): array
     {
-        $data = [];
-        [$jsonLd] = $this->jsonLd($resource);
-        foreach (get_object_vars($jsonLd) as $key => $value) {
+        $data = new stdClass;
+        foreach (get_object_vars(json_decode(json_encode($resource, ToolResult::JSON_FLAGS))) as $key => $value) {
             if (str_starts_with($key, '@') || str_starts_with($key, 'o:')
                 || 'thumbnail_display_urls' === $key || in_array($key, $terms, true)
             ) {
                 continue;
             }
-            $data[$key] = $this->withoutContext($value);
+            $data->{$key} = $this->withoutContext($value);
         }
-        return $data;
+        $textsCut = 0;
+        $data = $this->cutValues($data, $textsCut);
+        $totals = $this->cutLists($data, '');
+        return [
+            'module_data' => get_object_vars($data),
+            'module_data_totals' => $totals,
+            'module_data_truncated' => $textsCut ? true : null,
+        ];
     }
 
     /**
@@ -238,17 +252,19 @@ class ResourceFormatter
      * client's limit on result size. It includes whatever modules add to the
      * JSON-LD.
      *
-     * @return array [JSON-LD as a stdClass, full lengths of the cut lists by name]
+     * @return array [JSON-LD as a stdClass, full lengths of the cut lists by
+     *   name, how many long texts were cut]
      */
     public function jsonLd(AbstractResourceEntityRepresentation $resource): array
     {
+        $textsCut = 0;
         // Decode to objects, so empty maps stay {} when encoded again.
-        $jsonLd = $this->cutValues(json_decode(json_encode($resource, ToolResult::JSON_FLAGS)));
+        $jsonLd = $this->cutValues(json_decode(json_encode($resource, ToolResult::JSON_FLAGS)), $textsCut);
         $cut = $this->cutLists($jsonLd, '');
         if (isset($jsonLd->{'@reverse'}) && $jsonLd->{'@reverse'} instanceof stdClass) {
             $cut += $this->cutLists($jsonLd->{'@reverse'}, '@reverse ');
         }
-        return [$jsonLd, $cut];
+        return [$jsonLd, $cut, $textsCut];
     }
 
     /**
@@ -370,8 +386,106 @@ class ResourceFormatter
             'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
             // The original file name or URL.
             'source' => $media->source(),
+            'content' => $this->mediaContent($media),
             'values' => $this->values($media),
         ]);
+    }
+
+    /**
+     * Get the text of a media that holds its content itself, rather than in a
+     * file, such as an HTML page, cut like a long value.
+     *
+     * @return array|null ['text', 'truncated'], or null for other media
+     */
+    protected function mediaContent(MediaRepresentation $media): ?array
+    {
+        $text = $this->mediaText($media);
+        if (null === $text) {
+            return null;
+        }
+        return $this->withoutEmpty(['text' => $this->cut($text), 'truncated' => mb_strlen($text) > self::TEXT_LIMIT ?: null]);
+    }
+
+    /**
+     * Get part of a media's content, as valueChunk() gets part of a value.
+     *
+     * @return array|null ['length', 'text'], or null for a media with no text
+     *   content
+     */
+    public function contentChunk(MediaRepresentation $media, int $offset): ?array
+    {
+        $text = $this->mediaText($media);
+        return null === $text ? null : $this->chunk($text, $offset);
+    }
+
+    /**
+     * Get the text of an HTML media in full, with tags removed.
+     *
+     * @return string|null Null for other media, or an HTML media with no text
+     */
+    protected function mediaText(MediaRepresentation $media): ?string
+    {
+        if ('html' !== $media->ingester()) {
+            return null;
+        }
+        $html = (string) ($media->mediaData()['html'] ?? '');
+        // Line breaks where blocks end, so paragraphs don't run together.
+        $html = preg_replace('#<br\s*/?>|</(p|div|li|h[1-6]|tr|blockquote)>#i', "\n", $html);
+        $text = trim(preg_replace("/[ \t]+/", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $text = preg_replace("/\n\s*\n+/", "\n\n", $text);
+        return '' === $text ? null : $text;
+    }
+
+    /**
+     * Get one property's values on a resource, a page of LIST_LIMIT at a
+     * time, for reading all of a list the full forms cut.
+     *
+     * @return array|null ['label', 'total', 'values'], or null when the
+     *   resource has no values for the property
+     */
+    public function field(AbstractResourceEntityRepresentation $resource, string $term, int $page): ?array
+    {
+        $property = $resource->values()[$term] ?? null;
+        if (!$property || !$property['values']) {
+            return null;
+        }
+        return [
+            'label' => $property['alternate_label'] ?: $property['property']->label(),
+            'total' => count($property['values']),
+            'values' => array_map(
+                fn ($value) => $this->value($value),
+                array_slice($property['values'], ($page - 1) * self::LIST_LIMIT, self::LIST_LIMIT)
+            ),
+        ];
+    }
+
+    /**
+     * Get part of one value's text, from a character offset, CHUNK_LIMIT
+     * characters at a time, for reading the rest of a text cut at TEXT_LIMIT.
+     *
+     * @param int $position The value's position among the property's, from 1
+     * @return array|null ['label', 'length', 'text'], or null when the
+     *   resource has no such value
+     */
+    public function valueChunk(AbstractResourceEntityRepresentation $resource, string $term, int $position, int $offset): ?array
+    {
+        $property = $resource->values()[$term] ?? null;
+        $value = $property['values'][$position - 1] ?? null;
+        if (!$value) {
+            return null;
+        }
+        return ['label' => $property['alternate_label'] ?: $property['property']->label()]
+            + $this->chunk($this->valueText($value)['text'], $offset);
+    }
+
+    /**
+     * Get part of a text, from a character offset.
+     *
+     * @return array ['length', 'text']: the text's full length, and the part
+     */
+    protected function chunk(string $text, int $offset): array
+    {
+        return ['length' => mb_strlen($text), 'text' => mb_substr($text, $offset, self::CHUNK_LIMIT)];
     }
 
     /**
@@ -397,7 +511,27 @@ class ResourceFormatter
     }
 
     /**
-     * Get one value as text, with what kind of value it is.
+     * Get one value as text, with what kind of value it is, its text cut
+     * when it's long, and its annotations.
+     */
+    protected function value(ValueRepresentation $value): array
+    {
+        $output = $this->valueText($value);
+        if (mb_strlen($output['text']) > self::TEXT_LIMIT) {
+            $output['text'] = $this->cut($output['text']);
+            $output['truncated'] = true;
+        }
+        // Values about the value, such as how certain a date is. Null when
+        // there are none, or the caller can't see them.
+        $annotation = $value->valueAnnotation();
+        if ($annotation) {
+            $output['annotations'] = $this->values($annotation);
+        }
+        return $this->withoutEmpty($output);
+    }
+
+    /**
+     * Get one value as text, in full, with what kind of value it is.
      *
      * Doesn't cast the value to a string: on this route a linked resource
      * casts to an empty string, since its site URL doesn't exist outside a
@@ -405,7 +539,7 @@ class ResourceFormatter
      * directly, since core's value JSON would also load its thumbnail and
      * build its URL; other values are read from that JSON.
      */
-    protected function value(ValueRepresentation $value): array
+    protected function valueText(ValueRepresentation $value): array
     {
         $output = ['text' => null];
         $extra = [];
@@ -442,11 +576,7 @@ class ResourceFormatter
         }
         $output['type'] = $value->type();
         $output['lang'] = $value->lang();
-        if (mb_strlen($output['text']) > self::TEXT_LIMIT) {
-            $output['text'] = $this->cut($output['text']);
-            $extra['truncated'] = true;
-        }
-        return $this->withoutEmpty($output + $extra);
+        return $output + $extra;
     }
 
     /**
@@ -524,15 +654,25 @@ class ResourceFormatter
 
     /**
      * Cut long @value strings in decoded JSON-LD.
+     *
+     * @param int $count Incremented for each text cut
      */
-    protected function cutValues($data)
+    protected function cutValues($data, int &$count)
     {
         if (is_array($data)) {
-            return array_map(fn ($item) => $this->cutValues($item), $data);
+            foreach ($data as $key => $item) {
+                $data[$key] = $this->cutValues($item, $count);
+            }
+            return $data;
         }
         if ($data instanceof stdClass) {
             foreach (get_object_vars($data) as $key => $item) {
-                $data->{$key} = ('@value' === $key && is_string($item)) ? $this->cut($item) : $this->cutValues($item);
+                if ('@value' === $key && is_string($item)) {
+                    $count += mb_strlen($item) > self::TEXT_LIMIT ? 1 : 0;
+                    $data->{$key} = $this->cut($item);
+                } else {
+                    $data->{$key} = $this->cutValues($item, $count);
+                }
             }
         }
         return $data;

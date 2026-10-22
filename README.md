@@ -119,7 +119,7 @@ they need. All tools are read-only.
 
 ### get_overview
 
-Describes the collection. Takes no parameters. Returns:
+Describes the collection. Returns:
 
 - how many items there are, how many have media, and how many media there are
 - when an item was last added, and last modified
@@ -127,6 +127,14 @@ Describes the collection. Takes no parameters. Returns:
 - the item sets, with their IDs and item counts
 - the classes items use, and the properties in use
 - the sites, with their summaries
+
+Each list shows at most 200 entries, with its full length when it has more. To read all
+of one, a page at a time:
+
+| Parameter | Type | Description |
+|---|---|---|
+| `list` | string | Return only this list: `item_sets`, `media_types`, `classes`, `properties`, or `sites`. |
+| `page` | integer | With `list`, the page of entries, 200 to a page, starting at 1. |
 
 ### search_items
 
@@ -160,20 +168,31 @@ Each `where` condition has a `field` (a property term), an `op`, and usually a `
 
 ### get_item
 
-Reads one item in full: every value with its label, its media, its item sets, a link to
-its public page, and in `module_data`, anything other modules add, such as map locations.
+Reads one item in full: every value with its label and any annotations, its media, its
+item sets, a link to its public page, and in `module_data`, anything other modules add,
+such as map locations.
+
+A field with more than 100 values shows the first 100 and its total, and `field` reads
+all of them, a page at a time. A value longer than 2,000 characters, such as a long
+transcription, is cut, and `field` with `offset` reads the rest of it, 10,000 characters
+at a time.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | integer | The item's ID. Required. |
 | `response_format` | string | `concise` (the default) for readable values with labels, or `detailed` for Omeka's own JSON-LD, which also lists everything that links to this one. |
+| `field` | string | Return only this property's values, by term, such as `dcterms:subject`, 100 to a page. Not with `detailed`. |
+| `page` | integer | With `field`, the page of values, starting at 1. |
+| `offset` | integer | With `field`, read one value's text from this character, starting at 0. Not with `page`. |
+| `value` | integer | With `offset`, which of the field's values to read, by position, starting at 1. Default 1. |
 
 ### count_values
 
-Counts the values of one field, most common first, with how many items have each. Takes
-the same filters as `search_items`, so it can count within a subset, such as the most
-common subjects among paintings. A value that links to another item counts by that item's
-title.
+Counts the values of one field, with how many items have each, a page at a time: most
+common first, or alphabetically, which puts variant spellings of the same value side by
+side. Takes the same filters as `search_items`, so it can count within a subset, such as
+the most common subjects among paintings. A value that links to another item counts by
+that item's title.
 
 It counts items by default. Media and item sets have metadata of their own, such as the
 rights and credits recorded for each image, and `resource_type` counts theirs instead.
@@ -181,7 +200,9 @@ rights and credits recorded for each image, and `resource_type` counts theirs in
 | Parameter | Type | Description |
 |---|---|---|
 | `field` | string | The property to count, such as `dcterms:subject`. Required. |
-| `limit` | integer | How many values to return, from 1 to 100. Default 20. |
+| `sort` | string | `count` (the default) for the most common first, or `value` for alphabetical order. |
+| `page` | integer | Page number, starting at 1. |
+| `per_page` | integer | Values per page, from 1 to 100. Default 20. |
 | `resource_type` | string | `items` (the default), `media`, or `item_sets`. |
 | `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
 | `query`, `contains`, `item_set`, `class`, `site`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
@@ -207,19 +228,20 @@ its items with `search_items`, then list each item's media with `item`.
 
 Reads one media: its metadata, the item it belongs to, and links to its file. When the
 media has a thumbnail, as images and usually PDFs and videos do, the result includes that
-image, so the assistant can see what the media shows.
+image, so the assistant can see what the media shows. An HTML media, which holds its text
+rather than a file, includes that text as `content`, cut like a long value.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | integer | The media's ID. Required. |
 | `image` | boolean | Include the image. Default `true`. |
+| `field`, `page`, `offset`, `value` | | The same as in `get_item`. `field` can also be `content`, to read an HTML media's text with `offset`. |
 
 ### search_item_sets
 
 Finds item sets by their title, description, and other metadata. Results are short
-summaries with each set's description and item count. `get_overview` already lists up to
-200 item sets, so this is for searching them by what they're about, or for installations
-with more.
+summaries with each set's description and item count. `get_overview` already lists the
+item sets, so this is for searching them by what they're about.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -237,6 +259,7 @@ has, a link to its public page, and anything other modules add. To list its item
 |---|---|---|
 | `id` | integer | The item set's ID. Required. |
 | `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
+| `field`, `page`, `offset`, `value` | | The same as in `get_item`. |
 
 ## Example prompts
 
@@ -267,12 +290,17 @@ offer.
 
 ## Limits
 
-These keep each answer within what assistants accept. Assistants are told when something
-was cut short.
+These keep each answer within what assistants accept. When something is cut, the result
+says so, and says how to read the rest, if there is a way.
 
-- Values longer than 2,000 characters, such as long transcriptions, are cut.
-- Lists longer than 100 entries, such as an item's values for one field, are cut, with
-  their full length given. An item lists at most 50 of its media.
+- Values longer than 2,000 characters, such as long transcriptions, are cut, and `field`
+  with `offset` reads the rest. Text cut inside an annotation or in `module_data` can't be
+  read further.
+- An item, media, or item set shows at most 100 values of one field, and `field` reads
+  the rest. Other lists longer than 100 entries, such as the links from other items in the
+  `detailed` format, are cut too, with their full length given.
+- An item lists at most 50 of its media, and `search_media` with `item` lists them all.
+- `get_overview` shows at most 200 entries of each list, and `list` reads the rest.
 - `get_media` sends the large thumbnail (800 pixels by default), never the original file.
 - `count_values` counts across at most 200,000 matching items, media, or item sets.
   Narrow larger sets with filters.

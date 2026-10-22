@@ -15,6 +15,9 @@ use Omeka\Api\Manager as ApiManager;
  */
 class GetOverview implements ToolInterface
 {
+    // The lists, which the full overview cuts at OVERVIEW_LIMIT entries.
+    const LISTS = ['item_sets', 'media_types', 'classes', 'properties', 'sites'];
+
     protected $api;
 
     protected $options;
@@ -43,12 +46,28 @@ class GetOverview implements ToolInterface
             . 'media and items have each; the item sets, with ids and item counts (get_item_set describes one); '
             . 'the classes items use, with counts; the properties in use, for "where" conditions, sorting, and '
             . 'count_values; and the sites, with their summaries. Call this before filtering search_items by item '
-            . 'set, class, field, or site.';
+            . 'set, class, field, or site. A list longer than 200 entries is cut; "list" and "page" read all of it.';
     }
 
     public function getInputSchema(): array
     {
-        return ['type' => 'object', 'properties' => []];
+        return [
+            'type' => 'object',
+            'properties' => [
+                'list' => [
+                    'type' => 'string',
+                    'enum' => self::LISTS,
+                    'description' => sprintf('Return only this list, %d entries at a time.', SearchOptions::OVERVIEW_LIMIT),
+                ],
+                'page' => [
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'maximum' => AbstractSearchTool::PAGE_MAX,
+                    'default' => 1,
+                    'description' => 'With "list", the page of entries to return, starting at 1.',
+                ],
+            ],
+        ];
     }
 
     public function getAnnotations(): array
@@ -58,19 +77,73 @@ class GetOverview implements ToolInterface
 
     public function call(array $arguments, Context $context): ToolResult
     {
-        $output = $this->getStats();
-        [$itemSets, $itemSetsTotal] = $this->options->getItemSets();
-        $output['item_sets'] = $itemSets;
-        if ($itemSetsTotal > count($itemSets)) {
-            $output['item_sets_total'] = $itemSetsTotal;
+        $reader = new ArgumentReader($arguments);
+        $name = $reader->getEnum('list', self::LISTS);
+        $page = $reader->getInt('page', 1, 1, AbstractSearchTool::PAGE_MAX);
+        if (null !== $name) {
+            return $this->getListResult($name, $page);
         }
-        $mediaTypes = $this->options->getMediaTypes();
-        $note = null === $mediaTypes ? sprintf(
-            'Media types aren\'t counted on installations with more than %s items. search_media still filters by type.',
-            number_format(ResourceCounter::COUNT_MAX)
-        ) : null;
-        $lists = [
-            'media_types' => $mediaTypes,
+        $output = $this->getStats();
+        $notes = [];
+        $cut = [];
+        foreach (self::LISTS as $listName) {
+            $list = $this->getList($listName, 1);
+            if (null === $list) {
+                $notes[] = $this->getMediaTypesNote();
+                continue;
+            }
+            $output[$listName] = $list['entries'];
+            if ($list['total'] > count($list['entries'])) {
+                $output[$listName . '_total'] = $list['total'];
+                $cut[] = sprintf('%s has %d', $listName, $list['total']);
+            }
+        }
+        if ($cut) {
+            $notes[] = sprintf(
+                'Lists longer than %d entries are cut, and %s. Call get_overview with "list" and "page" to read all of one.',
+                SearchOptions::OVERVIEW_LIMIT, implode(', ', $cut)
+            );
+        }
+        return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
+    }
+
+    /**
+     * Get one page of one list, for the "list" argument.
+     */
+    protected function getListResult(string $name, int $page): ToolResult
+    {
+        $list = $this->getList($name, $page);
+        if (null === $list) {
+            return ToolResult::json(['list' => $name, 'entries' => []], $this->getMediaTypesNote());
+        }
+        $output = [
+            'list' => $name,
+            'total' => $list['total'],
+            'page' => $page,
+            'per_page' => SearchOptions::OVERVIEW_LIMIT,
+            'entries' => $list['entries'],
+        ];
+        $pages = (int) ceil($list['total'] / SearchOptions::OVERVIEW_LIMIT);
+        $note = $page < $pages
+            ? sprintf('There are %d entries on %d pages. Call again with "page" %d for the next.', $list['total'], $pages, $page + 1)
+            : null;
+        return ToolResult::json($output, $note);
+    }
+
+    /**
+     * Get one page of a list, and its total.
+     *
+     * @return array|null ['entries', 'total'], or null for media types when
+     *   there are too many items to count them
+     */
+    protected function getList(string $name, int $page): ?array
+    {
+        if ('item_sets' === $name) {
+            [$entries, $total] = $this->options->getItemSets($page);
+            return ['entries' => $entries, 'total' => $total];
+        }
+        $list = match ($name) {
+            'media_types' => $this->options->getMediaTypes(),
             'classes' => array_map(fn ($class) => array_diff_key($class, ['id' => true]), $this->options->getClassCounts()),
             'properties' => array_map(fn ($property) => array_diff_key($property, ['id' => true]), $this->options->getProperties()),
             'sites' => array_map(fn ($site) => array_filter([
@@ -78,14 +151,22 @@ class GetOverview implements ToolInterface
                 'title' => $site['title'],
                 'summary' => $this->formatter->shorten($site['summary'], ResourceFormatter::DESCRIPTION_LIMIT),
             ], fn ($field) => '' !== $field), $this->options->getSites()),
-        ];
-        foreach (array_filter($lists, fn ($list) => null !== $list) as $name => $list) {
-            $output[$name] = array_slice($list, 0, SearchOptions::OVERVIEW_LIMIT);
-            if (count($list) > SearchOptions::OVERVIEW_LIMIT) {
-                $output[$name . '_total'] = count($list);
-            }
+        };
+        if (null === $list) {
+            return null;
         }
-        return ToolResult::json($output, $note);
+        return [
+            'entries' => array_slice($list, ($page - 1) * SearchOptions::OVERVIEW_LIMIT, SearchOptions::OVERVIEW_LIMIT),
+            'total' => count($list),
+        ];
+    }
+
+    protected function getMediaTypesNote(): string
+    {
+        return sprintf(
+            'Media types aren\'t counted on installations with more than %s items. search_media still filters by type.',
+            number_format(ResourceCounter::COUNT_MAX)
+        );
     }
 
     /**
