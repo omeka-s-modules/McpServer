@@ -1,21 +1,10 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
-use McpServer\Stdlib\ItemFormatter;
-use McpServer\Stdlib\SearchOptions;
-use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 
 class GetItemSet extends AbstractGetTool
 {
-    protected $options;
-
-    public function __construct(ApiManager $api, ItemFormatter $formatter, SearchOptions $options)
-    {
-        parent::__construct($api, $formatter);
-        $this->options = $options;
-    }
-
     public function getTitle(): string
     {
         return 'Get item set';
@@ -35,13 +24,13 @@ class GetItemSet extends AbstractGetTool
         return 'item_sets';
     }
 
-    protected function getLabel(): string
+    protected function getSingularLabel(): string
     {
         return 'item set';
     }
 
     protected function getConcise(AbstractResourceEntityRepresentation $itemSet): array
     {
-        return $this->formatter->itemSet($itemSet, $this->options->countItemsInSet($itemSet));
+        return $this->formatter->itemSet($itemSet);
     }
 }

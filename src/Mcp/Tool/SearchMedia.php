@@ -1,7 +1,6 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
-use McpServer\Mcp\Exception\ToolException;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 
 class SearchMedia extends AbstractSearchTool
@@ -29,10 +28,6 @@ class SearchMedia extends AbstractSearchTool
         return [
             'type' => 'object',
             'properties' => [
-                'media_type' => [
-                    'type' => 'string',
-                    'description' => 'Only media of this exact type, e.g. "application/pdf" or "image/jpeg".',
-                ],
                 'item' => [
                     'type' => 'integer',
                     'minimum' => 1,
@@ -42,33 +37,17 @@ class SearchMedia extends AbstractSearchTool
         ];
     }
 
-    public function call(array $arguments, Context $context): ToolResult
+    protected function getToolQuery(ArgumentReader $reader): array
     {
-        $this->refuseItemFilters($arguments);
-        $reader = new ArgumentReader($arguments);
-        $query = [];
-        $mediaType = trim((string) $reader->getString('media_type'));
-        if ('0' === $mediaType) {
-            // Core skips a media type of "0" as if it were empty.
-            throw new ToolException('"0" isn\'t a media type. Media types look like "application/pdf"; get_overview lists the ones in use.');
-        }
-        if ('' !== $mediaType) {
-            $query['media_type'] = $mediaType;
-        }
-        if (null !== ($item = $reader->getInt('item', null, 1, ArgumentReader::SAFE_INT))) {
-            $query['item_id'] = $item;
-            // Blank counts as absent, as it does in the query builder.
-            if ('' === trim((string) $reader->getString('sort')) && '' === trim((string) $reader->getString('query'))) {
-                // An item's media in their order, as nearly as the API can
-                // sort: it can't sort by position.
-                $defaults = ['sort' => 'added'];
-                if (null === $reader->getEnum('order', ['asc', 'desc'])) {
-                    $defaults['order'] = 'asc';
-                }
-                $reader = new ArgumentReader(array_merge($arguments, $defaults));
-            }
-        }
-        return ToolResult::json($this->search($reader, $query));
+        $item = $reader->getInt('item', null, 1, ArgumentReader::SAFE_INT);
+        return null === $item ? [] : ['item_id' => $item];
+    }
+
+    protected function getDefaultSort(array $toolQuery): ?array
+    {
+        // An item's media in their order, as nearly as the API can sort: it
+        // can't sort by position.
+        return isset($toolQuery['item_id']) ? ['sort' => 'added', 'order' => 'asc'] : null;
     }
 
     protected function getResourceName(): string
@@ -86,9 +65,10 @@ class SearchMedia extends AbstractSearchTool
         return $this->formatter->mediaSummary($media);
     }
 
-    protected function getItemFilterAdvice(): string
+    protected function getFilterAdvice(): array
     {
-        return 'Find the items with search_items, then list each one\'s media with "item".';
+        $advice = 'Find the items with search_items, then list each one\'s media with "item".';
+        return ['item_set' => $advice, 'has_media' => $advice] + parent::getFilterAdvice();
     }
 
     protected function getEmptyHint(array $query): string

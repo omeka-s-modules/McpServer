@@ -30,8 +30,9 @@ namespace McpServer\Mcp\Tool;
  *   anonymous; once signing in is supported, the same calls will show each
  *   person what their account allows. Never use the entity manager or raw SQL
  *   to reach resources. The one exception is counting, which the API can't
- *   do: a tool may run a grouped Doctrine query over the values or media of
- *   resources whose IDs the API returned. The API still decides what's
+ *   do. For counts, use the McpServer\ResourceCounter service, which keeps
+ *   to this rule: a grouped Doctrine query may read only the values or media
+ *   of resources whose IDs the API returned. The API still decides what's
  *   visible, and core's Doctrine filters still hide private rows. Never use
  *   raw SQL, which those filters don't reach, and never list or count media
  *   except by item IDs the API returned: core hides the media of private

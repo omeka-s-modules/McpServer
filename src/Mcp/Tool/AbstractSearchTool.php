@@ -1,8 +1,7 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
-use McpServer\Mcp\Exception\ToolException;
-use McpServer\Stdlib\ItemFormatter;
+use McpServer\Stdlib\ResourceFormatter;
 use McpServer\Stdlib\ResourceQueryBuilder;
 use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
@@ -24,7 +23,7 @@ abstract class AbstractSearchTool implements ToolInterface
 
     protected $queryBuilder;
 
-    public function __construct(ApiManager $api, ItemFormatter $formatter, ResourceQueryBuilder $queryBuilder)
+    public function __construct(ApiManager $api, ResourceFormatter $formatter, ResourceQueryBuilder $queryBuilder)
     {
         $this->api = $api;
         $this->formatter = $formatter;
@@ -55,7 +54,6 @@ abstract class AbstractSearchTool implements ToolInterface
 
     public function call(array $arguments, Context $context): ToolResult
     {
-        $this->refuseItemFilters($arguments);
         return ToolResult::json($this->search(new ArgumentReader($arguments)));
     }
 
@@ -64,36 +62,40 @@ abstract class AbstractSearchTool implements ToolInterface
      */
     protected function getLabel(): string
     {
-        return str_replace('_', ' ', $this->getResourceName());
+        return $this->queryBuilder->label($this->getResourceName());
     }
 
     /**
-     * Get how to do what an item-only filter would have done, for the error
-     * when another search is given one.
+     * Get how to do what a filter this search doesn't take would have done,
+     * by filter name, for the error when it's given one.
      */
-    protected function getItemFilterAdvice(): string
+    protected function getFilterAdvice(): array
     {
-        return 'Find the items with search_items.';
+        return [
+            'item_set' => 'Find the items with search_items.',
+            'has_media' => 'Find the items with search_items.',
+            'media_type' => 'To filter by media type, call search_media.',
+        ];
     }
 
     /**
-     * Refuse the filters only items have, rather than ignoring them.
+     * Get query parameters from this tool's own arguments, beyond the shared
+     * filters, such as an item whose media to list.
+     */
+    protected function getToolQuery(ArgumentReader $reader): array
+    {
+        return [];
+    }
+
+    /**
+     * Get the sort to use when there's neither a sort nor a query, in place
+     * of the newest first.
      *
-     * @throws ToolException
+     * @return array|null ['sort' => ..., 'order' => ...]
      */
-    protected function refuseItemFilters(array $arguments): void
+    protected function getDefaultSort(array $toolQuery): ?array
     {
-        if ('items' === $this->getResourceName()) {
-            return;
-        }
-        foreach (ResourceQueryBuilder::ITEM_FILTERS as $name) {
-            if (array_key_exists($name, $arguments)) {
-                throw new ToolException(sprintf(
-                    'Searching %s doesn\'t take "%s", which only items have. %s',
-                    $this->getLabel(), $name, $this->getItemFilterAdvice()
-                ));
-            }
-        }
+        return null;
     }
 
     /**
@@ -132,18 +134,19 @@ abstract class AbstractSearchTool implements ToolInterface
 
     /**
      * Run the search and summarize a page of results, with any hints.
-     *
-     * @param array $query Query parameters the tool sets itself, such as a
-     *   media type
      */
-    protected function search(ArgumentReader $reader, array $query = []): array
+    protected function search(ArgumentReader $reader): array
     {
         $resourceName = $this->getResourceName();
         $page = $reader->getInt('page', 1, 1, self::PAGE_MAX);
         $perPage = $reader->getInt('per_page', $this->getPerPageDefault(), 1, self::PER_PAGE_MAX);
-        $query = $this->queryBuilder->build($reader, $resourceName) + $query + ['page' => $page, 'per_page' => $perPage];
+        $toolQuery = $this->getToolQuery($reader);
+        $query = $this->queryBuilder->buildFilters($reader, $resourceName, $this->getFilterAdvice());
+        $query += $this->queryBuilder->buildSort($reader, isset($query['fulltext_search']), $this->getDefaultSort($toolQuery));
+        $query += $toolQuery + ['page' => $page, 'per_page' => $perPage];
         $response = $this->api->search($resourceName, $query);
         $results = $response->getContent();
+        $this->formatter->primePublicUrls($results);
         $output = [
             'total_results' => $response->getTotalResults(),
             'page' => $page,
@@ -167,15 +170,7 @@ abstract class AbstractSearchTool implements ToolInterface
      */
     protected function getEmptyHint(array $query): string
     {
-        if (isset($query['fulltext_search'])) {
-            // MySQL's full-text index skips stopwords and short words, so a
-            // search for "the" finds nothing rather than everything.
-            return sprintf(
-                'No %s matched. Full-text search ignores very common words and words shorter than three letters, so if the query was made only of those, try more specific words, or "contains". Otherwise the collection may have nothing on this.',
-                $this->getLabel()
-            );
-        }
-        return sprintf('No %s matched. Loosen the filters, or check them against get_overview.', $this->getLabel());
+        return $this->queryBuilder->explainEmpty($query, $this->getLabel());
     }
 
     /**

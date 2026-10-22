@@ -11,7 +11,7 @@ class GetMediaFactory implements FactoryInterface
     {
         return new GetMedia(
             $services->get('Omeka\ApiManager'),
-            $services->get('McpServer\ItemFormatter'),
+            $services->get('McpServer\ResourceFormatter'),
             $services->get('Omeka\File\Store'),
             $services->get('Omeka\File\ThumbnailManager')
         );

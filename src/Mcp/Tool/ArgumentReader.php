@@ -7,7 +7,9 @@ use McpServer\Mcp\Exception\ToolException;
  * Typed access to a tool's arguments.
  *
  * Models sometimes send numbers as strings, so integers are read leniently.
- * Anything that can't be used becomes a ToolException naming the argument.
+ * Clients often send an empty string for an argument they mean to leave out,
+ * so a blank string counts as absent, for every type. Anything that can't be
+ * used becomes a ToolException naming the argument.
  */
 final class ArgumentReader
 {
@@ -26,7 +28,7 @@ final class ArgumentReader
      */
     public function getString(string $name, ?string $default = null): ?string
     {
-        $value = $this->arguments[$name] ?? null;
+        $value = $this->get($name);
         if (null === $value) {
             return $default;
         }
@@ -37,11 +39,28 @@ final class ArgumentReader
     }
 
     /**
+     * Get a string argument trimmed, or null when it's absent.
+     */
+    public function getText(string $name): ?string
+    {
+        $value = $this->getString($name);
+        return null === $value ? null : trim($value);
+    }
+
+    /**
+     * Whether an argument was given, other than as null or a blank string.
+     */
+    public function has(string $name): bool
+    {
+        return null !== $this->get($name);
+    }
+
+    /**
      * Get an integer argument, or the default when it's absent.
      */
     public function getInt(string $name, ?int $default = null, ?int $min = null, ?int $max = null): ?int
     {
-        $value = $this->arguments[$name] ?? null;
+        $value = $this->get($name);
         if (null === $value) {
             return $default;
         }
@@ -78,7 +97,7 @@ final class ArgumentReader
      */
     public function getBool(string $name, ?bool $default = null): ?bool
     {
-        $value = $this->arguments[$name] ?? null;
+        $value = $this->get($name);
         if (null === $value) {
             return $default;
         }
@@ -96,15 +115,20 @@ final class ArgumentReader
      */
     public function getIntList(string $name, ?int $min = null, ?int $maxItems = null): array
     {
-        $value = $this->arguments[$name] ?? null;
+        $value = $this->get($name);
         if (null === $value) {
             return [];
         }
         $values = is_array($value) && array_is_list($value) ? $this->getList($name, $maxItems) : [$value];
-        return array_map(
-            fn ($item) => (new self([$name => $item]))->getInt($name, null, $min),
-            $values
-        );
+        // Unlike a blank argument, a blank entry is an error: dropping it
+        // would silently widen the search.
+        return array_map(function ($item) use ($name, $min) {
+            $value = (new self([$name => $item]))->getInt($name, null, $min);
+            if (null === $value) {
+                throw new ToolException(sprintf('The "%s" argument must list integers.', $name));
+            }
+            return $value;
+        }, $values);
     }
 
     /**
@@ -112,7 +136,7 @@ final class ArgumentReader
      */
     public function getList(string $name, ?int $max = null): array
     {
-        $value = $this->arguments[$name] ?? null;
+        $value = $this->get($name);
         if (null === $value) {
             return [];
         }
@@ -130,11 +154,20 @@ final class ArgumentReader
      */
     public function getEnum(string $name, array $allowed, ?string $default = null): ?string
     {
-        $value = $this->getString($name, $default);
+        $value = $this->getText($name) ?? $default;
         if (null !== $value && !in_array($value, $allowed, true)) {
             throw new ToolException(sprintf('The "%s" argument must be one of: %s.', $name, implode(', ', $allowed)));
         }
         return $value;
+    }
+
+    /**
+     * Get an argument's raw value, or null when it's absent or a blank string.
+     */
+    private function get(string $name)
+    {
+        $value = $this->arguments[$name] ?? null;
+        return (is_string($value) && '' === trim($value)) ? null : $value;
     }
 
     private function describeRange(?int $min, ?int $max): string

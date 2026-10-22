@@ -2,7 +2,6 @@
 namespace McpServer\Stdlib;
 
 use Laminas\Log\LoggerInterface;
-use Laminas\ServiceManager\Exception\ServiceNotFoundException;
 use Laminas\View\Renderer\PhpRenderer;
 use McpServer\Mcp\Tool\ToolResult;
 use Omeka\Api\Manager as ApiManager;
@@ -23,7 +22,7 @@ use Throwable;
  * than internal IDs, values as the site shows them, and nothing empty. The
  * JSON-LD form is Omeka's own, for when a model needs everything.
  */
-class ItemFormatter
+class ResourceFormatter
 {
     const DESCRIPTION_LIMIT = 300;
 
@@ -43,19 +42,26 @@ class ItemFormatter
 
     protected $settings;
 
+    protected $options;
+
     protected $dataTypes;
 
     protected $view;
 
     protected $logger;
 
-    // Slugs of the sites the caller may see, by site ID, fetched once.
-    protected $visibleSites;
+    // The site each item or item set links to, by resource name and ID, for
+    // a page of results primed by primePublicUrls().
+    protected $primedSites = [];
 
-    public function __construct(ApiManager $api, Settings $settings, DataTypeManager $dataTypes, PhpRenderer $view, LoggerInterface $logger)
+    // The visible sites' IDs, the default site first, once per request.
+    protected $sitePreference;
+
+    public function __construct(ApiManager $api, Settings $settings, SearchOptions $options, DataTypeManager $dataTypes, PhpRenderer $view, LoggerInterface $logger)
     {
         $this->api = $api;
         $this->settings = $settings;
+        $this->options = $options;
         $this->dataTypes = $dataTypes;
         $this->view = $view;
         $this->logger = $logger;
@@ -64,7 +70,7 @@ class ItemFormatter
     /**
      * Get the short form of an item, for search results.
      */
-    public function summary(ItemRepresentation $item): array
+    public function itemSummary(ItemRepresentation $item): array
     {
         $date = null;
         foreach (self::DATE_TERMS as $term) {
@@ -78,11 +84,10 @@ class ItemFormatter
             fn ($value) => $this->value($value)['text'] ?? null,
             $item->value('dcterms:creator', ['all' => true])
         )));
-        $class = $item->resourceClass();
         return $this->withoutEmpty([
             'id' => $item->id(),
             'title' => $item->displayTitle(),
-            'resource_class' => $class ? ['term' => $class->term(), 'label' => $class->label()] : null,
+            'resource_class' => $this->resourceClass($item),
             'description' => $this->description($item),
             'date' => $date,
             'creator' => $creators,
@@ -100,7 +105,6 @@ class ItemFormatter
      */
     public function item(ItemRepresentation $item): array
     {
-        $class = $item->resourceClass();
         $media = $item->media();
         $itemSets = array_map(
             fn ($itemSet) => ['id' => $itemSet->id(), 'title' => $itemSet->displayTitle()],
@@ -113,13 +117,11 @@ class ItemFormatter
             'url' => $this->publicUrl($item),
             'api_url' => $item->apiUrl(),
             'thumbnail_url' => $item->thumbnailDisplayUrl('medium'),
-            'resource_class' => $class ? ['term' => $class->term(), 'label' => $class->label()] : null,
-            // "Added" rather than "created", which dcterms:created means.
-            'added' => $item->created()->format('c'),
-            'modified' => $item->modified() ? $item->modified()->format('c') : null,
+            'resource_class' => $this->resourceClass($item),
+            ...$this->dates($item),
             'values' => $values,
             // Media keep the order of the item page.
-            'media' => array_map(fn ($media) => $this->media($media), array_slice($media, 0, self::MEDIA_LIMIT)),
+            'media' => array_map(fn ($media) => $this->mediaEntry($media), array_slice($media, 0, self::MEDIA_LIMIT)),
             'media_total' => count($media),
             'item_sets' => array_values($itemSets),
             'module_data' => $this->moduleData($item, array_keys($values)),
@@ -129,15 +131,16 @@ class ItemFormatter
     /**
      * Get the short form of an item set, for search results.
      *
-     * @param int $items How many items the caller may see in the set
+     * Its item count is one query, through the API, so it counts only the
+     * items the caller may see.
      */
-    public function itemSetSummary(ItemSetRepresentation $itemSet, int $items): array
+    public function itemSetSummary(ItemSetRepresentation $itemSet): array
     {
         return $this->withoutEmpty([
             'id' => $itemSet->id(),
             'title' => $itemSet->displayTitle(),
             'description' => $this->description($itemSet),
-            'items' => $items,
+            'items' => $itemSet->itemCount(),
             'url' => $this->publicUrl($itemSet),
             'api_url' => $itemSet->apiUrl(),
         ]);
@@ -145,22 +148,18 @@ class ItemFormatter
 
     /**
      * Get the full compact form of an item set.
-     *
-     * @param int $items How many items the caller may see in the set
      */
-    public function itemSet(ItemSetRepresentation $itemSet, int $items): array
+    public function itemSet(ItemSetRepresentation $itemSet): array
     {
-        $class = $itemSet->resourceClass();
         $values = $this->values($itemSet);
         return $this->withoutEmpty([
             'id' => $itemSet->id(),
             'title' => $itemSet->displayTitle(),
             'url' => $this->publicUrl($itemSet),
             'api_url' => $itemSet->apiUrl(),
-            'resource_class' => $class ? ['term' => $class->term(), 'label' => $class->label()] : null,
-            'added' => $itemSet->created()->format('c'),
-            'modified' => $itemSet->modified() ? $itemSet->modified()->format('c') : null,
-            'items' => $items,
+            'resource_class' => $this->resourceClass($itemSet),
+            ...$this->dates($itemSet),
+            'items' => $itemSet->itemCount(),
             'values' => $values,
             'module_data' => $this->moduleData($itemSet, array_keys($values)),
         ]);
@@ -265,29 +264,71 @@ class ItemFormatter
     /**
      * Get an item's or item set's public page, on a site the caller may see.
      *
-     * Prefers the default site, if the resource is on it, then its first
-     * visible site. Returns null when it's on no site the caller sees.
+     * Prefers the default site, if the resource is on it, then its visible
+     * sites in order. Returns null when it's on no site the caller sees.
      *
      * @param ItemRepresentation|ItemSetRepresentation $resource
      */
     public function publicUrl(AbstractResourceEntityRepresentation $resource): ?string
     {
-        $visibleSites = $this->getVisibleSites();
-        // Not filtered by visibility, unlike the API search of sites.
-        $resourceSiteIds = array_keys($resource->sites());
-        $siteId = null;
-        $defaultSiteId = (int) $this->settings->get('default_site');
-        if (isset($visibleSites[$defaultSiteId]) && in_array($defaultSiteId, $resourceSiteIds, true)) {
-            $siteId = $defaultSiteId;
+        $name = $resource->resourceName();
+        if (array_key_exists($resource->id(), $this->primedSites[$name] ?? [])) {
+            $siteId = $this->primedSites[$name][$resource->id()];
         } else {
-            foreach ($resourceSiteIds as $resourceSiteId) {
-                if (isset($visibleSites[$resourceSiteId])) {
-                    $siteId = $resourceSiteId;
+            // Not filtered by visibility, unlike the API search of sites.
+            $onSites = array_keys($resource->sites());
+            $siteId = null;
+            foreach ($this->getSitePreference() as $candidate) {
+                if (in_array($candidate, $onSites, true)) {
+                    $siteId = $candidate;
                     break;
                 }
             }
         }
-        return null === $siteId ? null : $resource->siteUrl($visibleSites[$siteId], true);
+        return null === $siteId ? null : $resource->siteUrl($this->options->getSiteSlugs()[$siteId], true);
+    }
+
+    /**
+     * Find the public pages of a page of results in a few queries.
+     *
+     * Rather than loading each result's sites, one search per visible site,
+     * default first, asks which of the results are on it. With more visible
+     * sites than results, publicUrl() loads each result's sites instead.
+     *
+     * @param AbstractResourceEntityRepresentation[] $resources Items, item
+     *   sets, or media, whose public page is their item's
+     */
+    public function primePublicUrls(array $resources): void
+    {
+        $ids = [];
+        foreach ($resources as $resource) {
+            $target = $resource instanceof MediaRepresentation ? $resource->item() : $resource;
+            $ids[$target->resourceName()][$target->id()] = true;
+        }
+        $siteIds = $this->getSitePreference();
+        foreach ($ids as $name => $resourceIds) {
+            if (count($siteIds) > count($resourceIds)) {
+                continue;
+            }
+            $unplaced = array_keys($resourceIds);
+            foreach ($siteIds as $siteId) {
+                if (!$unplaced) {
+                    break;
+                }
+                $onSite = $this->api->search(
+                    $name,
+                    ['id' => $unplaced, 'site_id' => $siteId],
+                    ['returnScalar' => 'id', 'countQuery' => false]
+                )->getContent();
+                foreach ($onSite as $id) {
+                    $this->primedSites[$name][(int) $id] = $siteId;
+                }
+                $unplaced = array_values(array_diff($unplaced, array_map('intval', $onSite)));
+            }
+            foreach ($unplaced as $id) {
+                $this->primedSites[$name][$id] = null;
+            }
+        }
     }
 
     /**
@@ -296,13 +337,8 @@ class ItemFormatter
      */
     public function sortDate(AbstractResourceEntityRepresentation $resource, array $query): array
     {
-        switch ($query['sort_by'] ?? null) {
-            case 'created':
-                return ['added' => $resource->created()->format('c')];
-            case 'modified':
-                return $resource->modified() ? ['modified' => $resource->modified()->format('c')] : [];
-        }
-        return [];
+        $key = ['created' => 'added', 'modified' => 'modified'][$query['sort_by'] ?? ''] ?? null;
+        return $key ? array_filter([$key => $this->dates($resource)[$key]]) : [];
     }
 
     /**
@@ -311,32 +347,22 @@ class ItemFormatter
     public function mediaSummary(MediaRepresentation $media): array
     {
         $item = $media->item();
-        return $this->withoutEmpty([
-            'id' => $media->id(),
-            'title' => $media->displayTitle(),
-            'media_type' => $media->mediaType(),
+        return $this->withoutEmpty($this->mediaEntry($media) + [
             'item' => ['id' => $item->id(), 'title' => $item->displayTitle()],
             'url' => $this->publicUrl($item),
-            'original_url' => $media->originalUrl(),
-            'thumbnail_url' => $media->thumbnailDisplayUrl('medium'),
         ]);
     }
 
     /**
      * Get the full compact form of a media.
      */
-    public function mediaDetail(MediaRepresentation $media): array
+    public function media(MediaRepresentation $media): array
     {
         $item = $media->item();
-        return $this->withoutEmpty([
-            'id' => $media->id(),
-            'title' => $media->displayTitle(),
-            'media_type' => $media->mediaType(),
+        return $this->withoutEmpty($this->mediaEntry($media) + [
             'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
             // The original file name or URL.
             'source' => $media->source(),
-            'original_url' => $media->originalUrl(),
-            'thumbnail_url' => $media->thumbnailDisplayUrl('medium'),
             'values' => $this->values($media),
         ]);
     }
@@ -366,40 +392,46 @@ class ItemFormatter
     /**
      * Get one value as text, with what kind of value it is.
      *
-     * Reads core's value JSON rather than casting the value to a string: on
-     * this route a linked resource casts to an empty string, since its site
-     * URL doesn't exist outside a site, and a URI casts to its label only.
+     * Doesn't cast the value to a string: on this route a linked resource
+     * casts to an empty string, since its site URL doesn't exist outside a
+     * site, and a URI casts to its label only. A linked resource is read
+     * directly, since core's value JSON would also load its thumbnail and
+     * build its URL; other values are read from that JSON.
      */
     protected function value(ValueRepresentation $value): array
     {
-        $json = $value->jsonSerialize();
         $output = ['text' => null];
         $extra = [];
-        if (isset($json['value_resource_id'])) {
-            $output['text'] = (string) ($json['display_title'] ?? '');
-            $extra['resource'] = ['id' => (int) $json['value_resource_id'], 'type' => $json['value_resource_name'] ?? null];
-        } elseif (isset($json['@id']) && is_string($json['@id'])) {
-            $label = $json['o:label'] ?? null;
-            $output['text'] = (is_string($label) && '' !== trim($label)) ? $label : $json['@id'];
-            if ($output['text'] !== $json['@id']) {
-                $extra['uri'] = $json['@id'];
-            }
-        } elseif (array_key_exists('@value', $json) && is_scalar($json['@value'])) {
-            $stored = (string) $json['@value'];
-            if ('literal' === $value->type()) {
-                // A literal shows exactly as stored.
-                $output['text'] = $stored;
-            } else {
-                // Other types, such as numeric dates, show a readable form,
-                // with the stored form kept beside it when they differ.
-                $shown = $this->render($value);
-                $output['text'] = $shown ?? $stored;
-                if (null !== $shown && $shown !== trim($stored)) {
-                    $output['value'] = $this->cut($stored);
-                }
-            }
+        $linked = $value->valueResource();
+        if ($linked) {
+            $output['text'] = $linked->displayTitle();
+            $extra['resource'] = ['id' => $linked->id(), 'type' => $linked->resourceName()];
         } else {
-            $output['text'] = (string) $value;
+            $json = $value->jsonSerialize();
+            if (isset($json['@id']) && is_string($json['@id'])) {
+                $label = $json['o:label'] ?? null;
+                $output['text'] = (is_string($label) && '' !== trim($label)) ? $label : $json['@id'];
+                if ($output['text'] !== $json['@id']) {
+                    $extra['uri'] = $json['@id'];
+                }
+            } elseif (array_key_exists('@value', $json) && is_scalar($json['@value'])) {
+                $stored = (string) $json['@value'];
+                if ('literal' === $value->type()) {
+                    // A literal shows exactly as stored.
+                    $output['text'] = $stored;
+                } else {
+                    // Other types, such as numeric dates, show a readable
+                    // form, with the stored form kept beside it when they
+                    // differ.
+                    $shown = $this->render($value);
+                    $output['text'] = $shown ?? $stored;
+                    if (null !== $shown && $shown !== trim($stored)) {
+                        $output['value'] = $this->cut($stored);
+                    }
+                }
+            } else {
+                $output['text'] = (string) $value;
+            }
         }
         $output['type'] = $value->type();
         $output['lang'] = $value->lang();
@@ -413,19 +445,16 @@ class ItemFormatter
     /**
      * Render a value as its data type shows it on the site, as plain text.
      *
-     * Returns null when the data type can't render here, for example one
-     * that expects a site.
+     * Renders through the data type rather than asHtml(), which also fires
+     * rep.value.html: what other modules add there, such as a link to search
+     * for the value, is page decoration, not the value. type() names the data
+     * type the value resolved to, so the lookup can't fail. Returns null when
+     * the data type can't render here, for example one that expects a site.
      */
     protected function render(ValueRepresentation $value): ?string
     {
         try {
-            try {
-                $dataType = $this->dataTypes->get($value->type());
-            } catch (ServiceNotFoundException $e) {
-                // The module that provided the data type is gone.
-                $dataType = $this->dataTypes->get('literal');
-            }
-            $html = (string) $dataType->render($this->view, $value);
+            $html = (string) $this->dataTypes->get($value->type())->render($this->view, $value);
             $text = trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             return '' === $text ? null : $text;
         } catch (Throwable $e) {
@@ -437,7 +466,10 @@ class ItemFormatter
         }
     }
 
-    protected function media(MediaRepresentation $media): array
+    /**
+     * Get the short entry for a media, as an item lists its media.
+     */
+    protected function mediaEntry(MediaRepresentation $media): array
     {
         return $this->withoutEmpty([
             'id' => $media->id(),
@@ -449,14 +481,38 @@ class ItemFormatter
     }
 
     /**
-     * Get the slugs of the sites the caller may see, by site ID.
+     * Get the IDs of the sites the caller may see, the default site first.
      */
-    protected function getVisibleSites(): array
+    protected function getSitePreference(): array
     {
-        if (null === $this->visibleSites) {
-            $this->visibleSites = $this->api->search('sites', [], ['returnScalar' => 'slug'])->getContent();
-        }
-        return $this->visibleSites;
+        return $this->sitePreference ??= (function () {
+            $siteIds = array_map('intval', array_keys($this->options->getSiteSlugs()));
+            sort($siteIds);
+            $defaultSiteId = (int) $this->settings->get('default_site');
+            if (in_array($defaultSiteId, $siteIds, true)) {
+                $siteIds = array_merge([$defaultSiteId], array_values(array_diff($siteIds, [$defaultSiteId])));
+            }
+            return $siteIds;
+        })();
+    }
+
+    protected function resourceClass(AbstractResourceEntityRepresentation $resource): ?array
+    {
+        $class = $resource->resourceClass();
+        return $class ? ['term' => $class->term(), 'label' => $class->label()] : null;
+    }
+
+    /**
+     * Get when a resource was added and last modified.
+     *
+     * "Added" rather than "created", which dcterms:created means.
+     */
+    protected function dates(AbstractResourceEntityRepresentation $resource): array
+    {
+        return [
+            'added' => $resource->created()->format('c'),
+            'modified' => $resource->modified() ? $resource->modified()->format('c') : null,
+        ];
     }
 
     /**

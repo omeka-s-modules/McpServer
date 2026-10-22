@@ -1,80 +1,35 @@
 <?php
 namespace McpServer\Stdlib;
 
-use Doctrine\ORM\EntityManager;
 use McpServer\Mcp\Exception\ToolException;
 use Omeka\Api\Manager as ApiManager;
-use Omeka\Api\Representation\ItemSetRepresentation;
-use Omeka\Entity\Item;
-use Omeka\Entity\Media;
 
 /**
- * What search can filter on, as the caller may see it, with counts.
+ * What search can filter on, as the caller may see it.
  *
  * Shared by the search tools, which resolve terms, labels, and slugs here, and
- * by get_overview, which lists them. Everything comes from the API, or from
- * grouped counts limited to what the API returned, so it reflects the
- * caller's visibility. Each list is fetched once per request.
+ * by get_overview, which lists them with counts from ResourceCounter.
+ * Everything comes from the API, so it reflects the caller's visibility. Each
+ * list is fetched once per request.
  */
 class SearchOptions
 {
-    // Most entries a list returns; its total says when there are more.
-    const LIMIT = 200;
-
-    // Most resource IDs fetched for grouped counts. Above this, counts take a
-    // query each, or are refused or left out.
-    const COUNT_MAX = 200000;
-
-    // Resource IDs fetched per search, which keeps memory low near the cap.
-    const ID_PAGE = 20000;
+    // Most entries an overview list returns; its total says when there are more.
+    const OVERVIEW_LIMIT = 200;
 
     // Most classes an error lists, so a model can correct a class name.
     const CLASSES_IN_ERROR_MAX = 50;
 
     protected $api;
 
-    protected $entityManager;
+    protected $counter;
 
-    protected $lists = [];
+    protected $cache = [];
 
-    public function __construct(ApiManager $api, EntityManager $entityManager)
+    public function __construct(ApiManager $api, ResourceCounter $counter)
     {
         $this->api = $api;
-        $this->entityManager = $entityManager;
-    }
-
-    /**
-     * Get the IDs of the resources matching a query, or null when there are
-     * more than COUNT_MAX.
-     *
-     * The API applies every filter, module extension, and visibility rule,
-     * including core's hiding of media on private items, so grouped queries
-     * limited to these IDs count only what the caller may see.
-     *
-     * @param string $resource "items", "media", or "item_sets"
-     * @return int[]|null
-     */
-    public function getResourceIds(string $resource, array $query = []): ?array
-    {
-        // Core's full-text search reads sort_order without checking it's set.
-        $query += ['sort_by' => 'id', 'sort_order' => 'asc'];
-        $total = $this->api->search($resource, ['limit' => 0] + $query)->getTotalResults();
-        if ($total > static::COUNT_MAX) {
-            return null;
-        }
-        // In pages, keeping only the integers: a scalar search builds a large
-        // array per row, which would add up near the cap.
-        $ids = [];
-        for ($page = 1; count($ids) < $total; $page++) {
-            $pageIds = $this->api->search($resource, ['page' => $page, 'per_page' => static::ID_PAGE] + $query, ['returnScalar' => 'id'])->getContent();
-            if (!$pageIds) {
-                break;
-            }
-            foreach ($pageIds as $id) {
-                $ids[] = (int) $id;
-            }
-        }
-        return $ids;
+        $this->counter = $counter;
     }
 
     /**
@@ -84,30 +39,18 @@ class SearchOptions
      */
     public function getItemSets(): array
     {
-        return $this->lists['item_sets'] ??= (function () {
+        return $this->cache['item_sets'] ??= (function () {
             // Counts every set at once, rather than a query per set.
-            $this->getGroupedCounts();
-            $response = $this->api->search('item_sets', ['sort_by' => 'title', 'sort_order' => 'asc', 'limit' => self::LIMIT]);
+            $this->counter->getGroupedCounts();
+            $response = $this->api->search('item_sets', ['sort_by' => 'title', 'sort_order' => 'asc', 'limit' => self::OVERVIEW_LIMIT]);
+            $counts = $this->counter->countItemsInSets(array_map(fn ($itemSet) => $itemSet->id(), $response->getContent()));
             $itemSets = array_map(fn ($itemSet) => [
                 'id' => $itemSet->id(),
                 'title' => $itemSet->displayTitle(),
-                'items' => $this->countItemsInSet($itemSet),
+                'items' => $counts[$itemSet->id()],
             ], $response->getContent());
             return [$itemSets, $response->getTotalResults()];
         })();
-    }
-
-    /**
-     * Count the items the caller may see in an item set.
-     *
-     * Read from the grouped counts when this request already has them, as
-     * get_overview does. Otherwise one count query, which is cheaper than
-     * grouping everything for a single set or a page of sets.
-     */
-    public function countItemsInSet(ItemSetRepresentation $itemSet): int
-    {
-        $counts = $this->lists['grouped_counts'] ?? null;
-        return $counts ? ($counts['item_sets'][$itemSet->id()] ?? 0) : $itemSet->itemCount();
     }
 
     /**
@@ -119,15 +62,7 @@ class SearchOptions
      */
     public function getClasses(): array
     {
-        return $this->lists['classes'] ??= (function () {
-            $classes = array_map(fn ($class) => [
-                'id' => $class->id(),
-                'term' => $class->term(),
-                'label' => $class->label(),
-            ], $this->api->search('resource_classes', ['used' => true])->getContent());
-            usort($classes, fn ($a, $b) => strcmp($a['term'], $b['term']));
-            return $classes;
-        })();
+        return $this->getUsedTerms('resource_classes');
     }
 
     /**
@@ -137,16 +72,14 @@ class SearchOptions
      */
     public function getClassCounts(): array
     {
-        return $this->lists['class_counts'] ??= (function () {
-            $counts = $this->getGroupedCounts();
+        return $this->cache['class_counts'] ??= (function () {
+            $this->counter->getGroupedCounts();
+            $counts = $this->counter->countItemsByClass(array_column($this->getClasses(), 'id'));
             $classes = [];
             foreach ($this->getClasses() as $class) {
                 // Classes used only by media or item sets have no items.
-                $items = $counts
-                    ? ($counts['classes'][$class['id']] ?? 0)
-                    : $this->api->search('items', ['resource_class_id' => $class['id'], 'limit' => 0])->getTotalResults();
-                if ($items) {
-                    $classes[] = $class + ['items' => $items];
+                if ($counts[$class['id']]) {
+                    $classes[] = $class + ['items' => $counts[$class['id']]];
                 }
             }
             usort($classes, fn ($a, $b) => [$b['items'], $a['term']] <=> [$a['items'], $b['term']]);
@@ -164,7 +97,7 @@ class SearchOptions
      */
     public function getMediaTypes(): ?array
     {
-        $counts = $this->getGroupedCounts();
+        $counts = $this->counter->getGroupedCounts();
         return $counts ? $counts['media_types'] : null;
     }
 
@@ -175,14 +108,21 @@ class SearchOptions
      */
     public function getProperties(): array
     {
-        return $this->lists['properties'] ??= (function () {
-            $properties = array_map(fn ($property) => [
-                'id' => $property->id(),
-                'term' => $property->term(),
-                'label' => $property->label(),
-            ], $this->api->search('properties', ['used' => true])->getContent());
-            usort($properties, fn ($a, $b) => strcmp($a['term'], $b['term']));
-            return $properties;
+        return $this->getUsedTerms('properties');
+    }
+
+    /**
+     * Get the classes or properties in use, by term.
+     *
+     * @param string $resource "resource_classes" or "properties"
+     * @return array List of ['id', 'term', 'label']
+     */
+    protected function getUsedTerms(string $resource): array
+    {
+        return $this->cache[$resource] ??= (function () use ($resource) {
+            $terms = array_map(fn ($term) => $this->toRow($term), $this->api->search($resource, ['used' => true])->getContent());
+            usort($terms, fn ($a, $b) => strcmp($a['term'], $b['term']));
+            return $terms;
         })();
     }
 
@@ -193,12 +133,22 @@ class SearchOptions
      */
     public function getSites(): array
     {
-        return $this->lists['sites'] ??= array_map(fn ($site) => [
+        return $this->cache['sites'] ??= array_map(fn ($site) => [
             'id' => $site->id(),
             'slug' => $site->slug(),
             'title' => $site->title(),
             'summary' => trim((string) $site->summary()),
         ], $this->api->search('sites', ['sort_by' => 'title', 'sort_order' => 'asc'])->getContent());
+    }
+
+    /**
+     * Get the slugs of the sites the caller may see, by site ID.
+     *
+     * Lighter than getSites(), which loads whole site records.
+     */
+    public function getSiteSlugs(): array
+    {
+        return $this->cache['site_slugs'] ??= $this->api->search('sites', [], ['returnScalar' => 'slug'])->getContent();
     }
 
     /**
@@ -209,21 +159,23 @@ class SearchOptions
     public function findClass(string $termOrLabel): int
     {
         if (str_contains($termOrLabel, ':')) {
-            // One targeted query, rather than every class in use.
-            $classes = $this->api->search('resource_classes', ['term' => $termOrLabel, 'used' => true, 'limit' => 1])->getContent();
-            if ($classes) {
-                return $classes[0]->id();
-            }
-            $matches = [];
+            $matches = array_filter([$this->findUsedTerm('resource_classes', $termOrLabel)]);
         } else {
-            // Core can't search classes by label, so labels need the list.
-            $matches = array_values(array_filter(
-                $this->getClasses(),
-                fn ($class) => 0 === strcasecmp($class['label'], $termOrLabel)
+            // Core can't search classes by label, so a label is matched
+            // against every class's label alone, and only the matches are
+            // checked for use, in one query, rather than listing the classes
+            // in use, which reads every resource.
+            $ids = array_keys(array_filter(
+                $this->getClassLabels(),
+                fn ($label) => 0 === strcasecmp((string) $label, $termOrLabel)
             ));
+            $matches = $ids ? array_map(
+                fn ($class) => $this->toRow($class),
+                $this->api->search('resource_classes', ['id' => $ids, 'used' => true], ['countQuery' => false])->getContent()
+            ) : [];
         }
         if (1 === count($matches)) {
-            return $matches[0]['id'];
+            return reset($matches)['id'];
         }
         if (!$matches) {
             // get_overview lists only the classes items use, so a class used
@@ -251,16 +203,11 @@ class SearchOptions
      */
     public function findProperty(string $term): int
     {
-        // One targeted query per term, rather than every property in use,
-        // which joins the whole value table.
-        $this->lists['property_ids'][$term] ??= (function () use ($term) {
-            $properties = $this->api->search('properties', ['term' => $term, 'used' => true, 'limit' => 1])->getContent();
-            return $properties ? $properties[0]->id() : null;
-        })();
-        if (null !== $this->lists['property_ids'][$term]) {
-            return $this->lists['property_ids'][$term];
+        $property = $this->findUsedTerm('properties', $term);
+        if (!$property) {
+            throw new ToolException(sprintf('No values use the property "%s". Call get_overview to see the properties in use.', $term));
         }
-        throw new ToolException(sprintf('No values use the property "%s". Call get_overview to see the properties in use.', $term));
+        return $property['id'];
     }
 
     /**
@@ -270,82 +217,54 @@ class SearchOptions
      */
     public function findSite(string $slug): int
     {
-        foreach ($this->getSites() as $site) {
-            if ($site['slug'] === $slug) {
-                return $site['id'];
-            }
+        $siteId = array_search($slug, $this->getSiteSlugs(), true);
+        if (false === $siteId) {
+            throw new ToolException(sprintf('There is no site "%s". Call get_overview to see the sites.', $slug));
         }
-        throw new ToolException(sprintf('There is no site "%s". Call get_overview to see the sites.', $slug));
+        return (int) $siteId;
     }
 
     /**
-     * Count the visible items by class and by item set, and their media by
-     * type, in three grouped queries.
+     * Find a class or property in use by its term, once per request.
      *
-     * Follows the counting rule in ToolInterface: the queries read only the
-     * items whose IDs the API returned, and media only by those items, since
-     * core hides the media of private items in the API rather than in its
-     * Doctrine filters. Item sets the caller can't see may get counts here,
-     * but getItemSets() only reads the counts of sets the API listed.
+     * One targeted query, rather than listing every term in use, which for
+     * properties joins the whole value table.
      *
-     * @return array|null ['classes' => [id => items], 'item_sets' => [id =>
-     *   items], 'media_types' => list], or null above COUNT_MAX items
+     * @param string $resource "resource_classes" or "properties"
+     * @return array|null ['id', 'term', 'label']
      */
-    protected function getGroupedCounts(): ?array
+    protected function findUsedTerm(string $resource, string $term): ?array
     {
-        if (array_key_exists('grouped_counts', $this->lists)) {
-            return $this->lists['grouped_counts'];
+        if (!array_key_exists($term, $this->cache['used_terms'][$resource] ?? [])) {
+            $found = $this->api->search(
+                $resource,
+                ['term' => $term, 'used' => true, 'limit' => 1],
+                ['countQuery' => false]
+            )->getContent();
+            $this->cache['used_terms'][$resource][$term] = $found ? $this->toRow($found[0]) : null;
         }
-        $counts = null;
-        $itemIds = $this->getResourceIds('items');
-        if (null !== $itemIds) {
-            $counts = ['classes' => [], 'item_sets' => [], 'media_types' => []];
-            if ($itemIds) {
-                $counts['classes'] = $this->countBy('IDENTITY(i.resourceClass)', $itemIds);
-                $counts['item_sets'] = $this->countBy('s.id', $itemIds, 'i.itemSets');
-                $rows = $this->entityManager->createQueryBuilder()
-                    ->select('m.mediaType AS media_type', 'COUNT(m.id) AS media', 'COUNT(DISTINCT m.item) AS items')
-                    ->from(Media::class, 'm')
-                    ->where('m.item IN (:items)')
-                    ->andWhere('m.mediaType IS NOT NULL')
-                    ->groupBy('media_type')
-                    ->setParameter('items', $itemIds)
-                    ->getQuery()
-                    ->getScalarResult();
-                $mediaTypes = array_map(fn ($row) => [
-                    'media_type' => $row['media_type'],
-                    'media' => (int) $row['media'],
-                    'items' => (int) $row['items'],
-                ], $rows);
-                usort($mediaTypes, fn ($a, $b) => [$b['media'], $a['media_type']] <=> [$a['media'], $b['media_type']]);
-                $counts['media_types'] = $mediaTypes;
-            }
-        }
-        return $this->lists['grouped_counts'] = $counts;
+        return $this->cache['used_terms'][$resource][$term];
     }
 
     /**
-     * Count the given items by an expression, optionally through a join.
+     * Get the label of every class, in use or not, by class ID.
      *
-     * @return array Item counts keyed by the expression's value
+     * A scalar search, since a vocabulary such as schema.org has hundreds of
+     * classes.
      */
-    protected function countBy(string $expression, array $itemIds, ?string $join = null): array
+    protected function getClassLabels(): array
     {
-        $qb = $this->entityManager->createQueryBuilder()
-            ->select("$expression AS group_id", 'COUNT(DISTINCT i.id) AS items')
-            ->from(Item::class, 'i')
-            ->where('i.id IN (:items)')
-            ->groupBy('group_id')
-            ->setParameter('items', $itemIds);
-        if ($join) {
-            $qb->innerJoin($join, 's');
-        }
-        $counts = [];
-        foreach ($qb->getQuery()->getScalarResult() as $row) {
-            if (null !== $row['group_id']) {
-                $counts[(int) $row['group_id']] = (int) $row['items'];
-            }
-        }
-        return $counts;
+        return $this->cache['class_labels'] ??= $this->api->search('resource_classes', [], ['returnScalar' => 'label'])->getContent();
+    }
+
+    /**
+     * Get a class or property as a row of a list.
+     *
+     * @param \Omeka\Api\Representation\ResourceClassRepresentation|\Omeka\Api\Representation\PropertyRepresentation $term
+     * @return array ['id', 'term', 'label']
+     */
+    protected function toRow($term): array
+    {
+        return ['id' => $term->id(), 'term' => $term->term(), 'label' => $term->label()];
     }
 }

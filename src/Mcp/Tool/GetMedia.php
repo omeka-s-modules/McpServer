@@ -2,7 +2,7 @@
 namespace McpServer\Mcp\Tool;
 
 use McpServer\Mcp\Exception\ToolException;
-use McpServer\Stdlib\ItemFormatter;
+use McpServer\Stdlib\ResourceFormatter;
 use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\MediaRepresentation;
@@ -26,7 +26,7 @@ class GetMedia implements ToolInterface
 
     protected $thumbnails;
 
-    public function __construct(ApiManager $api, ItemFormatter $formatter, StoreInterface $store, ThumbnailManager $thumbnails)
+    public function __construct(ApiManager $api, ResourceFormatter $formatter, StoreInterface $store, ThumbnailManager $thumbnails)
     {
         $this->api = $api;
         $this->formatter = $formatter;
@@ -82,7 +82,7 @@ class GetMedia implements ToolInterface
         } catch (NotFoundException $e) {
             throw new ToolException(sprintf('No media with id %d exists or is visible to you.', $id));
         }
-        $detail = $this->formatter->mediaDetail($media);
+        $detail = $this->formatter->media($media);
         if (!$reader->getBool('image', true)) {
             return ToolResult::json($detail);
         }

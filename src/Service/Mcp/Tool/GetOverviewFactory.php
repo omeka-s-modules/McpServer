@@ -12,7 +12,8 @@ class GetOverviewFactory implements FactoryInterface
         return new GetOverview(
             $services->get('Omeka\ApiManager'),
             $services->get('McpServer\SearchOptions'),
-            $services->get('McpServer\ItemFormatter')
+            $services->get('McpServer\ResourceCounter'),
+            $services->get('McpServer\ResourceFormatter')
         );
     }
 }

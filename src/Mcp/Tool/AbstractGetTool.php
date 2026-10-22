@@ -2,7 +2,7 @@
 namespace McpServer\Mcp\Tool;
 
 use McpServer\Mcp\Exception\ToolException;
-use McpServer\Stdlib\ItemFormatter;
+use McpServer\Stdlib\ResourceFormatter;
 use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
@@ -19,7 +19,7 @@ abstract class AbstractGetTool implements ToolInterface
 
     protected $formatter;
 
-    public function __construct(ApiManager $api, ItemFormatter $formatter)
+    public function __construct(ApiManager $api, ResourceFormatter $formatter)
     {
         $this->api = $api;
         $this->formatter = $formatter;
@@ -31,9 +31,9 @@ abstract class AbstractGetTool implements ToolInterface
     abstract protected function getResourceName(): string;
 
     /**
-     * Get what a resource is called in messages, such as "item set".
+     * Get what one resource is called in messages, such as "item set".
      */
-    abstract protected function getLabel(): string;
+    abstract protected function getSingularLabel(): string;
 
     /**
      * Get the concise form of the resource.
@@ -48,7 +48,7 @@ abstract class AbstractGetTool implements ToolInterface
                 'id' => [
                     'type' => 'integer',
                     'minimum' => 1,
-                    'description' => sprintf('The %s\'s id.', $this->getLabel()),
+                    'description' => sprintf('The %s\'s id.', $this->getSingularLabel()),
                 ],
                 'response_format' => [
                     'type' => 'string',
@@ -74,7 +74,7 @@ abstract class AbstractGetTool implements ToolInterface
         try {
             $resource = $this->api->read($this->getResourceName(), $id)->getContent();
         } catch (NotFoundException $e) {
-            throw new ToolException(sprintf('No %s with id %d exists or is visible to you.', $this->getLabel(), $id));
+            throw new ToolException(sprintf('No %s with id %d exists or is visible to you.', $this->getSingularLabel(), $id));
         }
         if ('detailed' !== $format) {
             return ToolResult::json($this->getConcise($resource));
@@ -87,7 +87,7 @@ abstract class AbstractGetTool implements ToolInterface
         if ($cut) {
             $notes[] = sprintf(
                 'Lists longer than %d entries are cut to that many. Their full lengths: %s.',
-                ItemFormatter::LIST_LIMIT,
+                ResourceFormatter::LIST_LIMIT,
                 implode(', ', array_map(fn ($name, $total) => sprintf('%s %d', $name, $total), array_keys($cut), $cut))
             );
         }

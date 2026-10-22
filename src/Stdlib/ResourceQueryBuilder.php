@@ -11,14 +11,23 @@ use McpServer\Mcp\Tool\ArgumentReader;
  * modules extend through the api.search.query event. This only maps named,
  * documented arguments onto them, resolving terms, labels, and slugs so a model
  * never needs Omeka's internal IDs or query syntax. Every resource takes the
- * same arguments, except the filters only items have. A filter added here
- * must work for every resource's API adapter, or be listed as item-only.
+ * same arguments, except those RESOURCE_FILTERS limits to some resources. A
+ * filter added here must work for every resource's API adapter, or be listed
+ * there.
  */
 class ResourceQueryBuilder
 {
-    // Filters that only item searches take. Core's media search has no
-    // equivalent: media belong to item sets only through their item.
-    const ITEM_FILTERS = ['item_set', 'has_media'];
+    // The resources the tools search and count, by API name.
+    const RESOURCES = ['items', 'media', 'item_sets'];
+
+    // Filters only some resources take, and which. Core's media search has no
+    // item set or media filter, since media belong to item sets only through
+    // their item, and only media have a media type.
+    const RESOURCE_FILTERS = [
+        'item_set' => ['items'],
+        'has_media' => ['items'],
+        'media_type' => ['media'],
+    ];
 
     // Conditions in "where", and the Omeka property query types they use.
     const OPERATORS = [
@@ -35,10 +44,6 @@ class ResourceQueryBuilder
 
     const ITEM_SETS_MAX = 100;
 
-    // Core's property query skips a value of "0" as if it were empty, which
-    // would match everything, so the tools refuse it.
-    const ZERO = 'Searching for the value "0" isn\'t supported: Omeka\'s search treats it as empty.';
-
     protected $options;
 
     public function __construct(SearchOptions $options)
@@ -52,9 +57,10 @@ class ResourceQueryBuilder
      * Every tool that filters takes these, so they behave the same everywhere,
      * and a filter added here reaches every tool.
      *
-     * @param string $resource "items", "media", or "item_sets"
+     * @param string|null $resource "items", "media", or "item_sets", or null
+     *   for every filter, for a tool that searches more than one
      */
-    public function getFilterSchema(string $resource): array
+    public function getFilterSchema(?string $resource): array
     {
         $schema = [
             'query' => [
@@ -83,6 +89,10 @@ class ResourceQueryBuilder
                 'type' => 'boolean',
                 'description' => 'Only items with media (true) or without (false).',
             ],
+            'media_type' => [
+                'type' => 'string',
+                'description' => 'Only media of this exact type, e.g. "application/pdf" or "image/jpeg". get_overview lists the ones in use.',
+            ],
             'where' => [
                 'type' => 'array',
                 'maxItems' => self::WHERE_MAX,
@@ -103,53 +113,60 @@ class ResourceQueryBuilder
                 ],
             ],
         ];
-        return 'items' === $resource ? $schema : array_diff_key($schema, array_flip(self::ITEM_FILTERS));
+        if (null === $resource) {
+            return $schema;
+        }
+        return array_filter(
+            $schema,
+            fn ($name) => in_array($resource, self::RESOURCE_FILTERS[$name] ?? [$resource], true),
+            ARRAY_FILTER_USE_KEY
+        );
     }
 
     /**
-     * Build the query for search arguments, without paging.
+     * Build the query for the filter arguments.
+     *
+     * A blank argument counts as absent. A filter the resource doesn't take is
+     * refused, not ignored, so a model never reads unfiltered results as
+     * filtered ones.
      *
      * @param string $resource "items", "media", or "item_sets"
+     * @param array $advice What to do instead, by filter name, added to a
+     *   refusal
      * @throws ToolException For an argument the model should correct
      */
-    public function build(ArgumentReader $reader, string $resource): array
+    public function buildFilters(ArgumentReader $reader, string $resource, array $advice = []): array
     {
-        $query = $this->buildFilters($reader, $resource);
-        return $query + $this->buildSort($reader, isset($query['fulltext_search']));
-    }
-
-    /**
-     * Build the query for the filter arguments alone.
-     *
-     * @param string $resource "items", "media", or "item_sets"
-     * @throws ToolException For an argument the model should correct
-     */
-    public function buildFilters(ArgumentReader $reader, string $resource): array
-    {
+        foreach (self::RESOURCE_FILTERS as $name => $resources) {
+            if (!in_array($resource, $resources, true) && $reader->has($name)) {
+                throw new ToolException(trim(sprintf(
+                    '"%s" filters only %s, not %s. %s',
+                    $name, $this->label(implode(' and ', $resources)), $this->label($resource), $advice[$name] ?? ''
+                )));
+            }
+        }
         $query = [];
-        $text = trim((string) $reader->getString('query'));
-        if ('' !== $text) {
+        if (null !== ($text = $reader->getText('query'))) {
             $query['fulltext_search'] = $text;
         }
-        $contains = trim((string) $reader->getString('contains'));
-        if ('0' === $contains) {
-            throw new ToolException(self::ZERO);
-        }
-        if ('' !== $contains) {
+        if (null !== ($contains = $reader->getText('contains'))) {
             // Matches any value, URI, or linked resource's title as a substring.
-            $query['search'] = $contains;
+            $query['search'] = $this->refuseZero($contains);
         }
-        if ('items' === $resource && ($itemSets = $reader->getIntList('item_set', 1, self::ITEM_SETS_MAX))) {
+        if ($itemSets = $reader->getIntList('item_set', 1, self::ITEM_SETS_MAX)) {
             $query['item_set_id'] = $itemSets;
         }
-        if (null !== ($class = $reader->getString('class'))) {
-            $query['resource_class_id'] = $this->options->findClass(trim($class));
+        if (null !== ($class = $reader->getText('class'))) {
+            $query['resource_class_id'] = $this->options->findClass($class);
         }
-        if (null !== ($site = $reader->getString('site'))) {
-            $query['site_id'] = $this->options->findSite(trim($site));
+        if (null !== ($site = $reader->getText('site'))) {
+            $query['site_id'] = $this->options->findSite($site);
         }
-        if ('items' === $resource && null !== ($hasMedia = $reader->getBool('has_media'))) {
+        if (null !== ($hasMedia = $reader->getBool('has_media'))) {
             $query['has_media'] = $hasMedia ? 1 : 0;
+        }
+        if (null !== ($mediaType = $reader->getText('media_type'))) {
+            $query['media_type'] = $this->refuseZero($mediaType);
         }
         foreach ($reader->getList('where', self::WHERE_MAX) as $index => $condition) {
             $query['property'][] = $this->buildCondition($condition, $index);
@@ -158,59 +175,25 @@ class ResourceQueryBuilder
     }
 
     /**
-     * Translate one "where" condition into an Omeka property query row.
-     */
-    protected function buildCondition($condition, int $index): array
-    {
-        try {
-            return $this->translateCondition($condition);
-        } catch (ToolException $e) {
-            // Name the condition, since there may be up to ten.
-            throw new ToolException(sprintf('where[%d]: %s', $index, $e->getMessage()));
-        }
-    }
-
-    protected function translateCondition($condition): array
-    {
-        if (!is_array($condition) || array_is_list($condition)) {
-            throw new ToolException('Each condition must be an object with "field", "op", and usually "value".');
-        }
-        $reader = new ArgumentReader($condition);
-        $field = $reader->getString('field');
-        $op = $reader->getEnum('op', array_keys(self::OPERATORS));
-        if (null === $field || null === $op) {
-            throw new ToolException('Each condition needs both "field" (a property term) and "op".');
-        }
-        $row = ['joiner' => 'and', 'property' => $this->options->findProperty(trim($field)), 'type' => self::OPERATORS[$op]];
-        if (in_array($op, ['exists', 'missing'], true)) {
-            return $row;
-        }
-        if ('links_to' === $op) {
-            $row['text'] = (string) $reader->requireInt('value', 1);
-            return $row;
-        }
-        $value = $condition['value'] ?? null;
-        if (!is_scalar($value) || '' === trim((string) $value)) {
-            throw new ToolException(sprintf('"value" is needed for the "%s" operator.', $op));
-        }
-        if ('0' === trim((string) $value)) {
-            throw new ToolException(self::ZERO);
-        }
-        $row['text'] = trim((string) $value);
-        return $row;
-    }
-
-    /**
      * Translate "sort" and "order" into Omeka's sort parameters.
      *
      * Relevance, the default for a full-text query, uses core's default-sort
      * keys. Core's full-text search reads sort_order without checking it's set,
      * so it is always set.
+     *
+     * @param array|null $default ['sort' => ..., 'order' => ...] to use when
+     *   neither a sort nor a query is given, in place of "added"
      */
-    protected function buildSort(ArgumentReader $reader, bool $hasQuery): array
+    public function buildSort(ArgumentReader $reader, bool $hasQuery, ?array $default = null): array
     {
-        $sort = trim((string) $reader->getString('sort')) ?: ($hasQuery ? 'relevance' : 'added');
+        $sort = $reader->getText('sort');
         $order = $reader->getEnum('order', ['asc', 'desc']);
+        if (null === $sort) {
+            $sort = $hasQuery ? 'relevance' : ($default['sort'] ?? 'added');
+            if (!$hasQuery) {
+                $order ??= $default['order'] ?? null;
+            }
+        }
         switch ($sort) {
             case 'relevance':
                 if (!$hasQuery) {
@@ -232,5 +215,86 @@ class ResourceQueryBuilder
         }
         $this->options->findProperty($sort);
         return ['sort_by' => $sort, 'sort_order' => $order ?? 'asc'];
+    }
+
+    /**
+     * Say why a query may have matched nothing, for a tool's hint.
+     *
+     * @param string $label What was searched, such as "item sets"
+     */
+    public function explainEmpty(array $query, string $label): string
+    {
+        if (isset($query['fulltext_search'])) {
+            // MySQL's full-text index skips stopwords and short words, so a
+            // search for "the" finds nothing rather than everything.
+            return sprintf(
+                'No %s matched. Full-text search ignores very common words and words shorter than three letters, so if the query was made only of those, try more specific words, or "contains". Otherwise the collection may have nothing on this.',
+                $label
+            );
+        }
+        return sprintf('No %s matched. Loosen the filters, or check them against get_overview.', $label);
+    }
+
+    /**
+     * Get what a resource is called in messages, such as "item sets".
+     */
+    public function label(string $resource): string
+    {
+        return str_replace('_', ' ', $resource);
+    }
+
+    /**
+     * Translate one "where" condition into an Omeka property query row.
+     */
+    protected function buildCondition($condition, int $index): array
+    {
+        try {
+            return $this->translateCondition($condition);
+        } catch (ToolException $e) {
+            // Name the condition, since there may be up to ten.
+            throw new ToolException(sprintf('where[%d]: %s', $index, $e->getMessage()));
+        }
+    }
+
+    protected function translateCondition($condition): array
+    {
+        if (!is_array($condition) || array_is_list($condition)) {
+            throw new ToolException('Each condition must be an object with "field", "op", and usually "value".');
+        }
+        $reader = new ArgumentReader($condition);
+        $field = $reader->getText('field');
+        $op = $reader->getEnum('op', array_keys(self::OPERATORS));
+        if (null === $field || null === $op) {
+            throw new ToolException('Each condition needs both "field" (a property term) and "op".');
+        }
+        $row = ['joiner' => 'and', 'property' => $this->options->findProperty($field), 'type' => self::OPERATORS[$op]];
+        if (in_array($op, ['exists', 'missing'], true)) {
+            return $row;
+        }
+        if ('links_to' === $op) {
+            $row['text'] = (string) $reader->requireInt('value', 1);
+            return $row;
+        }
+        $value = $condition['value'] ?? null;
+        $text = is_scalar($value) ? trim((string) $value) : '';
+        if ('' === $text) {
+            throw new ToolException(sprintf('"value" is needed for the "%s" operator.', $op));
+        }
+        $row['text'] = $this->refuseZero($text);
+        return $row;
+    }
+
+    /**
+     * Refuse a filter value of "0", which core skips as if it were empty, so
+     * the search would match everything.
+     *
+     * @throws ToolException
+     */
+    protected function refuseZero(string $text): string
+    {
+        if ('0' === $text) {
+            throw new ToolException('Searching for the value "0" isn\'t supported: Omeka\'s search treats it as empty.');
+        }
+        return $text;
     }
 }

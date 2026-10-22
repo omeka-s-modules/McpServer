@@ -9,15 +9,16 @@ use Laminas\Log\LoggerInterface;
 use Laminas\Mvc\Controller\AbstractActionController;
 use McpServer\Mcp\Exception\ProtocolException;
 use McpServer\Mcp\Protocol\Dispatcher;
-use McpServer\Mcp\Tool\ToolResult;
 use Throwable;
 
 /**
  * The MCP endpoint, over Streamable HTTP.
  *
- * Every response is a single JSON body. The server never opens an event
- * stream, never issues a session ID, and never sets cookies. Every request is
- * anonymous, so callers see public content only.
+ * Handles HTTP and Omeka policy only: the method, the media type, the MCP
+ * headers, refusing credentials, and the response. The Dispatcher does all of
+ * JSON-RPC. Every response is a single JSON body. The server never opens an
+ * event stream, never issues a session ID, and never sets cookies. Every
+ * request is anonymous, so callers see public content only.
  */
 class IndexController extends AbstractActionController
 {
@@ -32,9 +33,6 @@ class IndexController extends AbstractActionController
     protected $dispatcher;
 
     protected $logger;
-
-    // The id of the message being answered, once it's known.
-    protected $messageId;
 
     /**
      * @param callable $dispatcherFactory Returns the Dispatcher. It's called
@@ -60,9 +58,11 @@ class IndexController extends AbstractActionController
             $response = $this->handle($this->getRequest());
         } catch (Throwable $e) {
             // An exception that reaches Omeka renders an HTML error page and
-            // starts a session, so every failure is answered here as JSON.
+            // starts a session, so it's answered here as JSON. The dispatcher
+            // answers its own failures, so this catches only those before it
+            // starts, such as failing to build it.
             $this->logger->err(sprintf('MCP Server: %s', $e));
-            $response = $this->jsonResponse(200, $this->errorBody(ProtocolException::INTERNAL_ERROR, 'Internal error'));
+            $response = $this->jsonResponse(200, Dispatcher::failureResponse((string) $this->getRequest()->getContent()));
         } finally {
             $output = ob_get_clean();
         }
@@ -89,25 +89,21 @@ class IndexController extends AbstractActionController
             return $response;
         }
         if (!$this->isJson($request)) {
-            return $this->jsonResponse(415, $this->errorBody(
-                ProtocolException::INVALID_REQUEST,
-                'Send the request body as application/json.'
+            return $this->jsonResponse(415, Dispatcher::errorResponse(
+                null, ProtocolException::INVALID_REQUEST, 'Send the request body as application/json.'
             ));
         }
-        try {
-            $message = $this->decode($request->getContent());
-            $this->messageId = Dispatcher::getRequestId($message);
-            $this->refuseSignedInRequests($request);
-            $body = $this->getDispatcher()->dispatch($message, $this->getMcpHeaders($request));
-        } catch (ProtocolException $e) {
-            return $this->jsonResponse($e->getHttpStatus(), $this->errorBody($e->getCode(), $e->getMessage(), $e->getData()));
-        }
+        [$status, $body] = $this->getDispatcher()->handle(
+            $request->getContent(),
+            $this->getMcpHeaders($request),
+            fn () => $this->refuseSignedInRequests($request)
+        );
         if (null === $body) {
             $response = $this->getResponse();
-            $response->setStatusCode(202);
+            $response->setStatusCode($status);
             return $response;
         }
-        return $this->jsonResponse(200, $body);
+        return $this->jsonResponse($status, $body);
     }
 
     /**
@@ -155,26 +151,6 @@ class IndexController extends AbstractActionController
     }
 
     /**
-     * Decode a request body into one JSON-RPC message.
-     *
-     * @throws ProtocolException
-     */
-    protected function decode(string $content): array
-    {
-        $message = json_decode($content, true);
-        if (JSON_ERROR_NONE !== json_last_error()) {
-            throw new ProtocolException('Parse error', ProtocolException::PARSE_ERROR, 400);
-        }
-        if (!is_array($message)) {
-            throw new ProtocolException('Invalid request: the body must be a JSON object.', ProtocolException::INVALID_REQUEST, 400);
-        }
-        if ($message && array_is_list($message)) {
-            throw new ProtocolException('Invalid request: batches are not supported. Send one message per request.', ProtocolException::INVALID_REQUEST, 400);
-        }
-        return $message;
-    }
-
-    /**
      * Get the MCP request headers, keyed by lowercase name.
      */
     protected function getMcpHeaders(Request $request): array
@@ -198,15 +174,6 @@ class IndexController extends AbstractActionController
         return $headers;
     }
 
-    protected function errorBody(int $code, string $message, $data = null): array
-    {
-        $error = ['code' => $code, 'message' => $message];
-        if (null !== $data) {
-            $error['data'] = $data;
-        }
-        return ['jsonrpc' => '2.0', 'id' => $this->messageId, 'error' => $error];
-    }
-
     protected function jsonResponse(int $status, array $body): Response
     {
         $response = $this->getResponse();
@@ -214,7 +181,7 @@ class IndexController extends AbstractActionController
         $response->getHeaders()->clearHeaders()
             ->addHeaderLine('Content-Type', 'application/json')
             ->addHeaderLine('Cache-Control', 'no-store');
-        $response->setContent(json_encode($body, ToolResult::JSON_FLAGS));
+        $response->setContent(json_encode($body, Dispatcher::JSON_FLAGS));
         return $response;
     }
 }

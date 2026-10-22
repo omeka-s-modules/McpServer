@@ -37,6 +37,6 @@ class SearchItems extends AbstractSearchTool
 
     protected function summarize(AbstractResourceEntityRepresentation $item): array
     {
-        return $this->formatter->summary($item);
+        return $this->formatter->itemSummary($item);
     }
 }

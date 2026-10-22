@@ -1,22 +1,10 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
-use McpServer\Stdlib\ItemFormatter;
-use McpServer\Stdlib\ResourceQueryBuilder;
-use McpServer\Stdlib\SearchOptions;
-use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 
 class SearchItemSets extends AbstractSearchTool
 {
-    protected $options;
-
-    public function __construct(ApiManager $api, ItemFormatter $formatter, ResourceQueryBuilder $queryBuilder, SearchOptions $options)
-    {
-        parent::__construct($api, $formatter, $queryBuilder);
-        $this->options = $options;
-    }
-
     public function getTitle(): string
     {
         return 'Search item sets';
@@ -34,9 +22,10 @@ class SearchItemSets extends AbstractSearchTool
             . 'search_items, except item sets and media, which only items have.';
     }
 
-    protected function getItemFilterAdvice(): string
+    protected function getFilterAdvice(): array
     {
-        return 'To find the items in a set, call search_items with "item_set".';
+        $advice = 'To find the items in a set, call search_items with "item_set".';
+        return ['item_set' => $advice, 'has_media' => $advice] + parent::getFilterAdvice();
     }
 
     protected function getResourceName(): string
@@ -51,6 +40,6 @@ class SearchItemSets extends AbstractSearchTool
 
     protected function summarize(AbstractResourceEntityRepresentation $itemSet): array
     {
-        return $this->formatter->itemSetSummary($itemSet, $this->options->countItemsInSet($itemSet));
+        return $this->formatter->itemSetSummary($itemSet);
     }
 }

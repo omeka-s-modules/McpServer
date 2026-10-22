@@ -25,7 +25,7 @@ class GetItem extends AbstractGetTool
         return 'items';
     }
 
-    protected function getLabel(): string
+    protected function getSingularLabel(): string
     {
         return 'item';
     }

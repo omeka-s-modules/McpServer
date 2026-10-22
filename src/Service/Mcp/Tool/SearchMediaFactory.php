@@ -11,7 +11,7 @@ class SearchMediaFactory implements FactoryInterface
     {
         return new SearchMedia(
             $services->get('Omeka\ApiManager'),
-            $services->get('McpServer\ItemFormatter'),
+            $services->get('McpServer\ResourceFormatter'),
             $services->get('McpServer\ResourceQueryBuilder')
         );
     }

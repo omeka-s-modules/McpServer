@@ -11,8 +11,7 @@ class GetItemSetFactory implements FactoryInterface
     {
         return new GetItemSet(
             $services->get('Omeka\ApiManager'),
-            $services->get('McpServer\ItemFormatter'),
-            $services->get('McpServer\SearchOptions')
+            $services->get('McpServer\ResourceFormatter')
         );
     }
 }

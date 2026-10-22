@@ -1,16 +1,17 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
-use McpServer\Stdlib\ItemFormatter;
+use DateTime;
+use McpServer\Stdlib\ResourceCounter;
+use McpServer\Stdlib\ResourceFormatter;
 use McpServer\Stdlib\SearchOptions;
 use Omeka\Api\Manager as ApiManager;
 
 /**
  * The one tool about the whole install rather than a resource type.
  *
- * Later lists, such as media types or filters other modules add, go here
- * rather than into new tools. Its output only gains keys, never loses or
- * renames them.
+ * Later lists, such as filters other modules add, go here rather than into
+ * new tools. Its output only gains keys, never loses or renames them.
  */
 class GetOverview implements ToolInterface
 {
@@ -18,12 +19,15 @@ class GetOverview implements ToolInterface
 
     protected $options;
 
+    protected $counter;
+
     protected $formatter;
 
-    public function __construct(ApiManager $api, SearchOptions $options, ItemFormatter $formatter)
+    public function __construct(ApiManager $api, SearchOptions $options, ResourceCounter $counter, ResourceFormatter $formatter)
     {
         $this->api = $api;
         $this->options = $options;
+        $this->counter = $counter;
         $this->formatter = $formatter;
     }
 
@@ -64,7 +68,7 @@ class GetOverview implements ToolInterface
         if (null === $mediaTypes) {
             $output['media_types_note'] = sprintf(
                 'Media types aren\'t counted on installations with more than %d items. search_media still filters by type.',
-                SearchOptions::COUNT_MAX
+                ResourceCounter::COUNT_MAX
             );
         }
         $lists = [
@@ -74,12 +78,12 @@ class GetOverview implements ToolInterface
             'sites' => array_map(fn ($site) => array_filter([
                 'slug' => $site['slug'],
                 'title' => $site['title'],
-                'summary' => $this->formatter->shorten($site['summary'], ItemFormatter::DESCRIPTION_LIMIT),
+                'summary' => $this->formatter->shorten($site['summary'], ResourceFormatter::DESCRIPTION_LIMIT),
             ], fn ($field) => '' !== $field), $this->options->getSites()),
         ];
         foreach (array_filter($lists, fn ($list) => null !== $list) as $name => $list) {
-            $output[$name] = array_slice($list, 0, SearchOptions::LIMIT);
-            if (count($list) > SearchOptions::LIMIT) {
+            $output[$name] = array_slice($list, 0, SearchOptions::OVERVIEW_LIMIT);
+            if (count($list) > SearchOptions::OVERVIEW_LIMIT) {
                 $output[$name . '_total'] = count($list);
             }
         }
@@ -95,16 +99,23 @@ class GetOverview implements ToolInterface
      */
     protected function getStats(): array
     {
-        $count = fn ($resource, $query = []) => $this->api->search($resource, $query + ['limit' => 0])->getTotalResults();
-        $latest = fn ($sortBy) => $this->api->search('items', ['sort_by' => $sortBy, 'sort_order' => 'desc', 'limit' => 1])->getContent()[0] ?? null;
-        $added = $latest('created');
-        $modified = $latest('modified');
+        // The latest date alone, which skips loading an item and core's count
+        // query.
+        $latest = function (string $field): ?string {
+            $dates = $this->api->search(
+                'items',
+                ['sort_by' => $field, 'sort_order' => 'desc', 'limit' => 1],
+                ['returnScalar' => $field, 'countQuery' => false]
+            )->getContent();
+            $date = reset($dates);
+            return $date ? (new DateTime($date))->format('c') : null;
+        };
         return array_filter([
-            'items' => $count('items'),
-            'items_with_media' => $count('items', ['has_media' => 1]),
-            'media' => $count('media'),
-            'items_last_added' => $added ? $added->created()->format('c') : null,
-            'items_last_modified' => ($modified && $modified->modified()) ? $modified->modified()->format('c') : null,
+            'items' => $this->counter->countResources('items'),
+            'items_with_media' => $this->counter->countResources('items', ['has_media' => 1]),
+            'media' => $this->counter->countResources('media'),
+            'items_last_added' => $latest('created'),
+            'items_last_modified' => $latest('modified'),
         ], fn ($stat) => null !== $stat);
     }
 }

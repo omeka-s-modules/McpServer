@@ -11,7 +11,7 @@ class SearchItemsFactory implements FactoryInterface
     {
         return new SearchItems(
             $services->get('Omeka\ApiManager'),
-            $services->get('McpServer\ItemFormatter'),
+            $services->get('McpServer\ResourceFormatter'),
             $services->get('McpServer\ResourceQueryBuilder')
         );
     }

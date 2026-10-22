@@ -351,9 +351,9 @@ as of October 2026 none of the PHP libraries fit Omeka well:
   public content, and signing in will widen what a person sees.
 
 WordPress made the same choice for its MCP adapter. The protocol code is kept apart from
-the tools, in the controller and `src/Mcp/Protocol/`, and tools are written against this
-module's own interface, so a library could replace that layer later without changing any
-tool.
+the tools, in `src/Mcp/Protocol/`, with the controller handling only HTTP, and tools are
+written against this module's own interface. A library could replace that layer later
+without changing any tool.
 
 ## License
 

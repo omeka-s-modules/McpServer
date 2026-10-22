@@ -5,12 +5,17 @@ use Laminas\Log\LoggerInterface;
 use McpServer\Mcp\Exception\ProtocolException;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\Manager as ToolManager;
+use McpServer\Mcp\Tool\ToolResult;
 use McpServer\Mcp\Tool\ToolRunner;
 use stdClass;
 use Throwable;
 
 /**
  * Answers MCP JSON-RPC messages.
+ *
+ * Everything JSON-RPC happens here: decoding a request body, checking it,
+ * routing it, and building the result or the error, with the HTTP status the
+ * spec gives it. The controller handles only HTTP and Omeka policy.
  *
  * Serves both protocol eras. A request in the 2026-07-28 era carries its
  * version in _meta and needs no handshake. Earlier clients open with
@@ -19,6 +24,9 @@ use Throwable;
  */
 class Dispatcher
 {
+    // How responses are encoded, the same as tool results inside them.
+    const JSON_FLAGS = ToolResult::JSON_FLAGS;
+
     const META_PROTOCOL_VERSION = 'io.modelcontextprotocol/protocolVersion';
     const META_CLIENT_CAPABILITIES = 'io.modelcontextprotocol/clientCapabilities';
     const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
@@ -57,16 +65,99 @@ class Dispatcher
     }
 
     /**
+     * Answer one request body.
+     *
+     * Every failure becomes a JSON-RPC error response, so nothing is thrown.
+     *
+     * @param string $body The raw request body
+     * @param array $headers The MCP request headers, keyed by lowercase name
+     * @param callable|null $check Called once the message is decoded, before
+     *   it's answered, for a caller's own policy. A ProtocolException it
+     *   throws is answered like any other, with the message's id.
+     * @return array [HTTP status, response body, or null when there is
+     *   nothing to send back]
+     */
+    public function handle(string $body, array $headers, ?callable $check = null): array
+    {
+        $id = null;
+        try {
+            $message = $this->decode($body);
+            $id = self::getRequestId($message);
+            if ($check) {
+                $check();
+            }
+            $response = $this->dispatch($message, $headers);
+            return null === $response ? [202, null] : [200, $response];
+        } catch (ProtocolException $e) {
+            return [$e->getHttpStatus(), self::errorResponse($id, $e->getCode(), $e->getMessage(), $e->getData())];
+        } catch (Throwable $e) {
+            $this->logger->err(sprintf('MCP Server: %s', $e));
+            return [200, self::errorResponse($id, ProtocolException::INTERNAL_ERROR, 'Internal error')];
+        }
+    }
+
+    /**
+     * Build the internal error response for a request the server failed to
+     * answer, with the message's id when the body has one.
+     *
+     * For the controller, when the dispatcher itself can't be built.
+     */
+    public static function failureResponse(string $body): array
+    {
+        $message = json_decode($body, true);
+        $id = is_array($message) ? self::getRequestId($message) : null;
+        return self::errorResponse($id, ProtocolException::INTERNAL_ERROR, 'Internal error');
+    }
+
+    /**
+     * Build a JSON-RPC error response.
+     *
+     * Public for the controller's errors that come before a message is read,
+     * such as the wrong media type, which have no id.
+     *
+     * @param string|int|null $id The id of the message being answered, or
+     *   null when it's unknown
+     */
+    public static function errorResponse($id, int $code, string $message, $data = null): array
+    {
+        $error = ['code' => $code, 'message' => $message];
+        if (null !== $data) {
+            $error['data'] = $data;
+        }
+        return ['jsonrpc' => '2.0', 'id' => $id, 'error' => $error];
+    }
+
+    /**
+     * Decode a request body into one JSON-RPC message.
+     *
+     * @throws ProtocolException
+     */
+    protected function decode(string $body): array
+    {
+        $message = json_decode($body, true);
+        if (JSON_ERROR_NONE !== json_last_error()) {
+            throw new ProtocolException('Parse error', ProtocolException::PARSE_ERROR, 400);
+        }
+        if (!is_array($message)) {
+            throw new ProtocolException('Invalid request: the body must be a JSON object.', ProtocolException::INVALID_REQUEST, 400);
+        }
+        if ($message && array_is_list($message)) {
+            throw new ProtocolException('Invalid request: batches are not supported. Send one message per request.', ProtocolException::INVALID_REQUEST, 400);
+        }
+        return $message;
+    }
+
+    /**
      * Get a message's id, or null when it has no valid one.
      */
-    public static function getRequestId(array $message): string|int|null
+    protected static function getRequestId(array $message): string|int|null
     {
         $id = $message['id'] ?? null;
         return (is_string($id) || is_int($id)) ? $id : null;
     }
 
     /**
-     * Answer one JSON-RPC message.
+     * Answer one decoded JSON-RPC message.
      *
      * @param array $message The decoded message
      * @param array $headers The MCP request headers, keyed by lowercase name
@@ -74,7 +165,7 @@ class Dispatcher
      *     back: the message was a notification or a client's response
      * @throws ProtocolException
      */
-    public function dispatch(array $message, array $headers): ?array
+    protected function dispatch(array $message, array $headers): ?array
     {
         if ('2.0' !== ($message['jsonrpc'] ?? null)) {
             throw new ProtocolException('Invalid request: jsonrpc must be "2.0".', ProtocolException::INVALID_REQUEST, 400);
