@@ -18,7 +18,7 @@ use Throwable;
 /**
  * Turns items, item sets, and media into output for a model.
  *
- * The compact forms follow Anthropic's guidance for agent tools: names rather
+ * The concise forms follow Anthropic's guidance for agent tools: names rather
  * than internal IDs, values as the site shows them, and nothing empty. The
  * JSON-LD form is Omeka's own, for when a model needs everything. It also
  * finds each resource's public page, on a site the caller may see, for a
@@ -102,7 +102,7 @@ class ResourceFormatter
     }
 
     /**
-     * Get the full compact form of an item.
+     * Get an item in full, in the concise form get_item returns.
      *
      * The summary's description, date, and creator are left out, since the
      * values include them in full.
@@ -151,7 +151,7 @@ class ResourceFormatter
     }
 
     /**
-     * Get the full compact form of an item set.
+     * Get an item set in full, in the concise form get_item_set returns.
      */
     public function itemSet(ItemSetRepresentation $itemSet): array
     {
@@ -361,7 +361,7 @@ class ResourceFormatter
     }
 
     /**
-     * Get the full compact form of a media.
+     * Get a media in full, as get_media returns it.
      */
     public function media(MediaRepresentation $media): array
     {
