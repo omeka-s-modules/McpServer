@@ -6,10 +6,10 @@ namespace McpServer\Mcp\Format;
  * within them: cutting long text, marking what was cut, and leaving out empty
  * fields.
  *
- * It holds the limits on how much of a resource a tool shows. Limits on how
- * many resources a call returns or counts live with the code that applies
- * them: the tools' page sizes, OverviewLists::LIMIT, and
- * ResourceCounter::COUNT_MAX.
+ * It holds the limits on how much of a resource a tool shows, and the highest
+ * page any tool takes. Limits on how many resources a call returns or counts
+ * live with the code that applies them: the tools' page sizes,
+ * OverviewLists::LIMIT, and ResourceCounter::COUNT_MAX.
  *
  * The rule in ToolInterface says nothing is cut silently. The formatters use
  * these limits and marks when they cut, and OutputLimitNotes reads the marks
