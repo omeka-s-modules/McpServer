@@ -303,7 +303,12 @@ says so, and says how to read the rest, if there is a way.
 - `get_overview` shows at most 200 entries of each list, and `list` reads the rest.
 - `get_media` sends the large thumbnail (800 pixels by default), never the original file.
 - `count_values` counts across at most 200,000 matching items, media, or item sets.
-  Narrow larger sets with filters.
+  Narrow larger sets with filters. Media can reach this much sooner than items, as when
+  each page of a scanned book is its own media. Above 200,000 items, `get_overview`
+  leaves out its media type counts.
+- Value annotations, such as a date's "approximate", are shown with their values but
+  can't be searched or counted. When a search or count finds nothing because of that, the
+  result says so and says where to read them.
 - Full-text search (`query`) matches whole words, so "letter" doesn't find "letters", and
   it ignores very common words. Use `contains` to match part of a word.
 
@@ -360,8 +365,9 @@ the `mcp_server` key in your module's configuration:
 Names from other modules start with the module's name, as above. A tool's name should
 never change once released, because clients remember permissions by name.
 
-For counts, use the `McpServer\ResourceCounter` service, which keeps grouped queries
-within what the caller may see. To return results, use `ToolResult::json()`, and put any
+For counts, and to check whether a property or class is in use, use the
+`McpServer\ResourceCounter` service, which keeps its queries within what the caller may
+see. To return results, use `ToolResult::json()`, and put any
 guidance for the assistant, such as why nothing matched, in its note rather than in the
 data.
 

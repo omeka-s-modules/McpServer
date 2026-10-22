@@ -9,9 +9,10 @@ use Omeka\Api\Manager as ApiManager;
  *
  * Shared by the search tools, which resolve terms, labels, and slugs here, and
  * by get_overview, which lists them with counts from ResourceCounter.
- * Everything comes from the API, or from those counts, which are limited to
- * what the API returned, so it reflects the caller's visibility. Each list is
- * fetched once per request.
+ * Everything comes from the API, or from ResourceCounter: its counts, limited
+ * to what the API returned, and its checks that a term is in use, which
+ * answer what core's "used" filter answers. Each list is fetched once per
+ * request.
  */
 class SearchOptions
 {
@@ -121,13 +122,21 @@ class SearchOptions
     /**
      * Get the classes or properties in use, by term.
      *
+     * Checks each term by ID, a query each, which takes about 0.1 s for a
+     * thousand terms, rather than core's "used" filter, which joins every
+     * value or resource. Only the terms in use are then loaded.
+     *
      * @param string $resource "resource_classes" or "properties"
      * @return array List of ['id', 'term', 'label']
      */
     protected function getUsedTerms(string $resource): array
     {
         return $this->cache[$resource] ??= (function () use ($resource) {
-            $terms = array_map(fn ($term) => $this->toRow($term), $this->api->search($resource, ['used' => true])->getContent());
+            $ids = array_values(array_filter(
+                array_keys($this->api->search($resource, [], ['returnScalar' => 'id'])->getContent()),
+                fn ($id) => $this->counter->isUsed($resource, (int) $id)
+            ));
+            $terms = $ids ? array_map(fn ($term) => $this->toRow($term), $this->api->search($resource, ['id' => $ids])->getContent()) : [];
             usort($terms, fn ($a, $b) => strcmp($a['term'], $b['term']));
             return $terms;
         })();
@@ -170,15 +179,14 @@ class SearchOptions
         } else {
             // Core can't search classes by label, so a label is matched
             // against every class's label alone, and only the matches are
-            // checked for use, in one query, rather than listing the classes
-            // in use, which reads every resource.
-            $ids = array_keys(array_filter(
-                $this->getClassLabels(),
-                fn ($label) => 0 === strcasecmp((string) $label, $termOrLabel)
-            ));
+            // checked for use.
+            $ids = array_filter(
+                array_keys(array_filter($this->getClassLabels(), fn ($label) => 0 === strcasecmp((string) $label, $termOrLabel))),
+                fn ($id) => $this->counter->isUsed('resource_classes', (int) $id)
+            );
             $matches = $ids ? array_map(
                 fn ($class) => $this->toRow($class),
-                $this->api->search('resource_classes', ['id' => $ids, 'used' => true], ['countQuery' => false])->getContent()
+                $this->api->search('resource_classes', ['id' => array_values($ids)], ['countQuery' => false])->getContent()
             ) : [];
         }
         if (1 === count($matches)) {
@@ -218,6 +226,24 @@ class SearchOptions
     }
 
     /**
+     * Get the terms, among the properties this request resolved, whose values
+     * are all in value annotations, which "where" can't search.
+     *
+     * @param int[] $propertyIds
+     * @return string[]
+     */
+    public function getAnnotationOnlyTerms(array $propertyIds): array
+    {
+        $terms = [];
+        foreach (array_filter($this->cache['used_terms']['properties'] ?? []) as $property) {
+            if (in_array($property['id'], $propertyIds) && $this->counter->isUsedOnlyInAnnotations($property['id'])) {
+                $terms[] = $property['term'];
+            }
+        }
+        return $terms;
+    }
+
+    /**
      * Find the site a slug names.
      *
      * @throws ToolException When no visible site has the slug
@@ -234,8 +260,9 @@ class SearchOptions
     /**
      * Find a class or property in use by its term, once per request.
      *
-     * One targeted query, rather than listing every term in use, which for
-     * properties joins the whole value table.
+     * Looks the term up, then checks it's in use, rather than asking core's
+     * "used" filter, which joins every value of a property before returning
+     * the one row.
      *
      * @param string $resource "resource_classes" or "properties"
      * @return array|null ['id', 'term', 'label']
@@ -243,12 +270,10 @@ class SearchOptions
     protected function findUsedTerm(string $resource, string $term): ?array
     {
         if (!array_key_exists($term, $this->cache['used_terms'][$resource] ?? [])) {
-            $found = $this->api->search(
-                $resource,
-                ['term' => $term, 'used' => true, 'limit' => 1],
-                ['countQuery' => false]
-            )->getContent();
-            $this->cache['used_terms'][$resource][$term] = $found ? $this->toRow($found[0]) : null;
+            $found = $this->api->search($resource, ['term' => $term, 'limit' => 1], ['countQuery' => false])->getContent();
+            $this->cache['used_terms'][$resource][$term] = $found && $this->counter->isUsed($resource, $found[0]->id())
+                ? $this->toRow($found[0])
+                : null;
         }
         return $this->cache['used_terms'][$resource][$term];
     }

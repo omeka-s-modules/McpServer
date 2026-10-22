@@ -77,6 +77,9 @@ class ResourceFormatter
 
     /**
      * Get the short form of an item, for search results.
+     *
+     * Reads values with valueText(), since value() would also format their
+     * annotations, which a summary leaves out.
      */
     public function itemSummary(ItemRepresentation $item): array
     {
@@ -84,12 +87,12 @@ class ResourceFormatter
         foreach (self::DATE_TERMS as $term) {
             $value = $item->value($term);
             if ($value) {
-                $date = $this->value($value)['text'] ?? null;
+                $date = $this->cut($this->valueText($value)['text']);
                 break;
             }
         }
         $creators = array_values(array_filter(array_map(
-            fn ($value) => $this->value($value)['text'] ?? null,
+            fn ($value) => $this->cut($this->valueText($value)['text']),
             $item->value('dcterms:creator', ['all' => true])
         )));
         return $this->withoutEmpty([
@@ -187,7 +190,7 @@ class ResourceFormatter
             ? $template->descriptionProperty()->term()
             : 'dcterms:description';
         $value = $resource->value($term);
-        return $value ? $this->shorten($this->value($value)['text'] ?? '', self::DESCRIPTION_LIMIT) : null;
+        return $value ? $this->shorten($this->valueText($value)['text'], self::DESCRIPTION_LIMIT) : null;
     }
 
     /**
@@ -429,6 +432,8 @@ class ResourceFormatter
             return null;
         }
         $html = (string) ($media->mediaData()['html'] ?? '');
+        // Core's HTML sanitizer removes these, but admins can turn it off.
+        $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1\s*>#is', '', $html);
         // Line breaks where blocks end, so paragraphs don't run together.
         $html = preg_replace('#<br\s*/?>|</(p|div|li|h[1-6]|tr|blockquote)>#i', "\n", $html);
         $text = trim(preg_replace("/[ \t]+/", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));

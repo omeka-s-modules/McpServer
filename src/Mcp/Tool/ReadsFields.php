@@ -102,6 +102,9 @@ trait ReadsFields
             array_map(fn ($position) => [$term, $position], $positions),
             $inAnnotations ? ['annotations'] : []
         );
+        if ($this->hasCutAnnotationList($field['values'])) {
+            $notes[] = $this->getAnnotationListNote();
+        }
         $notes = array_filter($notes);
         return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
     }
@@ -137,7 +140,9 @@ trait ReadsFields
     protected function readContent(MediaRepresentation $media, ArgumentReader $reader): ToolResult
     {
         $this->refusePage($reader);
-        if ($reader->has('value')) {
+        // A value of 1, the default, is allowed, since models often send
+        // defaults.
+        if (1 !== $reader->getInt('value', 1, 1)) {
             throw new ToolException('"content" is a single text, so it takes "offset" but not "value".');
         }
         $offset = $reader->getInt('offset', 0, 0);
@@ -153,9 +158,13 @@ trait ReadsFields
         return $this->getChunkResult($output, $chunk, $offset);
     }
 
+    /**
+     * Refuse a page other than the first, the default, with "offset", since
+     * models often send defaults.
+     */
     protected function refusePage(ArgumentReader $reader): void
     {
-        if ($reader->has('page')) {
+        if (1 !== $reader->getInt('page', 1, 1, AbstractSearchTool::PAGE_MAX)) {
             throw new ToolException('"page" pages through a field\'s values, and "offset" reads one text, so the two don\'t go together.');
         }
     }
@@ -191,6 +200,7 @@ trait ReadsFields
         $cutFields = [];
         $readable = [];
         $annotationsCut = false;
+        $annotationListsCut = false;
         foreach ($output['values'] ?? [] as $term => $property) {
             if (isset($property['total'])) {
                 $cutFields[] = sprintf('%s has %d', $term, $property['total']);
@@ -200,6 +210,7 @@ trait ReadsFields
                 $readable[] = [$term, $position];
             }
             $annotationsCut = $annotationsCut || $inAnnotations;
+            $annotationListsCut = $annotationListsCut || $this->hasCutAnnotationList($property['values']);
         }
         if (!empty($output['content']['truncated'])) {
             $readable[] = ['content', null];
@@ -227,6 +238,9 @@ trait ReadsFields
             'annotations' => $annotationsCut,
             'module_data' => !empty($output['module_data_truncated']),
         ])));
+        if ($annotationListsCut) {
+            $notes[] = $this->getAnnotationListNote();
+        }
         $notes = array_filter($notes);
         return $notes ? implode(' ', $notes) : null;
     }
@@ -249,6 +263,29 @@ trait ReadsFields
             $inAnnotations = $inAnnotations || $this->hasCutText($value['annotations'] ?? []);
         }
         return [$positions, $inAnnotations];
+    }
+
+    /**
+     * Whether a list was cut in formatted values' annotations, at any depth.
+     */
+    protected function hasCutAnnotationList(array $values): bool
+    {
+        foreach ($values as $value) {
+            foreach ($value['annotations'] ?? [] as $property) {
+                if (isset($property['total']) || $this->hasCutAnnotationList($property['values'])) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    protected function getAnnotationListNote(): string
+    {
+        return sprintf(
+            'Only the first %d values of a property in an annotation are shown, and the rest can\'t be read through these tools.',
+            ResourceFormatter::LIST_LIMIT
+        );
     }
 
     /**

@@ -232,6 +232,15 @@ class ResourceQueryBuilder
                 $label
             );
         }
+        // A condition on a property used only in annotations can't match,
+        // since core searches the values of resources, not of annotations.
+        $terms = $this->options->getAnnotationOnlyTerms(array_column($query['property'] ?? [], 'property'));
+        if ($terms) {
+            return sprintf(
+                'No %s matched. %s %s used only in value annotations, which "where" can\'t search. count_values on %s names the fields whose values carry those annotations, and get_item with "field" set to one of them shows each value with its annotations.',
+                $label, implode(' and ', $terms), count($terms) > 1 ? 'are' : 'is', $terms[0]
+            );
+        }
         return sprintf('No %s matched. Loosen the filters, or check them against get_overview.', $label);
     }
 

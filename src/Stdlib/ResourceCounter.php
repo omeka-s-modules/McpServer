@@ -5,7 +5,9 @@ use Doctrine\ORM\EntityManager;
 use Omeka\Api\Manager as ApiManager;
 use Omeka\Entity\Item;
 use Omeka\Entity\Media;
+use Omeka\Entity\Resource;
 use Omeka\Entity\Value;
+use Omeka\Entity\ValueAnnotation;
 
 /**
  * Counts resources and their values, as the caller may see them.
@@ -19,6 +21,12 @@ use Omeka\Entity\Value;
  * core hides the media of private items in an API listener, not in its
  * filters.
  *
+ * It also checks whether a property or class is in use, which core's "used"
+ * filter answers by joining every value or resource, taking seconds on a
+ * large collection. isUsed() reads one row instead, through the same filters,
+ * so it gives the same answer. isUsedOnlyInAnnotations() reads a row or two
+ * the same way.
+ *
  * Tools in other modules that need counts should use this service, rather
  * than querying Doctrine themselves.
  */
@@ -28,8 +36,10 @@ class ResourceCounter
     // a query at a time, or refuse.
     const COUNT_MAX = 200000;
 
-    // Resource IDs fetched per search, which keeps memory low near the cap.
-    const ID_PAGE = 20000;
+    // Resource IDs fetched per search. Core sorts the whole match for every
+    // page, so each costs about the same, and pages are as large as memory
+    // allows: the cap takes four, adding about 30 MB.
+    const ID_PAGE = 50000;
 
     // What a value counts by, in DQL: its text, its linked resource's title,
     // or its URI, or "" for a visible linked resource with no title.
@@ -96,6 +106,77 @@ class ResourceCounter
             }
         }
         return $ids;
+    }
+
+    /**
+     * Whether a property or class is in use, exactly as core's "used" filter
+     * answers: whether any value of the property, or any resource of the
+     * class, passes core's Doctrine filters.
+     *
+     * Like that filter, it counts a public value on a private item, and a
+     * public media of a private item, which the API would hide. So it can
+     * name a term that only hidden resources use, which core's API already
+     * tells anyone who asks.
+     *
+     * @param string $resource "properties" or "resource_classes"
+     * @throws \UnhandledMatchError For any other resource
+     */
+    public function isUsed(string $resource, int $id): bool
+    {
+        [$entity, $field] = match ($resource) {
+            'properties' => [Value::class, 'property'],
+            'resource_classes' => [Resource::class, 'resourceClass'],
+        };
+        return (bool) $this->entityManager->createQueryBuilder()
+            ->select('x.id')
+            ->from($entity, 'x')
+            ->where("x.$field = :id")
+            ->setParameter('id', $id)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getScalarResult();
+    }
+
+    /**
+     * Whether a property's values, as core's filters let the caller see them,
+     * are all in value annotations, none on an item, media, or item set.
+     *
+     * Two one-row checks, like isUsed(), the second only when the first finds
+     * nothing. It tells no more than core's "used" filter does, apart from
+     * whether the values are annotations.
+     */
+    public function isUsedOnlyInAnnotations(int $propertyId): bool
+    {
+        return !$this->hasValueOn($propertyId, false) && $this->hasValueOn($propertyId, true);
+    }
+
+    /**
+     * Get the properties whose values, on the given resources, have
+     * annotations with a value of a property.
+     *
+     * Annotations can't be searched or counted, so this tells a caller where
+     * to read them instead.
+     *
+     * @param int[] $ids From getResourceIds()
+     * @return string[] Their terms, in order
+     */
+    public function getAnnotatedProperties(int $propertyId, array $ids): array
+    {
+        $rows = $this->entityManager->createQueryBuilder()
+            ->select("DISTINCT CONCAT(vocabulary.prefix, ':', property.localName) AS term")
+            ->from(Value::class, 'v')
+            ->innerJoin('v.valueAnnotation', 'a')
+            ->innerJoin(Value::class, 'av', 'WITH', 'av.resource = a')
+            ->innerJoin('v.property', 'property')
+            ->innerJoin('property.vocabulary', 'vocabulary')
+            ->where('v.resource IN (:resources)')
+            ->andWhere('av.property = :property')
+            ->orderBy('term')
+            ->setParameter('resources', $ids)
+            ->setParameter('property', $propertyId)
+            ->getQuery()
+            ->getScalarResult();
+        return array_column($rows, 'term');
     }
 
     /**
@@ -272,6 +353,24 @@ class ResourceCounter
         ], $rows);
         usort($mediaTypes, fn ($a, $b) => [$b['media'], $a['media_type']] <=> [$a['media'], $b['media_type']]);
         return $mediaTypes;
+    }
+
+    /**
+     * Whether the caller can see a value of a property, either in a value
+     * annotation or on some other resource.
+     */
+    protected function hasValueOn(int $propertyId, bool $inAnnotation): bool
+    {
+        return (bool) $this->entityManager->createQueryBuilder()
+            ->select('x.id')
+            ->from(Value::class, 'x')
+            ->innerJoin('x.resource', 'r')
+            ->where('x.property = :id')
+            ->andWhere(sprintf('r %sINSTANCE OF %s', $inAnnotation ? '' : 'NOT ', ValueAnnotation::class))
+            ->setParameter('id', $propertyId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getScalarResult();
     }
 
     /**

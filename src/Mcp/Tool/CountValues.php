@@ -145,14 +145,20 @@ class CountValues implements ToolInterface
             ));
         }
         $values = [];
+        $shortened = false;
         $totals = ['resources' => 0, 'values' => 0];
         $rows = $ids ? $this->counter->countValues($propertyId, $ids, $perPage, ($page - 1) * $perPage, $byValue) : [];
         foreach ($rows as $row) {
-            $values[] = [
+            $value = [
                 // A linked resource with no title shows as get_item shows it.
                 'value' => '' === $row['label'] ? '[Untitled]' : $this->formatter->shorten($row['label'], self::VALUE_LIMIT),
                 $resource => (int) $row['resources'],
             ];
+            if (mb_strlen(trim($row['label'])) > self::VALUE_LIMIT) {
+                $value['truncated'] = true;
+                $shortened = true;
+            }
+            $values[] = $value;
         }
         if ($rows || ($ids && $page > 1)) {
             // With no rows on the first page, both totals are 0. A later page
@@ -172,10 +178,23 @@ class CountValues implements ToolInterface
         if (!$ids) {
             $note = $this->queryBuilder->explainEmpty($filters, $label);
         } elseif (!$totals['resources']) {
-            $note = sprintf('None of the matching %s has a value for %s.', $label, $field);
-            if ('items' === $resource) {
-                $note .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
+            $annotated = $this->counter->getAnnotatedProperties($propertyId, $ids);
+            if ($annotated) {
+                $note = sprintf(
+                    'None of the matching %s has a value for %s, but it\'s used in annotations on their %s values. Annotations can\'t be searched or counted with these tools. get_item with "field" set to %s shows each value with its annotations.',
+                    $label, $field, implode(' and ', $annotated), 1 === count($annotated) ? $annotated[0] : 'one of those'
+                );
+            } else {
+                $note = sprintf('None of the matching %s has a value for %s.', $label, $field);
+                if ('items' === $resource) {
+                    $note .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
+                }
             }
+        } elseif ($shortened) {
+            $note = sprintf(
+                'Values longer than %d characters are shortened, ending in "…", and marked truncated. To find the %s with one, use search_%s with a "starts_with" condition on %s, giving its text without the "…".',
+                self::VALUE_LIMIT, $label, $resource, $field
+            );
         }
         return ToolResult::json($output, $note);
     }
