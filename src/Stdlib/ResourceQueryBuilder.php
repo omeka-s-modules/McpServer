@@ -218,7 +218,7 @@ class ResourceQueryBuilder
     }
 
     /**
-     * Say why a query may have matched nothing, for a tool's hint.
+     * Say why a query may have matched nothing, for a tool's note.
      *
      * @param string $label What was searched, such as "item sets"
      */

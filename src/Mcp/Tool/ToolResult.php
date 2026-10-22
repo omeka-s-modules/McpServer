@@ -36,6 +36,9 @@ final class ToolResult
     /**
      * Return data as JSON in a text block, optionally followed by a short note.
      *
+     * The note is where guidance for the model goes, such as why nothing
+     * matched or how to find what was cut, so that the data holds only data.
+     *
      * @param mixed $data Anything json_encode() accepts
      */
     public static function json($data, ?string $note = null): self

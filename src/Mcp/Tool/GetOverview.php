@@ -65,12 +65,10 @@ class GetOverview implements ToolInterface
             $output['item_sets_total'] = $itemSetsTotal;
         }
         $mediaTypes = $this->options->getMediaTypes();
-        if (null === $mediaTypes) {
-            $output['media_types_note'] = sprintf(
-                'Media types aren\'t counted on installations with more than %d items. search_media still filters by type.',
-                ResourceCounter::COUNT_MAX
-            );
-        }
+        $note = null === $mediaTypes ? sprintf(
+            'Media types aren\'t counted on installations with more than %s items. search_media still filters by type.',
+            number_format(ResourceCounter::COUNT_MAX)
+        ) : null;
         $lists = [
             'media_types' => $mediaTypes,
             'classes' => array_map(fn ($class) => array_diff_key($class, ['id' => true]), $this->options->getClassCounts()),
@@ -87,7 +85,7 @@ class GetOverview implements ToolInterface
                 $output[$name . '_total'] = count($list);
             }
         }
-        return ToolResult::json($output);
+        return ToolResult::json($output, $note);
     }
 
     /**

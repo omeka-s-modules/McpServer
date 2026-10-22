@@ -54,7 +54,7 @@ abstract class AbstractSearchTool implements ToolInterface
 
     public function call(array $arguments, Context $context): ToolResult
     {
-        return ToolResult::json($this->search(new ArgumentReader($arguments)));
+        return $this->search(new ArgumentReader($arguments));
     }
 
     /**
@@ -133,9 +133,10 @@ abstract class AbstractSearchTool implements ToolInterface
     }
 
     /**
-     * Run the search and summarize a page of results, with any hints.
+     * Run the search and summarize a page of results, with a note when the
+     * results need explaining.
      */
-    protected function search(ArgumentReader $reader): array
+    protected function search(ArgumentReader $reader): ToolResult
     {
         $resourceName = $this->getResourceName();
         $page = $reader->getInt('page', 1, 1, self::PAGE_MAX);
@@ -156,13 +157,10 @@ abstract class AbstractSearchTool implements ToolInterface
                 $results
             ),
         ];
-        $hint = 0 === $output['total_results']
+        $note = 0 === $output['total_results']
             ? $this->getEmptyHint($query)
             : $this->getSortHint($query, $results, $output['total_results']);
-        if (null !== $hint) {
-            $output['hint'] = $hint;
-        }
-        return $output;
+        return ToolResult::json($output, $note);
     }
 
     /**

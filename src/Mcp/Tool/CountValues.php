@@ -119,8 +119,8 @@ class CountValues implements ToolInterface
         $ids = $this->counter->getResourceIds($resource, $filters);
         if (null === $ids) {
             throw new ToolException(sprintf(
-                'More than %d %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a field.',
-                ResourceCounter::COUNT_MAX, $label
+                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a field.',
+                number_format(ResourceCounter::COUNT_MAX), $label
             ));
         }
         $values = [];
@@ -144,14 +144,15 @@ class CountValues implements ToolInterface
             'distinct_values' => $totals['values'],
             'values' => $values,
         ];
+        $note = null;
         if (!$ids) {
-            $output['hint'] = $this->queryBuilder->explainEmpty($filters, $label);
+            $note = $this->queryBuilder->explainEmpty($filters, $label);
         } elseif (!$totals['resources']) {
-            $output['hint'] = sprintf('None of the matching %s has a value for %s.', $label, $field);
+            $note = sprintf('None of the matching %s has a value for %s.', $label, $field);
             if ('items' === $resource) {
-                $output['hint'] .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
+                $note .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
             }
         }
-        return ToolResult::json($output);
+        return ToolResult::json($output, $note);
     }
 }
