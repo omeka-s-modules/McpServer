@@ -16,9 +16,9 @@ use Throwable;
  *
  * Handles HTTP and Omeka policy only: the method, the media type, the MCP
  * headers, refusing credentials, and the response. The Dispatcher does all of
- * JSON-RPC. Every response is a single JSON body. The server never opens an
- * event stream, never issues a session ID, and never sets cookies. Every
- * request is anonymous, so callers see public content only.
+ * JSON-RPC. A response with a body has a single JSON body. The server never
+ * opens an event stream, never issues a session ID, and never sets cookies.
+ * Every request is anonymous, so callers see public content only.
  */
 class IndexController extends AbstractActionController
 {
@@ -37,7 +37,8 @@ class IndexController extends AbstractActionController
     /**
      * @param callable $dispatcherFactory Returns the Dispatcher. It's called
      *   inside the action's error handling, so a failure to build it, such as
-     *   a broken tool in another module's config, is still answered as JSON.
+     *   invalid tool configuration from another module, is still answered as
+     *   JSON.
      */
     public function __construct(AuthenticationService $auth, callable $dispatcherFactory, LoggerInterface $logger)
     {

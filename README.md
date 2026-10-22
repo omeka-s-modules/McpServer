@@ -137,7 +137,7 @@ Finds items, a page at a time, as short summaries with a link to each item's pub
 | `query` | string | Words to search for, ranked by relevance. Matches whole words only. |
 | `contains` | string | Text that must appear somewhere in an item's values, even inside a word. |
 | `item_set` | integer[] | Only items in any of these item sets, by ID. At most 100. |
-| `class` | string | Only items of this class, by term (`dcterms:Text`) or label (`Text`). |
+| `class` | string | Only items of this class, by term (`dctype:Text`) or label (`Text`). |
 | `site` | string | Only items in this site, by slug. |
 | `has_media` | boolean | Only items with media (`true`) or without (`false`). |
 | `where` | object[] | Conditions on fields, all of which must hold. At most 10. See below. |
@@ -154,7 +154,7 @@ Each `where` condition has a `field` (a property term), an `op`, and usually a `
 | `contains` | contains the value |
 | `starts_with` | starts with the value. Dates usually start with the year, so `17` finds the 1700s. |
 | `ends_with` | ends with the value |
-| `links_to` | links to the item with this ID |
+| `links_to` | links to the resource (an item, media, or item set) with this ID |
 | `exists` | has any value (no `value` needed) |
 | `missing` | has no value (no `value` needed) |
 
@@ -331,6 +331,11 @@ the `mcp_server` key in your module's configuration:
 
 Names from other modules start with the module's name, as above. A tool's name should
 never change once released, because clients remember permissions by name.
+
+For counts, use the `McpServer\ResourceCounter` service, which keeps grouped queries
+within what the caller may see. To return results, use `ToolResult::json()`, and put any
+guidance for the assistant, such as why nothing matched, in its note rather than in the
+data.
 
 ## Why the protocol is built in
 

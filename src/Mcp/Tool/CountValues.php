@@ -14,10 +14,10 @@ use McpServer\Stdlib\SearchOptions;
  * Omeka's API can't group, so the counting is ResourceCounter's, under the
  * rule in ToolInterface: the API returns the IDs of the matching resources,
  * applying every filter, module extension, and visibility rule, and the
- * grouped query reads only the values of those resources. Core's Doctrine filters then hide
- * private values, and the titles of linked resources the caller can't see. A
- * linked media counts by its title even when its item is private, as core's
- * own pages show it.
+ * grouped query reads only the values of those resources. Core's Doctrine
+ * filters then hide private values, and the titles of linked resources the
+ * caller can't see. A linked media counts by its title even when its item is
+ * private, as core's own pages show it.
  *
  * Values group under the database's collation, so values that differ only in
  * case, accents, or trailing spaces count as one. MySQL also compares only the

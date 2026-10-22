@@ -9,8 +9,9 @@ use Omeka\Api\Manager as ApiManager;
  *
  * Shared by the search tools, which resolve terms, labels, and slugs here, and
  * by get_overview, which lists them with counts from ResourceCounter.
- * Everything comes from the API, so it reflects the caller's visibility. Each
- * list is fetched once per request.
+ * Everything comes from the API, or from those counts, which are limited to
+ * what the API returned, so it reflects the caller's visibility. Each list is
+ * fetched once per request.
  */
 class SearchOptions
 {
@@ -54,9 +55,10 @@ class SearchOptions
     }
 
     /**
-     * Get the classes resources use, by term.
+     * Get the classes resources use, by term, without counts.
      *
-     * Enough to resolve a class name, without counting.
+     * For listing: findClass() resolves a name with targeted queries
+     * instead, and lists these only when nothing matches.
      *
      * @return array List of ['id', 'term', 'label']
      */

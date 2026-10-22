@@ -79,7 +79,7 @@ class ResourceQueryBuilder
             ],
             'class' => [
                 'type' => 'string',
-                'description' => 'Only those of this class, by term (e.g. "dcterms:Text") or label (e.g. "Text").',
+                'description' => 'Only those of this class, by term (e.g. "dctype:Text") or label (e.g. "Text").',
             ],
             'site' => [
                 'type' => 'string',
@@ -105,7 +105,7 @@ class ResourceQueryBuilder
                         'op' => [
                             'type' => 'string',
                             'enum' => array_keys(self::OPERATORS),
-                            'description' => '"links_to" takes an item id; "exists" and "missing" take no value.',
+                            'description' => '"links_to" takes the id of an item, media, or item set; "exists" and "missing" take no value.',
                         ],
                         'value' => ['type' => ['string', 'integer']],
                     ],

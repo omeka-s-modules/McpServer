@@ -198,7 +198,8 @@ class ResourceCounter
     }
 
     /**
-     * Count items per group, from the grouped counts or a query per group.
+     * Count items per group, from the grouped counts when this request
+     * already has them, otherwise a query per group.
      *
      * @param string $group A key of getGroupedCounts()
      * @param string $filter The item query parameter that selects one group

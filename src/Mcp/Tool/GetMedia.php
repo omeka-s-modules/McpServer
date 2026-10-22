@@ -96,10 +96,12 @@ class GetMedia implements ToolInterface
     }
 
     /**
-     * Get the media's largest thumbnail, a JPEG, or null when there is none.
+     * Get the media's thumbnail as JPEG bytes, or null when there's none to
+     * send.
      *
-     * Read from local storage only. Other stores would need the file fetched
-     * over HTTP.
+     * The first of THUMBNAIL_TYPES that exists, can be read, and is no larger
+     * than IMAGE_BYTES_MAX. Read from local storage only: other stores would
+     * need the file fetched over HTTP.
      */
     protected function getThumbnail(MediaRepresentation $media): ?string
     {

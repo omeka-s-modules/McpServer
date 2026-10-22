@@ -20,15 +20,19 @@ use Throwable;
  *
  * The compact forms follow Anthropic's guidance for agent tools: names rather
  * than internal IDs, values as the site shows them, and nothing empty. The
- * JSON-LD form is Omeka's own, for when a model needs everything.
+ * JSON-LD form is Omeka's own, for when a model needs everything. It also
+ * finds each resource's public page, on a site the caller may see, for a
+ * whole page of search results at once when primePublicUrls() runs first.
  */
 class ResourceFormatter
 {
+    // Longest description in a summary, and longest site summary.
     const DESCRIPTION_LIMIT = 300;
 
     // Longest text of a single value before it's cut.
     const TEXT_LIMIT = 2000;
 
+    // Most media an item lists; its media_total says when there are more.
     const MEDIA_LIMIT = 50;
 
     // Most entries of one list, such as a property's values or the links from
@@ -183,15 +187,16 @@ class ResourceFormatter
     }
 
     /**
-     * Get what other modules add to the item's JSON-LD, such as map locations.
+     * Get what other modules add to a resource's JSON-LD, such as map
+     * locations.
      *
      * Modules extend the JSON-LD through the rep.resource.json event, so
      * reading it brings their data along without any change on their side.
      * What remains after leaving out JSON-LD syntax, core's own "o:" keys, and
-     * the item's property values is theirs. It's passed on as is, apart from
-     * cut long values and the @context noise.
+     * the resource's property values is theirs. It's passed on as is, apart
+     * from cut long values and the @context noise.
      *
-     * @param array $terms The terms of the item's values, already given
+     * @param array $terms The terms of the resource's values, already given
      */
     protected function moduleData(AbstractResourceEntityRepresentation $resource, array $terms): array
     {
@@ -265,7 +270,9 @@ class ResourceFormatter
      * Get an item's or item set's public page, on a site the caller may see.
      *
      * Prefers the default site, if the resource is on it, then its visible
-     * sites in order. Returns null when it's on no site the caller sees.
+     * sites in order. Returns null when it's on no site the caller sees. Uses
+     * what primePublicUrls() found for the resource, when it ran, and
+     * otherwise loads the resource's sites.
      *
      * @param ItemRepresentation|ItemSetRepresentation $resource
      */
