@@ -6,7 +6,7 @@ use Omeka\ServiceManager\AbstractPluginManager;
 class Manager extends AbstractPluginManager
 {
     // Clients, Claude among them, reject names outside this pattern.
-    const NAME_PATTERN = '/^[a-zA-Z0-9_-]{1,64}$/';
+    const NAME_PATTERN = '/^[a-zA-Z0-9_-]{1,64}$/D';
 
     protected $autoAddInvokableClass = false;
 

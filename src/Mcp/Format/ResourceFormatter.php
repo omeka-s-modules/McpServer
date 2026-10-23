@@ -97,7 +97,7 @@ class ResourceFormatter
             'values' => $values,
             // Media keep the order of the item page.
             'media' => array_map(fn ($media) => $this->mediaEntry($media), array_slice($media, 0, OutputLimits::MEDIA_LIMIT)),
-            OutputLimits::MEDIA_TOTAL => count($media),
+            OutputLimits::MEDIA_TOTAL => count($media) > OutputLimits::MEDIA_LIMIT ? count($media) : null,
             'item_sets' => array_values($itemSets),
             ...$this->jsonLdFormatter->moduleData($item, array_keys($values)),
         ]);
@@ -258,7 +258,9 @@ class ResourceFormatter
         }
         $html = (string) ($media->mediaData()['html'] ?? '');
         // Core's HTML sanitizer removes these, but admins can turn it off.
-        $html = preg_replace('#<(script|style)\b[^>]*>.*?</\1\s*>#is', '', $html);
+        // The pattern doesn't backtrack, so a large block can't exhaust PCRE,
+        // and if it fails anyway the text is kept.
+        $html = preg_replace('#<(script|style)\b[^>]*+>(?:[^<]++|<(?!/\1\s*>))*+</\1\s*>#i', '', $html) ?? $html;
         // Line breaks where blocks end, so paragraphs don't run together.
         $html = preg_replace('#<br\s*/?>|</(p|div|li|h[1-6]|tr|blockquote)>#i', "\n", $html);
         $text = trim(preg_replace("/[ \t]+/", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));

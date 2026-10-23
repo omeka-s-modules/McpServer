@@ -93,7 +93,7 @@ class NameLookup
     public function findUsedClassesByLabel(string $label): array
     {
         $ids = array_filter(
-            array_keys(array_filter($this->getClassLabels(), fn ($classLabel) => 0 === strcasecmp((string) $classLabel, $label))),
+            array_keys(array_filter($this->getClassLabels(), fn ($classLabel) => mb_strtolower((string) $classLabel) === mb_strtolower($label))),
             fn ($id) => $this->counter->isUsed('resource_classes', (int) $id)
         );
         return $ids ? array_map(

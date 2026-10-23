@@ -165,11 +165,12 @@ class ValueFormatter
                 } else {
                     // Other types, such as numeric dates, show a readable
                     // form, with the stored form kept beside it when they
-                    // differ.
+                    // differ and it fits whole. A longer one, such as HTML,
+                    // is left to the readable text, which can be read in full.
                     $shown = $this->render($value);
                     $output['text'] = $shown ?? $stored;
-                    if (null !== $shown && $shown !== trim($stored)) {
-                        $output['value'] = OutputLimits::cut($stored);
+                    if (null !== $shown && $shown !== trim($stored) && mb_strlen($stored) <= OutputLimits::TEXT_LIMIT) {
+                        $output['value'] = $stored;
                     }
                 }
             } else {

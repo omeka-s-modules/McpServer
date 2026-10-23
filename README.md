@@ -33,9 +33,9 @@ https://example.org/mcp
 ## Requirements
 
 - Omeka S 4.2.1 or later.
-- For assistants that run in the cloud, such as Claude on the web, your Omeka installation
-  must be reachable from the internet. An installation on `localhost` works only with
-  assistants running on the same computer, such as Claude Code.
+- For assistants that connect from the cloud, such as Claude on the web or desktop, your
+  Omeka installation must be reachable from the internet. An installation on `localhost`
+  works only with assistants running on the same computer, such as Claude Code.
 
 ## Installation
 
@@ -47,52 +47,15 @@ address exactly, with no slash at the end.
 
 ## Connecting an assistant
 
-Any MCP client that supports remote servers over Streamable HTTP can connect. No
-authentication is needed. In the examples below, replace `https://example.org/mcp` with
-your own address.
+Add the server to your assistant as a remote MCP server, using your endpoint's address,
+such as `https://example.org/mcp`. It uses Streamable HTTP and needs no sign-in. Each
+assistant explains where to add one:
 
-### Claude (web and desktop)
-
-1. Open **Settings**, then **Connectors**.
-2. Click **Add custom connector**.
-3. Give it a name, such as your installation's title, and enter your address as the URL.
-
-### Claude Code
-
-```sh
-claude mcp add --transport http omeka https://example.org/mcp
-```
-
-### VS Code
-
-Add the server to `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "omeka": {
-      "type": "http",
-      "url": "https://example.org/mcp"
-    }
-  }
-}
-```
-
-### Cursor
-
-Add the server to `~/.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "omeka": {
-      "url": "https://example.org/mcp"
-    }
-  }
-}
-```
-
-### MCP Inspector
+- [Claude](https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp),
+  on the web or desktop, as a custom connector
+- [Claude Code](https://code.claude.com/docs/en/mcp)
+- [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
+- [Cursor](https://cursor.com/docs/context/mcp)
 
 To check that the server responds, list its tools with the
 [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
@@ -317,8 +280,9 @@ says so, and says how to read the rest, if there is a way.
 
 ## Troubleshooting
 
-**Claude on the web can't connect.** Claude connects from Anthropic's servers, so your
-installation must be reachable from the internet. A `localhost` address won't work.
+**Claude can't connect.** Claude, on the web and in the desktop app, connects from
+Anthropic's servers, so your installation must be reachable from the internet. A
+`localhost` address won't work.
 
 **The connection fails at an address ending in a slash.** Use `/mcp`, not `/mcp/`.
 Omeka redirects `/mcp/` to `/mcp`, and not every client follows the redirect.

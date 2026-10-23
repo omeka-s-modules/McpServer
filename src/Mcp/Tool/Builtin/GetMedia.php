@@ -106,8 +106,9 @@ class GetMedia implements ToolInterface
         }
         $concise = $this->formatter->media($media);
         $notes = array_filter([OutputLimitNotes::forConcise($concise)]);
-        $image = $reader->getBool('image', true) ? $this->getThumbnail($media) : null;
-        if ($reader->getBool('image', true) && null === $image) {
+        $wantImage = $reader->getBool('image', true);
+        $image = $wantImage ? $this->getThumbnail($media) : null;
+        if ($wantImage && null === $image) {
             $notes[] = isset($concise['original_url'])
                 ? 'No image of this media is available here. original_url links to its file.'
                 : 'This media has no image or file to show.';

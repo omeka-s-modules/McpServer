@@ -34,13 +34,15 @@ class JsonLdFormatter
      */
     public function jsonLd(AbstractResourceEntityRepresentation $resource): array
     {
-        $textsCut = 0;
         // Decode to objects, so empty maps stay {} when encoded again.
-        $jsonLd = $this->cutTexts(json_decode(json_encode($resource, self::ROUND_TRIP_FLAGS)), $textsCut);
+        $jsonLd = json_decode(json_encode($resource, self::ROUND_TRIP_FLAGS));
+        // Lists first, so only the texts still shown are cut and counted.
         $cut = $this->cutLists($jsonLd, '');
         if (isset($jsonLd->{'@reverse'}) && $jsonLd->{'@reverse'} instanceof stdClass) {
             $cut += $this->cutLists($jsonLd->{'@reverse'}, '@reverse ');
         }
+        $textsCut = 0;
+        $jsonLd = $this->cutTexts($jsonLd, $textsCut);
         return [$jsonLd, $cut, $textsCut];
     }
 
@@ -71,9 +73,9 @@ class JsonLdFormatter
             }
             $data->{$key} = $this->withoutContext($value);
         }
+        $totals = $this->cutLists($data, '');
         $textsCut = 0;
         $data = $this->cutTexts($data, $textsCut);
-        $totals = $this->cutLists($data, '');
         return [
             'module_data' => get_object_vars($data),
             OutputLimits::MODULE_DATA_TOTALS => $totals,
