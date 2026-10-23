@@ -3,65 +3,37 @@ namespace McpServer\Mcp\Protocol;
 
 use Laminas\Log\LoggerInterface;
 use McpServer\Mcp\Exception\ProtocolException;
-use McpServer\Mcp\Tool\Context;
-use McpServer\Mcp\Tool\Manager as ToolManager;
 use McpServer\Mcp\Tool\ToolResult;
-use McpServer\Mcp\Tool\ToolRunner;
-use stdClass;
 use Throwable;
 
 /**
  * Answers MCP JSON-RPC messages.
  *
- * Everything JSON-RPC happens here: decoding a request body, checking it,
- * routing it, and building the result or the error, with the HTTP status the
+ * Here a request body is decoded and checked as JSON-RPC, then handed to its
+ * era, and the result or error becomes the response, with the HTTP status the
  * spec gives it. The controller handles only HTTP and Omeka policy.
  *
- * Serves both protocol eras. A request in the 2026-07-28 era carries its
- * version in _meta and needs no handshake. Earlier clients open with
- * initialize, then send their negotiated version in a header. Nothing is kept
- * between requests in either era.
+ * Each era answers its own requests. EnvelopeEra serves 2026-07-28, where each
+ * request carries its version in _meta, and HandshakeEra serves the earlier
+ * versions, which open with initialize. What both eras ask of the tools is in
+ * ToolRequests.
  */
 class Dispatcher
 {
     // How responses are encoded, the same as tool results inside them.
     const JSON_FLAGS = ToolResult::JSON_FLAGS;
 
-    const META_PROTOCOL_VERSION = 'io.modelcontextprotocol/protocolVersion';
-    const META_CLIENT_CAPABILITIES = 'io.modelcontextprotocol/clientCapabilities';
-    const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
+    protected $handshakeEra;
 
-    // How long clients may cache the tool list and discovery results, so that
-    // tools added by an upgrade appear without reconnecting.
-    const TTL_MS = 300000;
-
-    // JSON Schema keywords whose value is a map of names to subschemas.
-    const SCHEMA_MAP_KEYWORDS = ['properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas'];
-
-    // JSON Schema keywords whose value is one subschema, or a list of them.
-    const SCHEMA_KEYWORDS = [
-        'items', 'prefixItems', 'additionalItems', 'additionalProperties', 'unevaluatedItems',
-        'unevaluatedProperties', 'propertyNames', 'contains', 'not', 'if', 'then', 'else',
-        'allOf', 'anyOf', 'oneOf',
-    ];
-
-    protected $toolManager;
-
-    protected $toolRunner;
+    protected $envelopeEra;
 
     protected $logger;
 
-    protected $serverInfo;
-
-    protected $instructions;
-
-    public function __construct(ToolManager $toolManager, ToolRunner $toolRunner, LoggerInterface $logger, array $serverInfo, string $instructions)
+    public function __construct(HandshakeEra $handshakeEra, EnvelopeEra $envelopeEra, LoggerInterface $logger)
     {
-        $this->toolManager = $toolManager;
-        $this->toolRunner = $toolRunner;
+        $this->handshakeEra = $handshakeEra;
+        $this->envelopeEra = $envelopeEra;
         $this->logger = $logger;
-        $this->serverInfo = $serverInfo;
-        $this->instructions = $instructions;
     }
 
     /**
@@ -191,241 +163,24 @@ class Dispatcher
         if (null === $id) {
             throw new ProtocolException('Invalid request: id must be a string or an integer.', ProtocolException::INVALID_REQUEST, 400);
         }
-
-        // Modern markers come first: in the 2026-07-28 era, initialize is a
-        // removed method rather than the start of a legacy handshake.
-        if ($this->isModern($params, $headers)) {
-            $result = $this->dispatchModern($method, $params, $headers);
-        } elseif ('initialize' === $method) {
-            $result = $this->initialize($params);
-        } else {
-            $result = $this->dispatchLegacy($method, $params, $headers);
-        }
+        $result = $this->isEnvelopeRequest($params, $headers)
+            ? $this->envelopeEra->answer($method, $params, $headers)
+            : $this->handshakeEra->answer($method, $params, $headers);
         return ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result];
     }
 
     /**
-     * Whether a request is in the 2026-07-28 era.
+     * Whether a request is in the envelope era.
      *
-     * Either _meta carries a protocol version, or the header names a modern
-     * one. The header matters for requests that leave out _meta, so they can
-     * be told what's missing rather than taken for legacy requests.
+     * Either _meta carries a protocol version, or the header names an
+     * envelope-era one. The header matters for requests that leave out _meta,
+     * so they can be told what's missing rather than taken for handshake-era
+     * requests. It's checked before initialize, since in the envelope era
+     * initialize is a removed method rather than the start of a handshake.
      */
-    protected function isModern(array $params, array $headers): bool
+    protected function isEnvelopeRequest(array $params, array $headers): bool
     {
-        return isset($params['_meta'][self::META_PROTOCOL_VERSION])
-            || ProtocolVersion::isModern($headers['mcp-protocol-version'] ?? '');
-    }
-
-    /**
-     * Answer a request in the 2026-07-28 era.
-     */
-    protected function dispatchModern(string $method, array $params, array $headers): array
-    {
-        $meta = is_array($params['_meta'] ?? null) ? $params['_meta'] : [];
-        $version = $meta[self::META_PROTOCOL_VERSION] ?? null;
-        if (!is_string($version) || !isset($meta[self::META_CLIENT_CAPABILITIES]) || !is_array($meta[self::META_CLIENT_CAPABILITIES])) {
-            throw new ProtocolException(
-                sprintf('Invalid params: _meta must include %s and %s.', self::META_PROTOCOL_VERSION, self::META_CLIENT_CAPABILITIES),
-                ProtocolException::INVALID_PARAMS, 400
-            );
-        }
-        // A header that contradicts the body is a mismatch, whatever versions
-        // they name. Only then is the version itself checked.
-        $this->checkHeader($headers, 'mcp-protocol-version', 'MCP-Protocol-Version', $version);
-        if (!ProtocolVersion::isModern($version)) {
-            throw new ProtocolException(
-                'Unsupported protocol version',
-                ProtocolException::UNSUPPORTED_PROTOCOL_VERSION, 400,
-                ['supported' => ProtocolVersion::supported(), 'requested' => $version]
-            );
-        }
-        $this->checkHeader($headers, 'mcp-method', 'Mcp-Method', $method);
-        if ('tools/call' === $method && is_string($params['name'] ?? null)) {
-            $this->checkHeader($headers, 'mcp-name', 'Mcp-Name', $params['name'], true);
-        }
-
-        switch ($method) {
-            case 'server/discover':
-                $result = [
-                    'supportedVersions' => ProtocolVersion::supported(),
-                    'capabilities' => $this->getCapabilities(),
-                    'instructions' => $this->instructions,
-                    'ttlMs' => self::TTL_MS,
-                    'cacheScope' => 'public',
-                ];
-                break;
-            case 'tools/list':
-                $result = [
-                    'tools' => $this->listTools(),
-                    'ttlMs' => self::TTL_MS,
-                    'cacheScope' => 'public',
-                ];
-                break;
-            case 'tools/call':
-                $result = $this->callTool($params, new Context($version));
-                break;
-            default:
-                throw new ProtocolException(sprintf('Method not found: %s', $method), ProtocolException::METHOD_NOT_FOUND, 404);
-        }
-        return ['resultType' => 'complete'] + $result + ['_meta' => [self::META_SERVER_INFO => $this->serverInfo]];
-    }
-
-    /**
-     * Answer a request in the initialize era, after the handshake.
-     */
-    protected function dispatchLegacy(string $method, array $params, array $headers): object|array
-    {
-        $version = $headers['mcp-protocol-version'] ?? ProtocolVersion::LEGACY_DEFAULT;
-        if (!ProtocolVersion::isLegacy($version)) {
-            throw new ProtocolException(
-                sprintf('Unsupported protocol version "%s". Send a supported MCP-Protocol-Version header.', $version),
-                ProtocolException::INVALID_REQUEST, 400,
-                ['supported' => ProtocolVersion::supported(), 'requested' => $version]
-            );
-        }
-        switch ($method) {
-            case 'ping':
-                return new stdClass;
-            case 'tools/list':
-                return ['tools' => $this->listTools()];
-            case 'tools/call':
-                return $this->callTool($params, new Context($version));
-            default:
-                throw new ProtocolException(sprintf('Method not found: %s', $method), ProtocolException::METHOD_NOT_FOUND);
-        }
-    }
-
-    /**
-     * Answer the initialize handshake.
-     */
-    protected function initialize(array $params): array
-    {
-        $requested = $params['protocolVersion'] ?? null;
-        if (!is_string($requested)) {
-            throw new ProtocolException('Invalid params: initialize requires protocolVersion.', ProtocolException::INVALID_PARAMS);
-        }
-        // Echo a supported version, otherwise offer the newest this era has.
-        // A client asking for 2026-07-28 gets that too, since that version has
-        // no initialize.
-        return [
-            'protocolVersion' => ProtocolVersion::isLegacy($requested) ? $requested : ProtocolVersion::latestLegacy(),
-            'capabilities' => $this->getCapabilities(),
-            'serverInfo' => $this->serverInfo,
-            'instructions' => $this->instructions,
-        ];
-    }
-
-    protected function getCapabilities(): array
-    {
-        return ['tools' => ['listChanged' => false]];
-    }
-
-    /**
-     * Describe the registered tools.
-     */
-    protected function listTools(): array
-    {
-        $tools = [];
-        foreach ($this->toolManager->getToolNames() as $name) {
-            try {
-                $tool = $this->toolManager->get($name);
-                $definition = [
-                    'name' => $name,
-                    'title' => $tool->getTitle(),
-                    'description' => $tool->getDescription(),
-                    'inputSchema' => $this->encodeSchema($tool->getInputSchema()),
-                ];
-                $annotations = $tool->getAnnotations();
-                if ($annotations) {
-                    $definition['annotations'] = $annotations;
-                }
-            } catch (Throwable $e) {
-                // One broken tool shouldn't hide the others.
-                $this->logger->err(sprintf('MCP Server: could not describe the tool "%s": %s', $name, $e));
-                continue;
-            }
-            $tools[] = $definition;
-        }
-        return $tools;
-    }
-
-    /**
-     * Run a tool.
-     *
-     * Only an unknown tool or malformed params are protocol errors. The runner
-     * turns failures inside the tool into error results.
-     */
-    protected function callTool(array $params, Context $context): array
-    {
-        $name = $params['name'] ?? null;
-        if (!is_string($name) || !$this->toolRunner->canRun($name)) {
-            throw new ProtocolException(
-                sprintf('Unknown tool: %s', is_string($name) ? $name : '(no name given)'),
-                ProtocolException::INVALID_PARAMS
-            );
-        }
-        $arguments = $params['arguments'] ?? [];
-        if (!is_array($arguments)) {
-            throw new ProtocolException('Invalid params: arguments must be an object.', ProtocolException::INVALID_PARAMS);
-        }
-        $result = $this->toolRunner->run($name, $arguments, $context);
-        $output = ['content' => $result->getContent()];
-        if ($result->isError()) {
-            $output['isError'] = true;
-        }
-        return $output;
-    }
-
-    /**
-     * Check that a request header matches the request body.
-     */
-    protected function checkHeader(array $headers, string $name, string $label, string $expected, bool $mayBeEncoded = false): void
-    {
-        $value = $headers[$name] ?? null;
-        if (null === $value) {
-            throw new ProtocolException(sprintf('Header mismatch: the %s header is missing.', $label), ProtocolException::HEADER_MISMATCH, 400);
-        }
-        // Values that aren't safe as plain header text arrive base64 encoded.
-        if ($mayBeEncoded && preg_match('/^=\?base64\?([A-Za-z0-9+\/]*={0,2})\?=$/', $value, $matches)) {
-            $value = base64_decode($matches[1], true);
-        }
-        if ($value !== $expected) {
-            throw new ProtocolException(
-                sprintf('Header mismatch: %s header value does not match body value \'%s\'.', $label, mb_substr($expected, 0, 100)),
-                ProtocolException::HEADER_MISMATCH, 400
-            );
-        }
-    }
-
-    /**
-     * Prepare a JSON Schema for encoding.
-     *
-     * PHP encodes an empty array as [], but an empty schema, which accepts
-     * anything, and an empty map must be {}.
-     */
-    protected function encodeSchema(array $schema): object|array
-    {
-        if (!$schema) {
-            return new stdClass;
-        }
-        foreach ($schema as $key => $value) {
-            if (!is_array($value)) {
-                continue;
-            }
-            if (in_array($key, self::SCHEMA_MAP_KEYWORDS, true)) {
-                $schema[$key] = $value ? array_map(fn ($subschema) => $this->encodeSubschema($subschema), $value) : new stdClass;
-            } elseif (in_array($key, self::SCHEMA_KEYWORDS, true)) {
-                $schema[$key] = ($value && array_is_list($value))
-                    ? array_map(fn ($subschema) => $this->encodeSubschema($subschema), $value)
-                    : $this->encodeSchema($value);
-            }
-        }
-        return $schema;
-    }
-
-    protected function encodeSubschema($subschema)
-    {
-        return is_array($subschema) ? $this->encodeSchema($subschema) : $subschema;
+        return isset($params['_meta'][EnvelopeEra::META_PROTOCOL_VERSION])
+            || ProtocolVersion::isEnvelope($headers['mcp-protocol-version'] ?? '');
     }
 }

@@ -4,6 +4,9 @@ namespace McpServer\Service\Mcp\Protocol;
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use McpServer\Mcp\Protocol\Dispatcher;
+use McpServer\Mcp\Protocol\EnvelopeEra;
+use McpServer\Mcp\Protocol\HandshakeEra;
+use McpServer\Mcp\Protocol\ToolRequests;
 
 class DispatcherFactory implements FactoryInterface
 {
@@ -18,12 +21,13 @@ class DispatcherFactory implements FactoryInterface
         if ('' !== $title) {
             $serverInfo['title'] = $title;
         }
+        $logger = $services->get('Omeka\Logger');
+        $instructions = $this->getInstructions($title);
+        $tools = new ToolRequests($services->get('McpServer\ToolManager'), $services->get('McpServer\ToolRunner'), $logger);
         return new Dispatcher(
-            $services->get('McpServer\ToolManager'),
-            $services->get('McpServer\ToolRunner'),
-            $services->get('Omeka\Logger'),
-            $serverInfo,
-            $this->getInstructions($title)
+            new HandshakeEra($tools, $serverInfo, $instructions),
+            new EnvelopeEra($tools, $serverInfo, $instructions),
+            $logger
         );
     }
 

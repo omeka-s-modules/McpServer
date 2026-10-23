@@ -8,7 +8,7 @@ use RuntimeException;
  *
  * The exception code is the JSON-RPC error code. The HTTP status is kept
  * separately because the MCP spec fixes it for some errors (400 for header
- * and version problems, 404 for an unknown method in the modern era) and
+ * and version problems, 404 for an unknown method in the envelope era) and
  * leaves it open for others.
  */
 class ProtocolException extends RuntimeException
