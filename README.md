@@ -219,14 +219,16 @@ its items with `search_items`, then list each item's media with `item`.
 
 ### get_media
 
-Reads one media: its metadata, the item it belongs to, and links to its file. When the
-media has a thumbnail, as images and usually PDFs and videos do, the result includes that
-image, so the assistant can see what the media shows. An HTML media, which holds its text
-rather than a file, includes that text as `content`, cut like a long value.
+Reads one media: its metadata, the item it belongs to, links to its file, and in
+`module_data`, anything other modules add. When the media has a thumbnail, as images and
+usually PDFs and videos do, the result includes that image, so the assistant can see what
+the media shows. An HTML media, which holds its text rather than a file, includes that
+text as `content`, cut like a long value.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | integer | The media's ID. Required. |
+| `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
 | `image` | boolean | Include the image. Default `true`. |
 | `field`, `page`, `offset`, `position` | | The same as in `get_item`. `field` can also be `content`, to read an HTML media's text with `offset`. |
 

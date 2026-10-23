@@ -3,6 +3,7 @@ namespace McpServer\Mcp\Tool\Builtin;
 
 use McpServer\Mcp\Format\OutputLimits;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
+use Omeka\Api\Representation\MediaRepresentation;
 
 /**
  * Writes the notes that tell the model what a tool's output cut, and how to
@@ -87,9 +88,12 @@ final class OutputLimitNotes
         }
         if ($textsCut) {
             $notes[] = sprintf(
-                'Text was cut after its first %s characters, where it ends "%s". To read the rest of a property\'s value, call again with its "field", its "position" (from 1), and "offset" %d, without "detailed". Offsets count a value\'s readable text, which for HTML and other markup differs from its @value; read those from the start. Each call returns up to %s characters, and says where the next one starts. Text cut elsewhere, such as in an annotation, can\'t be read further through these tools.',
+                'Text was cut after its first %s characters, where it ends "%s". To read the rest of a property\'s value, call again with its "field", its "position" (from 1), and "offset" %d, without "detailed". Offsets count a value\'s readable text, which for HTML and other markup differs from its @value; read those from "offset" 0. Each call returns up to %s characters, and says where the next one starts. Text cut elsewhere, such as in an annotation, can\'t be read further through these tools.',
                 number_format(OutputLimits::TEXT_LIMIT), sprintf(OutputLimits::CUT_MARKER, 'N'), OutputLimits::TEXT_LIMIT, number_format(OutputLimits::CHUNK_LIMIT)
             );
+            if ($resource instanceof MediaRepresentation && 'html' === $resource->ingester()) {
+                $notes[] = 'This HTML media\'s own text, in o-cnt:chars and data, reads in full with "field" "content".';
+            }
         }
         return $notes ? implode("\n", $notes) : null;
     }

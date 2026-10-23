@@ -2,6 +2,7 @@
 namespace McpServer\Mcp\Query;
 
 use Omeka\Api\Manager as ApiManager;
+use Omeka\Entity\Vocabulary;
 
 /**
  * Looks up the classes, properties, and sites a model names, and lists the
@@ -66,13 +67,18 @@ class NameLookup
      *
      * Looks the term up, then checks it's in use, rather than asking core's
      * "used" filter, which joins every value of a property before returning
-     * the one row.
+     * the one row. Core ignores a term filter that isn't a valid term, and
+     * would return the first class or property instead, so such a term finds
+     * nothing.
      *
      * @param string $resource "resource_classes" or "properties"
      * @return array|null ['id', 'term', 'label']
      */
     public function findUsedTerm(string $resource, string $term): ?array
     {
+        if (!preg_match(Vocabulary::TERM_REGEX, $term)) {
+            return null;
+        }
         if (!array_key_exists($term, $this->cache['used_terms'][$resource] ?? [])) {
             $found = $this->api->search($resource, ['term' => $term, 'limit' => 1], ['countQuery' => false])->getContent();
             $this->cache['used_terms'][$resource][$term] = $found && $this->counter->isUsed($resource, $found[0]->id())

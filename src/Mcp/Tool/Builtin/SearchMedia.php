@@ -15,9 +15,9 @@ class SearchMedia extends AbstractSearchTool
     {
         return 'Search and filter media, the files and other content attached to items, such as images, '
             . 'pages, and PDFs. Media can have their own metadata, such as a page\'s description or '
-            . 'transcription. Returns a page of short summaries: id, title, media type, the item it belongs to, '
-            . 'and links to its file and the item\'s public page, plus the total number of matches. Call '
-            . 'get_media with an id to see one.'
+            . 'transcription. Returns a page of short summaries: id, title, class, description, media type, the '
+            . 'item it belongs to, and links to the media\'s public page, its file, and the item\'s public page, '
+            . 'plus the total number of matches. Call get_media with an id to see one.'
             . "\n\n"
             . 'Takes the same query, filters, and sorting as search_items, except item sets and media, which '
             . 'only items have, plus "media_type" and "item". get_overview lists the media types in use, with '

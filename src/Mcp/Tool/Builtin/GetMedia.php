@@ -2,15 +2,13 @@
 namespace McpServer\Mcp\Tool\Builtin;
 
 use McpServer\Mcp\Exception\ToolException;
+use McpServer\Mcp\Format\JsonLdFormatter;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Format\ValueFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
-use McpServer\Mcp\Tool\Context;
-use McpServer\Mcp\Tool\ToolAnnotations;
-use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
-use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;
+use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 use Omeka\Api\Representation\MediaRepresentation;
 use Omeka\File\Store\Local;
 use Omeka\File\Store\StoreInterface;
@@ -19,35 +17,24 @@ use Omeka\File\ThumbnailManager;
 /**
  * Reads one media, with its image when it has a thumbnail.
  *
- * It doesn't extend AbstractGetTool, since a media has no detailed format, and
- * its result can carry an image. It reads one field in full the same way,
- * through ReadsFieldsTrait.
+ * It reads like get_item, and adds the image and an HTML media's text, which
+ * "field" reads as "content".
  */
-class GetMedia implements ToolInterface
+class GetMedia extends AbstractGetTool
 {
-    use ReadsFieldsTrait;
-
     // Largest image file sent. A large thumbnail is usually far smaller.
     const IMAGE_BYTES_MAX = 2000000;
 
     // Thumbnail types to send, in order of preference.
     const THUMBNAIL_TYPES = ['large', 'medium'];
 
-    protected $api;
-
-    protected $formatter;
-
-    protected $valueFormatter;
-
     protected $store;
 
     protected $thumbnails;
 
-    public function __construct(ApiManager $api, ResourceFormatter $formatter, ValueFormatter $valueFormatter, StoreInterface $store, ThumbnailManager $thumbnails)
+    public function __construct(ApiManager $api, ResourceFormatter $formatter, ValueFormatter $valueFormatter, JsonLdFormatter $jsonLdFormatter, StoreInterface $store, ThumbnailManager $thumbnails)
     {
-        $this->api = $api;
-        $this->formatter = $formatter;
-        $this->valueFormatter = $valueFormatter;
+        parent::__construct($api, $formatter, $valueFormatter, $jsonLdFormatter);
         $this->store = $store;
         $this->thumbnails = $thumbnails;
     }
@@ -60,61 +47,92 @@ class GetMedia implements ToolInterface
     public function getDescription(): string
     {
         return 'Get one media by its id, as given by get_item or search_media: its metadata, the item it '
-            . 'belongs to, and links to its file. When the media has a thumbnail, as images and usually PDFs '
+            . 'belongs to, links to its file, and in module_data whatever other modules add. When the media has a thumbnail, as images and usually PDFs '
             . 'and videos do, the result includes that image, up to 800 pixels on its longer side, so you can '
             . 'see what the media shows. Describe only what the image shows, and say when a detail would need '
-            . 'the original file.';
+            . 'the original file. The default response_format, "concise", suits almost every question; use '
+            . '"detailed" only when you need Omeka\'s raw JSON-LD.';
     }
 
-    public function getInputSchema(): array
+    protected function getResourceName(): string
+    {
+        return 'media';
+    }
+
+    protected function getSingularNoun(): string
+    {
+        return 'media';
+    }
+
+    protected function getConcise(AbstractResourceEntityRepresentation $media): array
+    {
+        return $this->formatter->media($media);
+    }
+
+    protected function getOwnProperties(): array
     {
         return [
-            'type' => 'object',
-            'properties' => [
-                'id' => [
-                    'type' => 'integer',
-                    'minimum' => 1,
-                    'description' => 'The media\'s id.',
-                ],
-                'image' => [
-                    'type' => 'boolean',
-                    'default' => true,
-                    'description' => 'Include the image. Turn it off to read only the metadata.',
-                ],
-            ] + $this->getFieldSchema(true),
-            'required' => ['id'],
+            'image' => [
+                'type' => 'boolean',
+                'default' => true,
+                'description' => 'Include the image. Turn it off to read only the metadata.',
+            ],
         ];
     }
 
-    public function getAnnotations(): array
+    protected function getOwnFieldsDescription(): string
     {
-        return ToolAnnotations::READ_ONLY;
+        return ' "content" reads an HTML media\'s text the same way.';
     }
 
-    public function call(array $arguments, Context $context): ToolResult
+    /**
+     * Read an HTML media's text, as "content".
+     */
+    protected function readOwnField(AbstractResourceEntityRepresentation $media, ArgumentReader $reader, string $term): ?ToolResult
     {
-        $reader = new ArgumentReader($arguments);
-        $id = $reader->requireInt('id', 1);
-        try {
-            $media = $this->api->read('media', $id)->getContent();
-        } catch (NotFoundException $e) {
-            throw new ToolException(sprintf('No media with id %d exists or is visible to you.', $id));
+        return 'content' === $term ? $this->readContent($media, $reader) : null;
+    }
+
+    /**
+     * Read part of a media's text content, from an offset.
+     */
+    protected function readContent(MediaRepresentation $media, ArgumentReader $reader): ToolResult
+    {
+        $this->refusePage($reader);
+        // A position of 1, the default, is allowed, since models often send
+        // defaults.
+        if (1 !== $reader->getInt('position', 1, 1)) {
+            throw new ToolException('"content" is a single text, so it takes "offset" but not "position".');
         }
-        $field = $this->readField($media, $reader, 'media');
-        if ($field) {
-            return $field;
+        $offset = $reader->getInt('offset', 0, 0);
+        $chunk = $this->formatter->contentChunk($media, $offset);
+        if (null === $chunk) {
+            throw new ToolException('This media has no text content. Only an HTML media holds its text itself, rather than in a file.');
         }
-        $concise = $this->formatter->media($media);
-        $notes = array_filter([OutputLimitNotes::forConcise($concise)]);
-        $wantImage = $reader->getBool('image', true);
-        $image = $wantImage ? $this->getThumbnail($media) : null;
-        if ($wantImage && null === $image) {
-            $notes[] = isset($concise['original_url'])
-                ? 'No image of this media is available here. original_url links to its file.'
-                : 'This media has no image or file to show.';
+        $output = [
+            'id' => $media->id(),
+            'title' => $media->displayTitle(),
+            'field' => 'content',
+        ];
+        return $this->getChunkResult($output, $chunk, $offset);
+    }
+
+    /**
+     * Get the media's thumbnail, unless "image" is false, with a note when
+     * there's none.
+     */
+    protected function getImage(AbstractResourceEntityRepresentation $media, ArgumentReader $reader): array
+    {
+        if (!$reader->getBool('image', true)) {
+            return [null, null];
         }
-        $result = ToolResult::json($concise, $notes ? implode(' ', $notes) : null);
-        return $image ? $result->withImage($image, 'image/jpeg') : $result;
+        $image = $this->getThumbnail($media);
+        if (null !== $image) {
+            return [$image, null];
+        }
+        return [null, $media->originalUrl()
+            ? 'No image of this media is available here. original_url links to its file.'
+            : 'This media has no image or file to show.'];
     }
 
     /**
@@ -141,15 +159,5 @@ class GetMedia implements ToolInterface
             }
         }
         return null;
-    }
-
-    protected function getFormatter(): ResourceFormatter
-    {
-        return $this->formatter;
-    }
-
-    protected function getValueFormatter(): ValueFormatter
-    {
-        return $this->valueFormatter;
     }
 }

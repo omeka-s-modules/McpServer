@@ -2,6 +2,7 @@
 namespace McpServer\Mcp\Format;
 
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
+use Omeka\Api\Representation\MediaRepresentation;
 use stdClass;
 
 /**
@@ -9,13 +10,21 @@ use stdClass;
  * other modules add, with long texts and lists cut to OutputLimits.
  *
  * It relies on two things in core's JSON-LD. Keys starting with "@" are JSON-
- * LD syntax, and keys starting with "o:" are core's own, so any other key that
- * isn't one of the resource's property terms comes from another module. And
- * "@reverse" lists every resource that links to this one, with no limit, so it
- * can be very long.
+ * LD syntax, and keys starting with "o:" are core's own, as are CORE_KEYS and
+ * MEDIA_CORE_KEYS, so any other key that isn't one of the resource's property
+ * terms comes from another module. And "@reverse" lists every resource that
+ * links to this one, with no limit, so it can be very long.
  */
 class JsonLdFormatter
 {
+    // Core's own key without "o:" on every resource: its thumbnail URLs.
+    const CORE_KEYS = ['thumbnail_display_urls'];
+
+    // And on a media: its ingester's data, and what core's own listeners add,
+    // an HTML media's markup in the W3C content vocabulary, and a YouTube
+    // video's start and end in the W3C time vocabulary.
+    const MEDIA_CORE_KEYS = ['data', 'o-cnt:chars', 'o-cnt:characterEncoding', 'o-time:hasBeginning', 'o-time:hasEnd'];
+
     // The JSON-LD is encoded only to be decoded again, so only the flags that
     // change what comes back: invalid UTF-8 is replaced rather than failing,
     // a float such as 1.0 stays a float, and an error throws.
@@ -52,7 +61,7 @@ class JsonLdFormatter
      *
      * Modules extend the JSON-LD through the rep.resource.json event, so
      * reading it brings their data along with no change on their side. What's
-     * left after leaving out JSON-LD syntax, core's own "o:" keys, and the
+     * left after leaving out JSON-LD syntax, core's own keys, and the
      * resource's property values is theirs. It's passed on as it is, apart
      * from @context keys, which only cost tokens. Long texts and lists are cut
      * as in the JSON-LD form: module_data_totals gives the full length of each
@@ -64,10 +73,11 @@ class JsonLdFormatter
      */
     public function moduleData(AbstractResourceEntityRepresentation $resource, array $terms): array
     {
+        $coreKeys = $resource instanceof MediaRepresentation ? [...self::CORE_KEYS, ...self::MEDIA_CORE_KEYS] : self::CORE_KEYS;
         $data = new stdClass;
         foreach (get_object_vars(json_decode(json_encode($resource, self::ROUND_TRIP_FLAGS))) as $key => $value) {
             if (str_starts_with($key, '@') || str_starts_with($key, 'o:')
-                || 'thumbnail_display_urls' === $key || in_array($key, $terms, true)
+                || in_array($key, $coreKeys, true) || in_array($key, $terms, true)
             ) {
                 continue;
             }
@@ -99,12 +109,17 @@ class JsonLdFormatter
     }
 
     /**
-     * Cut long @value strings in decoded JSON-LD.
+     * Cut long strings in decoded JSON-LD: values' @value, and any other text,
+     * such as an HTML media's markup or what a module adds.
      *
      * @param int $count Incremented for each text cut
      */
     protected function cutTexts($data, int &$count)
     {
+        if (is_string($data)) {
+            $count += mb_strlen($data) > OutputLimits::TEXT_LIMIT ? 1 : 0;
+            return OutputLimits::cut($data);
+        }
         if (is_array($data)) {
             foreach ($data as $key => $item) {
                 $data[$key] = $this->cutTexts($item, $count);
@@ -113,12 +128,7 @@ class JsonLdFormatter
         }
         if ($data instanceof stdClass) {
             foreach (get_object_vars($data) as $key => $item) {
-                if ('@value' === $key && is_string($item)) {
-                    $count += mb_strlen($item) > OutputLimits::TEXT_LIMIT ? 1 : 0;
-                    $data->{$key} = OutputLimits::cut($item);
-                } else {
-                    $data->{$key} = $this->cutTexts($item, $count);
-                }
+                $data->{$key} = $this->cutTexts($item, $count);
             }
         }
         return $data;

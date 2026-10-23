@@ -59,17 +59,9 @@ class ResourceFormatter
             fn ($value) => OutputLimits::cut($this->valueFormatter->valueText($value)['text']),
             $item->value('dcterms:creator', ['all' => true])
         )));
-        return OutputLimits::withoutEmpty([
-            'id' => $item->id(),
-            'title' => $item->displayTitle(),
-            'is_public' => $this->privateMark($item),
-            'resource_class' => $this->resourceClass($item),
-            'description' => $this->description($item),
+        return OutputLimits::withoutEmpty($this->summaryFields($item) + [
             'date' => $date,
             'creator' => $creators,
-            'url' => $this->publicUrl($item),
-            'api_url' => $item->apiUrl(),
-            'thumbnail_url' => $item->thumbnailDisplayUrl('medium'),
         ]);
     }
 
@@ -87,15 +79,7 @@ class ResourceFormatter
             $item->itemSets()
         );
         $values = $this->valueFormatter->values($item);
-        return OutputLimits::withoutEmpty([
-            'id' => $item->id(),
-            'title' => $item->displayTitle(),
-            'is_public' => $this->privateMark($item),
-            'url' => $this->publicUrl($item),
-            'api_url' => $item->apiUrl(),
-            'thumbnail_url' => $item->thumbnailDisplayUrl('medium'),
-            'resource_class' => $this->resourceClass($item),
-            ...$this->dates($item),
+        return OutputLimits::withoutEmpty($this->fullFields($item) + [
             'values' => $values,
             // Media keep the order of the item page.
             'media' => array_map(fn ($media) => $this->mediaEntry($media), array_slice($media, 0, OutputLimits::MEDIA_LIMIT)),
@@ -113,14 +97,8 @@ class ResourceFormatter
      */
     public function itemSetSummary(ItemSetRepresentation $itemSet): array
     {
-        return OutputLimits::withoutEmpty([
-            'id' => $itemSet->id(),
-            'title' => $itemSet->displayTitle(),
-            'is_public' => $this->privateMark($itemSet),
-            'description' => $this->description($itemSet),
+        return OutputLimits::withoutEmpty($this->summaryFields($itemSet) + [
             'items' => $itemSet->itemCount(),
-            'url' => $this->publicUrl($itemSet),
-            'api_url' => $itemSet->apiUrl(),
         ]);
     }
 
@@ -130,18 +108,45 @@ class ResourceFormatter
     public function itemSet(ItemSetRepresentation $itemSet): array
     {
         $values = $this->valueFormatter->values($itemSet);
-        return OutputLimits::withoutEmpty([
-            'id' => $itemSet->id(),
-            'title' => $itemSet->displayTitle(),
-            'is_public' => $this->privateMark($itemSet),
-            'url' => $this->publicUrl($itemSet),
-            'api_url' => $itemSet->apiUrl(),
-            'resource_class' => $this->resourceClass($itemSet),
-            ...$this->dates($itemSet),
+        return OutputLimits::withoutEmpty($this->fullFields($itemSet) + [
             'items' => $itemSet->itemCount(),
             'values' => $values,
             ...$this->jsonLdFormatter->moduleData($itemSet, array_keys($values)),
         ]);
+    }
+
+    /**
+     * Get the fields every full record starts with, before its own.
+     */
+    protected function fullFields(AbstractResourceEntityRepresentation $resource): array
+    {
+        return [
+            'id' => $resource->id(),
+            'title' => $resource->displayTitle(),
+            'is_public' => $this->privateMark($resource),
+            'url' => $this->publicUrl($resource),
+            'api_url' => $resource->apiUrl(),
+            'thumbnail_url' => $resource->thumbnailDisplayUrl('medium'),
+            'resource_class' => $this->resourceClass($resource),
+            ...$this->dates($resource),
+        ];
+    }
+
+    /**
+     * Get the fields every summary starts with, before its own.
+     */
+    protected function summaryFields(AbstractResourceEntityRepresentation $resource): array
+    {
+        return [
+            'id' => $resource->id(),
+            'title' => $resource->displayTitle(),
+            'is_public' => $this->privateMark($resource),
+            'resource_class' => $this->resourceClass($resource),
+            'description' => $this->description($resource),
+            'url' => $this->publicUrl($resource),
+            'api_url' => $resource->apiUrl(),
+            'thumbnail_url' => $resource->thumbnailDisplayUrl('medium'),
+        ];
     }
 
     /**
@@ -162,20 +167,22 @@ class ResourceFormatter
     }
 
     /**
-     * Get an item's or item set's public page, on a site the caller can see.
+     * Get a resource's public page, on a site the caller can see.
      *
      * Omeka's public pages exist only within a site, so this picks a site the
      * resource is on: the default site, when the caller can see it, otherwise
      * the first other site they can, by ID. Null when it's on none.
      *
-     * @param ItemRepresentation|ItemSetRepresentation $resource
+     * @param ItemRepresentation|ItemSetRepresentation|MediaRepresentation $resource
      */
     public function publicUrl(AbstractResourceEntityRepresentation $resource): ?string
     {
         // The caller's sites, by ID. The resource's own sites aren't filtered
         // by visibility, so they only say which of these it's on.
         $slugs = $this->names->getSiteSlugs();
-        $onSites = array_keys(array_intersect_key($slugs, $resource->sites()));
+        // A media is on the sites its item is on.
+        $placed = $resource instanceof MediaRepresentation ? $resource->item() : $resource;
+        $onSites = array_keys(array_intersect_key($slugs, $placed->sites()));
         if (!$onSites) {
             return null;
         }
@@ -201,24 +208,30 @@ class ResourceFormatter
     public function mediaSummary(MediaRepresentation $media): array
     {
         $item = $media->item();
-        return OutputLimits::withoutEmpty($this->mediaEntry($media) + [
-            'item' => ['id' => $item->id(), 'title' => $item->displayTitle()],
-            'url' => $this->publicUrl($item),
+        return OutputLimits::withoutEmpty($this->summaryFields($media) + [
+            'media_type' => $media->mediaType(),
+            'original_url' => $media->originalUrl(),
+            'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
         ]);
     }
 
     /**
-     * Get a media in full, as get_media returns it.
+     * Get a media in full, in the concise form get_media returns: the fields
+     * an item's full form has, then the media's own.
      */
     public function media(MediaRepresentation $media): array
     {
         $item = $media->item();
-        return OutputLimits::withoutEmpty($this->mediaEntry($media) + [
-            'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
+        $values = $this->valueFormatter->values($media);
+        return OutputLimits::withoutEmpty($this->fullFields($media) + [
+            'media_type' => $media->mediaType(),
+            'original_url' => $media->originalUrl(),
             // The original file name or URL.
             'source' => $media->source(),
+            'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
             'content' => $this->mediaContent($media),
-            'values' => $this->valueFormatter->values($media),
+            'values' => $values,
+            ...$this->jsonLdFormatter->moduleData($media, array_keys($values)),
         ]);
     }
 
