@@ -6,8 +6,8 @@ namespace McpServer\Mcp\Tool;
  * for now, the protocol version.
  *
  * The server builds this, and tools only read it. New details, such as who is
- * calling once signing in is supported, or the site of a per-site endpoint,
- * will arrive as new methods.
+ * calling, should a tool need it, or the site of a per-site endpoint, will
+ * arrive as new methods.
  */
 final class Context
 {

@@ -11,15 +11,16 @@ https://example.org/mcp
 ```
 
 - **Read-only.** Assistants can't create, change, or delete anything.
-- **Public content only.** Assistants see what a visitor to your public site sees.
-- **No setup for users.** There's no sign-in or API key: add the address to an assistant
-  and start asking.
+- **Public content, unless you add a key.** Assistants see what a visitor to your public
+  site sees. With an Omeka API key in the address, they see what that key's user may see.
+- **No setup for users.** Add the address to an assistant and start asking.
 
 ## Contents
 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Connecting an assistant](#connecting-an-assistant)
+- [Seeing private content](#seeing-private-content)
 - [Tools](#tools)
 - [Example prompts](#example-prompts)
 - [Privacy and security](#privacy-and-security)
@@ -63,6 +64,35 @@ To check that the server responds, list its tools with the
 ```sh
 npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport http --method tools/list
 ```
+
+## Seeing private content
+
+Without a key, assistants see public content only. To let an assistant see private
+content too, add an Omeka API key to the address, the same way Omeka's REST API takes one:
+
+```
+https://example.org/mcp?key_identity=IDENTITY&key_credential=CREDENTIAL
+```
+
+Create the key in the Omeka admin, on the user's edit page under **API keys**. Omeka shows
+the credential only once, when the key is created. The assistant then sees what that user
+may see:
+
+- **Reviewers, Editors, Supervisors, and Global Administrators** see all private content.
+- **Authors and Researchers** see public content and what they own.
+
+Full records carry Omeka's own flags, as its JSON-LD does: `"is_public": false` on a
+private item, media, item set, or value. Every tool still only reads.
+
+A key in the address is a password that anyone who sees the address can use:
+
+- **It appears wherever the address does:** in your web server's access logs, in any
+  proxy in front of it, and in the assistant's connector settings.
+- **Use a dedicated account** with only the role it needs, not a personal or
+  administrator account. Where a connector is shared, as on some assistants' team plans,
+  everyone using it shares its key.
+- **To revoke access, delete the key** in Omeka. A request with a key that no longer works
+  is refused, rather than answered as if it had none.
 
 ## Tools
 
@@ -238,19 +268,19 @@ has, a link to its public page, and anything other modules add. To list its item
 
 ## Privacy and security
 
-- **Only public content is visible.** Every request is anonymous, and every read goes
-  through Omeka's own API, so Omeka's visibility rules apply unchanged. Private items,
-  private media, and private values never appear, and neither do links to them.
+- **Without a key, only public content is visible.** Every read goes through Omeka's own
+  API, so Omeka's visibility rules apply unchanged. Private items, private media, and
+  private values appear only to a request with an API key whose user may see them, and
+  so do links to them.
 - **Nothing can be changed.** All tools are read-only.
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
-  never applies. A request that carries an Omeka API key in its URL is refused.
+  never applies. Only an API key in the address signs a request in.
 - **The endpoint is public,** like your public site and Omeka's REST API. Anyone who
   knows the address can use it. If that's a concern, rate-limit it at the web server, as
   you would any public endpoint.
 
-Signing in, so that a person's assistant can see what their Omeka account allows, is
-planned for a later version, using the sign-in flow Claude and other assistants already
-offer.
+Signing in through an assistant's own sign-in screen, so that each person uses their own
+Omeka account without handling a key, is planned for a later version.
 
 ## Limits
 
@@ -293,6 +323,14 @@ visitor can see. Assign the items and item sets to a public site, and their link
 **Searches miss items,** for example after importing directly into the database. Rebuild
 the full-text index: on the admin **Settings** page, check **Index full-text search** and
 save.
+
+**An assistant with a key still sees only public content.** The key's user may not see
+private content: an Author or a Researcher sees only what they own. Check the user's role.
+
+**Requests with a key are refused.** The key was mistyped, deleted, or belongs to a
+deactivated user. Create a new key and update the address. Some assistants show a
+refused key as a sign-in or registration error, since they can't tell it apart from a
+server that needs signing in.
 
 **Assistants get links but no images.** `get_media` reads thumbnails from Omeka's
 default local file storage. With other file storage, assistants get links to the files
@@ -355,8 +393,8 @@ as of October 2026 none of the PHP libraries fit Omeka well:
   also requires PHP 8.2 and a newer `symfony/console` than Omeka ships.
 - The standalone SDKs' authentication assumes an outside identity provider, with no way
   to let anonymous requests through while signed-in requests see more. When this server
-  adds signing in, Omeka will be the identity provider: anonymous visitors will still see
-  public content, and signing in will widen what a person sees.
+  adds OAuth sign-in, Omeka will be the identity provider: anonymous visitors will still
+  see public content, and signing in will widen what a person sees.
 
 WordPress made the same choice for its MCP adapter. The protocol code is kept apart from
 the tools, in `src/Mcp/Protocol/`, with the controller handling only HTTP, and tools are

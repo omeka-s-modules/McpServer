@@ -62,6 +62,7 @@ class ResourceFormatter
         return OutputLimits::withoutEmpty([
             'id' => $item->id(),
             'title' => $item->displayTitle(),
+            'is_public' => $this->privateMark($item),
             'resource_class' => $this->resourceClass($item),
             'description' => $this->description($item),
             'date' => $date,
@@ -89,6 +90,7 @@ class ResourceFormatter
         return OutputLimits::withoutEmpty([
             'id' => $item->id(),
             'title' => $item->displayTitle(),
+            'is_public' => $this->privateMark($item),
             'url' => $this->publicUrl($item),
             'api_url' => $item->apiUrl(),
             'thumbnail_url' => $item->thumbnailDisplayUrl('medium'),
@@ -114,6 +116,7 @@ class ResourceFormatter
         return OutputLimits::withoutEmpty([
             'id' => $itemSet->id(),
             'title' => $itemSet->displayTitle(),
+            'is_public' => $this->privateMark($itemSet),
             'description' => $this->description($itemSet),
             'items' => $itemSet->itemCount(),
             'url' => $this->publicUrl($itemSet),
@@ -130,6 +133,7 @@ class ResourceFormatter
         return OutputLimits::withoutEmpty([
             'id' => $itemSet->id(),
             'title' => $itemSet->displayTitle(),
+            'is_public' => $this->privateMark($itemSet),
             'url' => $this->publicUrl($itemSet),
             'api_url' => $itemSet->apiUrl(),
             'resource_class' => $this->resourceClass($itemSet),
@@ -276,10 +280,23 @@ class ResourceFormatter
         return OutputLimits::withoutEmpty([
             'id' => $media->id(),
             'title' => $media->displayTitle(),
+            'is_public' => $this->privateMark($media),
             'media_type' => $media->mediaType(),
             'original_url' => $media->originalUrl(),
             'thumbnail_url' => $media->thumbnailDisplayUrl('medium'),
         ]);
+    }
+
+    /**
+     * Mark a private resource, which a caller signed in with an API key may
+     * see, so the model knows it isn't on the public site.
+     *
+     * @return false|null False for a private resource, or null for a public
+     *   one, which leaves the field out
+     */
+    protected function privateMark(AbstractResourceEntityRepresentation $resource): ?bool
+    {
+        return $resource->isPublic() ? null : false;
     }
 
     protected function resourceClass(AbstractResourceEntityRepresentation $resource): ?array

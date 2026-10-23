@@ -15,10 +15,10 @@ use Throwable;
  * The MCP endpoint, over Streamable HTTP.
  *
  * Handles HTTP and Omeka policy only: the method, the media type, the MCP
- * headers, refusing credentials, and the response. The Dispatcher does all of
+ * headers, a failed API key, and the response. The Dispatcher does all of
  * JSON-RPC. A response with a body has a single JSON body. The server never
- * opens an event stream, never issues a session ID, and never sets cookies.
- * Every request is anonymous, so callers see public content only.
+ * opens an event stream, never issues a session ID, and never sets cookies. A
+ * request without an API key is anonymous and sees public content only.
  */
 class IndexController extends AbstractActionController
 {
@@ -97,7 +97,7 @@ class IndexController extends AbstractActionController
         [$status, $body] = $this->getDispatcher()->handle(
             $request->getContent(),
             $this->getMcpHeaders($request),
-            fn () => $this->refuseSignedInRequests($request)
+            fn () => $this->refuseFailedKey($request)
         );
         if (null === $body) {
             $response = $this->getResponse();
@@ -108,27 +108,29 @@ class IndexController extends AbstractActionController
     }
 
     /**
-     * Keep every request anonymous.
+     * Refuse an API key that didn't sign the request in.
      *
-     * The route uses core's key-auth mode, which starts no session and never
-     * takes the caller from a browser cookie. In that mode, though, core signs
-     * a request in from key_identity and key_credential in the URL before this
-     * controller runs, so such requests are refused.
+     * A key comes in the URL, as key_identity and key_credential, the same as
+     * for Omeka's REST API. On this key-auth route, core signs the request in
+     * from them before this controller runs, and never takes the caller from
+     * a session or a browser cookie. Without a key, the request is anonymous
+     * and sees public content only.
      *
-     * Signing in, when it's supported, belongs here: before any query, and
-     * only once per request. Doctrine caches compiled queries per request, and
-     * the visibility filters don't vary with the identity, so a query compiled
-     * for one identity would be reused for another.
+     * Core leaves a request with a bad key anonymous. It's refused here
+     * instead, so a mistyped key can't look like an installation with nothing
+     * private. The status is 403, not 401, which would need an HTTP
+     * authentication challenge and would start a client's OAuth sign-in.
      *
      * @throws ProtocolException
      */
-    protected function refuseSignedInRequests(Request $request): void
+    protected function refuseFailedKey(Request $request): void
     {
-        if (null !== $request->getQuery('key_identity') || null !== $request->getQuery('key_credential') || $this->auth->hasIdentity()) {
+        $hasKey = null !== $request->getQuery('key_identity') || null !== $request->getQuery('key_credential');
+        if ($hasKey && !$this->auth->hasIdentity()) {
             throw new ProtocolException(
-                'This server doesn\'t accept credentials. Remove key_identity and key_credential from the URL.',
+                'The API key in the URL wasn\'t accepted. Check its key_identity and key_credential, or create a new key in your Omeka user account.',
                 ProtocolException::INVALID_REQUEST,
-                400
+                403
             );
         }
     }

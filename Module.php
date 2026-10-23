@@ -14,8 +14,8 @@ class Module extends AbstractModule
     public function onBootstrap(MvcEvent $event)
     {
         parent::onBootstrap($event);
-        // Anyone may reach the endpoint. Every request is anonymous for now,
-        // so the API applies a visitor's permissions.
+        // Anyone may reach the endpoint. A request is anonymous unless it
+        // carries an API key, and the API applies the caller's permissions.
         $this->getServiceLocator()->get('Omeka\Acl')->allow(null, 'McpServer\Controller\Index');
     }
 }

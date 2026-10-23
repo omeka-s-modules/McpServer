@@ -39,7 +39,8 @@ class DispatcherFactory implements FactoryInterface
         $installation = '' === $title ? 'an Omeka S installation' : sprintf('the Omeka S installation "%s"', $title);
         return sprintf(
             'This server searches and reads %s: items with their metadata, media, and item sets. '
-            . 'Results contain only content that is public on the site.',
+            . 'Results contain what the caller may see: public content, and private content too when the request '
+            . 'carries an Omeka API key.',
             $installation
         );
     }

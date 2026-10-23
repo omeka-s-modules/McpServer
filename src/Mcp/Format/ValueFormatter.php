@@ -123,6 +123,8 @@ class ValueFormatter
             $output['text'] = OutputLimits::cut($output['text']);
             $output[OutputLimits::TRUNCATED] = true;
         }
+        // Marks a private value, which only a signed-in caller may see.
+        $output['is_public'] = $value->isPublic() ? null : false;
         // Values about the value, such as how certain a date is. Null when
         // there are none, or the caller can't see them.
         $annotation = $value->valueAnnotation();
