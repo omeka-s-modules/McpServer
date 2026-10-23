@@ -42,6 +42,10 @@ class SearchFilters
         'links_to' => 'res',
     ];
 
+    // The dates search sorts by, as summaries name them, and the Omeka field
+    // each sorts on.
+    const DATE_SORTS = ['added' => 'created', 'modified' => 'modified'];
+
     const WHERE_MAX = 10;
 
     const ITEM_SETS_MAX = 100;
@@ -209,9 +213,8 @@ class SearchFilters
                 }
                 return ['sort_by_default' => '', 'sort_order_default' => '', 'sort_order' => 'desc'];
             case 'added':
-                return ['sort_by' => 'created', 'sort_order' => $order ?? 'desc'];
             case 'modified':
-                return ['sort_by' => 'modified', 'sort_order' => $order ?? 'desc'];
+                return ['sort_by' => self::DATE_SORTS[$sort], 'sort_order' => $order ?? 'desc'];
             case 'title':
                 return ['sort_by' => 'title', 'sort_order' => $order ?? 'asc'];
         }
@@ -220,6 +223,15 @@ class SearchFilters
         }
         $this->findProperty($sort);
         return ['sort_by' => $sort, 'sort_order' => $order ?? 'asc'];
+    }
+
+    /**
+     * Get the date a query from buildSort() sorts by, as summaries name it:
+     * "added" or "modified", or null for any other sort.
+     */
+    public function sortedDate(array $query): ?string
+    {
+        return array_search($query['sort_by'] ?? null, self::DATE_SORTS, true) ?: null;
     }
 
     /**

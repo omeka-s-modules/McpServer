@@ -151,12 +151,13 @@ abstract class AbstractSearchTool implements ToolInterface
         $query += $toolQuery + ['page' => $page, 'per_page' => $perPage];
         $response = $this->api->search($resourceName, $query);
         $results = $response->getContent();
+        $sortedDate = $this->searchFilters->sortedDate($query);
         $output = [
             'total_results' => $response->getTotalResults(),
             'page' => $page,
             'per_page' => $perPage,
             $resourceName => array_map(
-                fn ($resource) => $this->summarize($resource) + $this->formatter->sortDate($resource, $query),
+                fn ($resource) => $this->summarize($resource) + $this->formatter->sortDate($resource, $sortedDate),
                 $results
             ),
         ];

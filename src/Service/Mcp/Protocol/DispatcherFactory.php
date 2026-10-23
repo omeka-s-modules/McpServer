@@ -23,10 +23,10 @@ class DispatcherFactory implements FactoryInterface
         }
         $logger = $services->get('Omeka\Logger');
         $instructions = $this->getInstructions($title);
-        $tools = new ToolRequests($services->get('McpServer\ToolManager'), $services->get('McpServer\ToolRunner'), $logger);
+        $toolRequests = new ToolRequests($services->get('McpServer\ToolManager'), $services->get('McpServer\ToolRunner'), $logger);
         return new Dispatcher(
-            new HandshakeEra($tools, $serverInfo, $instructions),
-            new EnvelopeEra($tools, $serverInfo, $instructions),
+            new HandshakeEra($toolRequests, $serverInfo, $instructions),
+            new EnvelopeEra($toolRequests, $serverInfo, $instructions),
             $logger
         );
     }

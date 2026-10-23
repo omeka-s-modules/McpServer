@@ -32,7 +32,6 @@ return [
             'McpServer\ToolManager' => Service\Mcp\Tool\ManagerFactory::class,
             'McpServer\ToolRunner' => Service\Mcp\Tool\ToolRunnerFactory::class,
             'McpServer\NameLookup' => Service\Mcp\Query\NameLookupFactory::class,
-            'McpServer\OverviewLists' => Service\Mcp\Query\OverviewListsFactory::class,
             'McpServer\ResourceCounter' => Service\Mcp\Query\ResourceCounterFactory::class,
             'McpServer\ResourceFormatter' => Service\Mcp\Format\ResourceFormatterFactory::class,
             'McpServer\SearchFilters' => Service\Mcp\Tool\Builtin\SearchFiltersFactory::class,

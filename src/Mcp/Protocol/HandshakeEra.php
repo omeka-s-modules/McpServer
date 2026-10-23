@@ -14,15 +14,15 @@ use stdClass;
  */
 class HandshakeEra
 {
-    protected $tools;
+    protected $toolRequests;
 
     protected $serverInfo;
 
     protected $instructions;
 
-    public function __construct(ToolRequests $tools, array $serverInfo, string $instructions)
+    public function __construct(ToolRequests $toolRequests, array $serverInfo, string $instructions)
     {
-        $this->tools = $tools;
+        $this->toolRequests = $toolRequests;
         $this->serverInfo = $serverInfo;
         $this->instructions = $instructions;
     }
@@ -50,9 +50,9 @@ class HandshakeEra
             case 'ping':
                 return new stdClass;
             case 'tools/list':
-                return ['tools' => $this->tools->listTools()];
+                return ['tools' => $this->toolRequests->listTools()];
             case 'tools/call':
-                return $this->tools->callTool($params, new Context($version));
+                return $this->toolRequests->callTool($params, new Context($version));
             default:
                 throw new ProtocolException(sprintf('Method not found: %s', $method), ProtocolException::METHOD_NOT_FOUND);
         }
@@ -74,7 +74,7 @@ class HandshakeEra
         // no initialize.
         return [
             'protocolVersion' => ProtocolVersion::isHandshake($requested) ? $requested : ProtocolVersion::latestHandshake(),
-            'capabilities' => $this->tools->getCapabilities(),
+            'capabilities' => $this->toolRequests->getCapabilities(),
             'serverInfo' => $this->serverInfo,
             'instructions' => $this->instructions,
         ];

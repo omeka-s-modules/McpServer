@@ -21,15 +21,15 @@ class EnvelopeEra
     // tools added by an upgrade appear without reconnecting.
     const TTL_MS = 300000;
 
-    protected $tools;
+    protected $toolRequests;
 
     protected $serverInfo;
 
     protected $instructions;
 
-    public function __construct(ToolRequests $tools, array $serverInfo, string $instructions)
+    public function __construct(ToolRequests $toolRequests, array $serverInfo, string $instructions)
     {
-        $this->tools = $tools;
+        $this->toolRequests = $toolRequests;
         $this->serverInfo = $serverInfo;
         $this->instructions = $instructions;
     }
@@ -69,7 +69,7 @@ class EnvelopeEra
             case 'server/discover':
                 $result = [
                     'supportedVersions' => ProtocolVersion::supported(),
-                    'capabilities' => $this->tools->getCapabilities(),
+                    'capabilities' => $this->toolRequests->getCapabilities(),
                     'instructions' => $this->instructions,
                     'ttlMs' => self::TTL_MS,
                     'cacheScope' => 'public',
@@ -77,13 +77,13 @@ class EnvelopeEra
                 break;
             case 'tools/list':
                 $result = [
-                    'tools' => $this->tools->listTools(),
+                    'tools' => $this->toolRequests->listTools(),
                     'ttlMs' => self::TTL_MS,
                     'cacheScope' => 'public',
                 ];
                 break;
             case 'tools/call':
-                $result = $this->tools->callTool($params, new Context($version));
+                $result = $this->toolRequests->callTool($params, new Context($version));
                 break;
             default:
                 throw new ProtocolException(sprintf('Method not found: %s', $method), ProtocolException::METHOD_NOT_FOUND, 404);

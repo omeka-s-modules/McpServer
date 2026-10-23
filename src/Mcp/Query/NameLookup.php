@@ -30,7 +30,7 @@ class NameLookup
     /**
      * Get the classes resources use, by term, without counts.
      *
-     * For listing, as OverviewLists does with item counts, and SearchFilters
+     * For listing, as GetOverview does with item counts, and SearchFilters
      * does when a class name matches nothing. findUsedTerm() and
      * findUsedClassesByLabel() resolve one name with targeted queries instead.
      *
@@ -54,7 +54,7 @@ class NameLookup
     /**
      * Get the slugs of the sites the caller can see, by site ID.
      *
-     * Lighter than OverviewLists::getSites(), which loads whole site records.
+     * Lighter than get_overview's site list, which loads whole site records.
      */
     public function getSiteSlugs(): array
     {
@@ -103,21 +103,26 @@ class NameLookup
     }
 
     /**
-     * Get the terms, among the properties this request resolved, whose values
-     * are all in value annotations, which "where" can't search.
+     * Get the terms of the given properties whose values are all in value
+     * annotations, which "where" can't search.
      *
      * @param int[] $propertyIds
-     * @return string[]
+     * @return string[] In the order the properties are given
      */
     public function getAnnotationOnlyTerms(array $propertyIds): array
     {
-        $terms = [];
-        foreach (array_filter($this->cache['used_terms']['properties'] ?? []) as $property) {
-            if (in_array($property['id'], $propertyIds) && $this->counter->isUsedOnlyInAnnotations($property['id'])) {
-                $terms[] = $property['term'];
+        $ids = array_values(array_unique(array_map('intval', $propertyIds)));
+        return $this->cache['annotation_only_terms'][implode(',', $ids)] ??= (function () use ($ids) {
+            $ids = array_values(array_filter($ids, fn ($id) => $this->counter->isUsedOnlyInAnnotations($id)));
+            if (!$ids) {
+                return [];
             }
-        }
-        return $terms;
+            $terms = [];
+            foreach ($this->api->search('properties', ['id' => $ids], ['countQuery' => false])->getContent() as $property) {
+                $terms[$property->id()] = $property->term();
+            }
+            return array_values(array_filter(array_map(fn ($id) => $terms[$id] ?? null, $ids)));
+        })();
     }
 
     /**

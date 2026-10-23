@@ -83,7 +83,7 @@ final class OutputLimitNotes
     {
         $notes = [];
         if ($cut) {
-            $notes[] = self::jsonLdLists($resource, $cut);
+            $notes[] = self::jsonLdListsNote($resource, $cut);
         }
         if ($textsCut) {
             $notes[] = sprintf(
@@ -118,7 +118,7 @@ final class OutputLimitNotes
      *
      * @param array $cut The full length of each list cut, by name
      */
-    private static function jsonLdLists(AbstractResourceEntityRepresentation $resource, array $cut): string
+    private static function jsonLdListsNote(AbstractResourceEntityRepresentation $resource, array $cut): string
     {
         $names = array_keys($cut);
         $notes = [sprintf(

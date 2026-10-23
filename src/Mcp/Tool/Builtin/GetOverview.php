@@ -3,8 +3,8 @@ namespace McpServer\Mcp\Tool\Builtin;
 
 use DateTime;
 use McpServer\Mcp\Format\OutputLimits;
+use McpServer\Mcp\Query\NameLookup;
 use McpServer\Mcp\Query\ResourceCounter;
-use McpServer\Mcp\Query\OverviewLists;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
@@ -17,26 +17,32 @@ use Omeka\Api\Manager as ApiManager;
  * size, and the item sets, classes, properties, media types, and sites that
  * searches filter by.
  *
+ * The counts come from ResourceCounter, and cover only resources the API
+ * returned. The classes and properties in use come from NameLookup.
+ *
  * Later lists, such as filters other modules add, go here rather than into new
  * tools. Its output only gains keys, never loses or renames them.
  */
 class GetOverview implements ToolInterface
 {
-    // The lists the overview shows, each cut at OverviewLists::LIMIT
-    // entries unless read with "list".
+    // The lists the overview shows.
     const LISTS = ['item_sets', 'media_types', 'classes', 'properties', 'sites'];
+
+    // Most entries of a list shown at once: the overview cuts each list here,
+    // and "list" reads one this many at a time.
+    const PER_PAGE = 200;
 
     protected $api;
 
-    protected $lists;
-
     protected $counter;
 
-    public function __construct(ApiManager $api, OverviewLists $lists, ResourceCounter $counter)
+    protected $names;
+
+    public function __construct(ApiManager $api, ResourceCounter $counter, NameLookup $names)
     {
         $this->api = $api;
-        $this->lists = $lists;
         $this->counter = $counter;
+        $this->names = $names;
     }
 
     public function getTitle(): string
@@ -51,7 +57,7 @@ class GetOverview implements ToolInterface
             . 'media and items have each; the item sets, with ids and item counts (get_item_set describes one); '
             . 'the classes items use, with counts; the properties in use, for "where" conditions, sorting, and '
             . 'count_values; and the sites, with their summaries. Call this before filtering search_items by item '
-            . sprintf('set, class, field, or site. A list longer than %d entries is cut; "list" and "page" read all of it.', OverviewLists::LIMIT);
+            . sprintf('set, class, field, or site. A list longer than %d entries is cut; "list" and "page" read all of it.', self::PER_PAGE);
     }
 
     public function getInputSchema(): array
@@ -62,7 +68,7 @@ class GetOverview implements ToolInterface
                 'list' => [
                     'type' => 'string',
                     'enum' => self::LISTS,
-                    'description' => sprintf('Return only this list, %d entries at a time.', OverviewLists::LIMIT),
+                    'description' => sprintf('Return only this list, %d entries at a time.', self::PER_PAGE),
                 ],
                 'page' => [
                     'type' => 'integer',
@@ -106,7 +112,7 @@ class GetOverview implements ToolInterface
         if ($cut) {
             $notes[] = sprintf(
                 'Lists longer than %d entries are cut, and %s. Call get_overview with "list" and "page" to read all of one.',
-                OverviewLists::LIMIT, implode(', ', $cut)
+                self::PER_PAGE, implode(', ', $cut)
             );
         }
         return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
@@ -125,10 +131,10 @@ class GetOverview implements ToolInterface
             'list' => $name,
             'total' => $list['total'],
             'page' => $page,
-            'per_page' => OverviewLists::LIMIT,
+            'per_page' => self::PER_PAGE,
             'entries' => $list['entries'],
         ];
-        $pages = (int) ceil($list['total'] / OverviewLists::LIMIT);
+        $pages = (int) ceil($list['total'] / self::PER_PAGE);
         $note = $page < $pages
             ? sprintf('There are %d entries on %d pages. Call again with "page" %d for the next.', $list['total'], $pages, $page + 1)
             : null;
@@ -138,32 +144,102 @@ class GetOverview implements ToolInterface
     /**
      * Get one page of a list, and its total.
      *
+     * Item sets are paged by the API, since an installation may have many.
+     * The other lists are short enough to fetch whole and cut here.
+     *
      * @return array|null ['entries', 'total'], or null for media types when
      *   there are too many items to count them
      */
     protected function getList(string $name, int $page): ?array
     {
         if ('item_sets' === $name) {
-            [$entries, $total] = $this->lists->getItemSets($page);
-            return ['entries' => $entries, 'total' => $total];
+            return $this->getItemSets($page);
         }
         $list = match ($name) {
-            'media_types' => $this->lists->getMediaTypes(),
-            'classes' => array_map(fn ($class) => array_diff_key($class, ['id' => true]), $this->lists->getClasses()),
-            'properties' => array_map(fn ($property) => array_diff_key($property, ['id' => true]), $this->lists->getProperties()),
-            'sites' => array_map(fn ($site) => array_filter([
-                'slug' => $site['slug'],
-                'title' => $site['title'],
-                'summary' => OutputLimits::shorten($site['summary'], OutputLimits::DESCRIPTION_LIMIT),
-            ], fn ($field) => '' !== $field), $this->lists->getSites()),
+            'media_types' => $this->getMediaTypes(),
+            'classes' => array_map(fn ($class) => array_diff_key($class, ['id' => true]), $this->getClasses()),
+            'properties' => array_map(fn ($property) => array_diff_key($property, ['id' => true]), $this->names->getUsedProperties()),
+            'sites' => $this->getSites(),
         };
         if (null === $list) {
             return null;
         }
         return [
-            'entries' => array_slice($list, ($page - 1) * OverviewLists::LIMIT, OverviewLists::LIMIT),
+            'entries' => array_slice($list, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
             'total' => count($list),
         ];
+    }
+
+    /**
+     * Get a page of the item sets, by title, with their item counts.
+     *
+     * @return array ['entries' => list of ['id', 'title', 'items'], 'total']
+     */
+    protected function getItemSets(int $page): array
+    {
+        // Counts every set at once, rather than a query per set.
+        $this->counter->getGroupedCounts();
+        $response = $this->api->search('item_sets', [
+            'sort_by' => 'title',
+            'sort_order' => 'asc',
+            'page' => $page,
+            'per_page' => self::PER_PAGE,
+        ]);
+        $counts = $this->counter->countItemsInSets(array_map(fn ($itemSet) => $itemSet->id(), $response->getContent()));
+        $itemSets = array_map(fn ($itemSet) => [
+            'id' => $itemSet->id(),
+            'title' => $itemSet->displayTitle(),
+            'items' => $counts[$itemSet->id()],
+        ], $response->getContent());
+        return ['entries' => $itemSets, 'total' => $response->getTotalResults()];
+    }
+
+    /**
+     * Get the classes items use, most used first, with their item counts.
+     *
+     * @return array List of ['id', 'term', 'label', 'items']
+     */
+    protected function getClasses(): array
+    {
+        $this->counter->getGroupedCounts();
+        $counts = $this->counter->countItemsByClass(array_column($this->names->getUsedClasses(), 'id'));
+        $classes = [];
+        foreach ($this->names->getUsedClasses() as $class) {
+            // Classes used only by media or item sets have no items.
+            if ($counts[$class['id']]) {
+                $classes[] = $class + ['items' => $counts[$class['id']]];
+            }
+        }
+        usort($classes, fn ($a, $b) => [$b['items'], $a['term']] <=> [$a['items'], $b['term']]);
+        return $classes;
+    }
+
+    /**
+     * Get the media types in use, most media first, with media and item counts.
+     *
+     * Media without a type, such as embedded video, aren't counted. Returns
+     * null when there are too many items to count this way.
+     *
+     * @return array|null List of ['media_type', 'media', 'items']
+     */
+    protected function getMediaTypes(): ?array
+    {
+        $counts = $this->counter->getGroupedCounts();
+        return $counts ? $counts['media_types'] : null;
+    }
+
+    /**
+     * Get the sites, by title, with their summaries shortened.
+     *
+     * @return array List of ['slug', 'title', 'summary'], without empty fields
+     */
+    protected function getSites(): array
+    {
+        return array_map(fn ($site) => array_filter([
+            'slug' => $site->slug(),
+            'title' => $site->title(),
+            'summary' => OutputLimits::shorten(trim((string) $site->summary()), OutputLimits::DESCRIPTION_LIMIT),
+        ], fn ($field) => '' !== $field), $this->api->search('sites', ['sort_by' => 'title', 'sort_order' => 'asc'])->getContent());
     }
 
     protected function getMediaTypesNote(): string

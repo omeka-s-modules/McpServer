@@ -181,12 +181,13 @@ class ResourceFormatter
     }
 
     /**
-     * Get the date a search sorted by, when it sorted by date added or
-     * modified, to add to a result's summary.
+     * Get the date a search sorted by, to add to a result's summary.
+     *
+     * @param string|null $key "added" or "modified", or null when the search
+     *   sorted by something else
      */
-    public function sortDate(AbstractResourceEntityRepresentation $resource, array $query): array
+    public function sortDate(AbstractResourceEntityRepresentation $resource, ?string $key): array
     {
-        $key = ['created' => 'added', 'modified' => 'modified'][$query['sort_by'] ?? ''] ?? null;
         return $key ? array_filter([$key => $this->dates($resource)[$key]]) : [];
     }
 

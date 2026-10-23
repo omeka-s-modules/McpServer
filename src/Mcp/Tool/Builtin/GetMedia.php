@@ -104,15 +104,15 @@ class GetMedia implements ToolInterface
         if ($field) {
             return $field;
         }
-        $detail = $this->formatter->media($media);
-        $notes = array_filter([OutputLimitNotes::forConcise($detail)]);
+        $concise = $this->formatter->media($media);
+        $notes = array_filter([OutputLimitNotes::forConcise($concise)]);
         $image = $reader->getBool('image', true) ? $this->getThumbnail($media) : null;
         if ($reader->getBool('image', true) && null === $image) {
-            $notes[] = isset($detail['original_url'])
+            $notes[] = isset($concise['original_url'])
                 ? 'No image of this media is available here. original_url links to its file.'
                 : 'This media has no image or file to show.';
         }
-        $result = ToolResult::json($detail, $notes ? implode(' ', $notes) : null);
+        $result = ToolResult::json($concise, $notes ? implode(' ', $notes) : null);
         return $image ? $result->withImage($image, 'image/jpeg') : $result;
     }
 
