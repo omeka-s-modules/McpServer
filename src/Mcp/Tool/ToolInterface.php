@@ -25,10 +25,10 @@ namespace McpServer\Mcp\Tool;
  *
  * Rules for tools:
  *
- * - Read and write only through Omeka's API manager, which applies the
- *   caller's permissions and hides what they may not see. A caller is
- *   anonymous, or signed in with an Omeka API key, and the same calls show
- *   each one what their account allows.
+ * - Read only through Omeka's API manager, which applies the caller's
+ *   permissions and hides what they may not see. A caller is anonymous, or
+ *   signed in with an MCP key, and the same calls show each one what their
+ *   account allows.
  * - Don't use the entity manager to reach resources, except in two cases,
  *   both kept in the McpServer\ResourceCounter service:
  *   - Counting, which the API can't do. A grouped Doctrine query may read
@@ -45,8 +45,10 @@ namespace McpServer\Mcp\Tool;
  *   filters. Reading a linked media's title is fine, since core's own pages
  *   show it.
  * - Keep no state between calls. Each call is a separate HTTP request.
- * - Before changing anything, check that the caller may do it, since the same
- *   call can come from callers with different permissions.
+ * - Change nothing, for now. The endpoint denies every caller the API's
+ *   create, update, and delete, and nothing may write in their place: no
+ *   jobs, settings, or entity manager. Tools that change things wait for a
+ *   sign-in built for it, such as OAuth.
  * - Write titles, descriptions, and error messages for a model: say what the
  *   tool does, when to use it, and how to fix a bad call.
  * - Return data with ToolResult::json(), and put guidance for the model, such

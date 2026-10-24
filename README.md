@@ -12,7 +12,7 @@ https://example.org/mcp
 
 - **Read-only.** Assistants can't create, change, or delete anything.
 - **Public content, unless you add a key.** Assistants see what a visitor to your public
-  site sees. With an Omeka API key in the address, they see what that key's user may see.
+  site sees. With an MCP key in the address, they see what that key's user may see.
 - **No setup for users.** Add the address to an assistant and start asking.
 
 ## Contents
@@ -68,31 +68,38 @@ npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport ht
 ## Seeing private content
 
 Without a key, assistants see public content only. To let an assistant see private
-content too, add an Omeka API key to the address, the same way Omeka's REST API takes one:
+content too, add an MCP key to the address:
 
 ```
-https://example.org/mcp?key_identity=IDENTITY&key_credential=CREDENTIAL
+https://example.org/mcp?key=KEY
 ```
 
-Create the key in the Omeka admin, on the user's edit page under **API keys**. Omeka shows
-the credential only once, when the key is created. The assistant then sees what that user
-may see:
+Create the key on the **MCP Server** page of the Omeka admin, which also shows the
+endpoint's address. Omeka shows the address with the key only once, when the key is
+created. Whoever may manage a user's API keys, such as a Global Administrator, may manage
+their MCP keys there too.
+
+The assistant sees what the key's user may see:
 
 - **Reviewers, Editors, Supervisors, and Global Administrators** see all private content.
 - **Authors and Researchers** see public content and what they own.
 
 Full records carry Omeka's own flags, as its JSON-LD does: `"is_public": false` on a
-private item, media, item set, or value. Every tool still only reads.
+private item, media, item set, or value.
 
-A key in the address is a password that anyone who sees the address can use:
+An MCP key works only at `/mcp`, whose tools only read, and never for Omeka's REST API.
+So it can't be used to change anything, whatever its user's role. Omeka API keys don't
+work at `/mcp`.
+
+A key in the address still lets anyone who sees the address read what its user may see:
 
 - **It appears wherever the address does:** in your web server's access logs, in any
   proxy in front of it, and in the assistant's connector settings.
-- **Use a dedicated account** with only the role it needs, not a personal or
-  administrator account. Where a connector is shared, as on some assistants' team plans,
-  everyone using it shares its key.
-- **To revoke access, delete the key** in Omeka. A request with a key that no longer works
-  is refused, rather than answered as if it had none.
+- **Where a connector is shared,** as on some assistants' team plans, everyone using it
+  shares its key. Use an account that sees only what all of them should see.
+- **To revoke access, delete the key** on the **MCP Server** page, which also shows when
+  each key was last used. A request with a key that no longer works is refused, rather
+  than answered as if it had none.
 
 ## Tools
 
@@ -272,11 +279,11 @@ has, a link to its public page, and anything other modules add. To list its item
 
 - **Without a key, only public content is visible.** Every read goes through Omeka's own
   API, so Omeka's visibility rules apply unchanged. Private items, private media, and
-  private values appear only to a request with an API key whose user may see them, and
+  private values appear only to a request with an MCP key whose user may see them, and
   so do links to them.
 - **Nothing can be changed.** All tools are read-only.
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
-  never applies. Only an API key in the address signs a request in.
+  never applies. Only an MCP key in the address signs a request in.
 - **The endpoint is public,** like your public site and Omeka's REST API. Anyone who
   knows the address can use it. If that's a concern, rate-limit it at the web server, as
   you would any public endpoint.

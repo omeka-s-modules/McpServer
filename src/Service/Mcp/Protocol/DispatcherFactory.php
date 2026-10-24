@@ -40,7 +40,7 @@ class DispatcherFactory implements FactoryInterface
         return sprintf(
             'This server searches and reads %s: items with their metadata, media, and item sets. '
             . 'Results contain what the caller may see: public content, and private content too when the request '
-            . 'carries an Omeka API key.',
+            . 'carries an MCP key.',
             $installation
         );
     }

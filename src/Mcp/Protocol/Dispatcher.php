@@ -43,21 +43,15 @@ class Dispatcher
      *
      * @param string $body The raw request body
      * @param array $headers The MCP request headers, keyed by lowercase name
-     * @param callable|null $check Called once the message is decoded, before
-     *   it's answered, for a caller's own policy. A ProtocolException it
-     *   throws is answered like any other, with the message's id.
      * @return array [HTTP status, response body, or null when there is
      *   nothing to send back]
      */
-    public function handle(string $body, array $headers, ?callable $check = null): array
+    public function handle(string $body, array $headers): array
     {
         $id = null;
         try {
             $message = $this->decode($body);
             $id = self::getRequestId($message);
-            if ($check) {
-                $check();
-            }
             $response = $this->dispatch($message, $headers);
             return null === $response ? [202, null] : [200, $response];
         } catch (ProtocolException $e) {
@@ -69,6 +63,18 @@ class Dispatcher
     }
 
     /**
+     * Build the error response for a ProtocolException thrown before the
+     * dispatcher runs, with the message's id when the body has one.
+     *
+     * For the controller's own refusals, such as an MCP key that isn't
+     * accepted.
+     */
+    public static function exceptionResponse(string $body, ProtocolException $e): array
+    {
+        return self::errorResponse(self::getBodyRequestId($body), $e->getCode(), $e->getMessage(), $e->getData());
+    }
+
+    /**
      * Build the internal error response for a request the server failed to
      * answer, with the message's id when the body has one.
      *
@@ -76,9 +82,7 @@ class Dispatcher
      */
     public static function failureResponse(string $body): array
     {
-        $message = json_decode($body, true);
-        $id = is_array($message) ? self::getRequestId($message) : null;
-        return self::errorResponse($id, ProtocolException::INTERNAL_ERROR, 'Internal error');
+        return self::errorResponse(self::getBodyRequestId($body), ProtocolException::INTERNAL_ERROR, 'Internal error');
     }
 
     /**
@@ -117,6 +121,16 @@ class Dispatcher
             throw new ProtocolException('Invalid request: batches are not supported. Send one message per request.', ProtocolException::INVALID_REQUEST, 400);
         }
         return $message;
+    }
+
+    /**
+     * Get the id of the message in a raw body, or null when it has no valid
+     * one.
+     */
+    protected static function getBodyRequestId(string $body): string|int|null
+    {
+        $message = json_decode($body, true);
+        return is_array($message) ? self::getRequestId($message) : null;
     }
 
     /**

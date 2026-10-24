@@ -301,7 +301,7 @@ class ResourceFormatter
     }
 
     /**
-     * Mark a private resource, which a caller signed in with an API key may
+     * Mark a private resource, which a caller signed in with an MCP key may
      * see, so the model knows it isn't on the public site.
      *
      * @return false|null False for a private resource, or null for a public

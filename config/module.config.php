@@ -18,9 +18,23 @@ return [
             ],
         ],
     ],
+    'entity_manager' => [
+        'mapping_classes_paths' => [
+            dirname(__DIR__) . '/src/Entity',
+        ],
+        'proxy_paths' => [
+            dirname(__DIR__) . '/data/doctrine-proxies',
+        ],
+    ],
     'controllers' => [
         'factories' => [
             'McpServer\Controller\Index' => Service\Controller\IndexControllerFactory::class,
+            'McpServer\Controller\Admin\Index' => Service\Controller\Admin\IndexControllerFactory::class,
+        ],
+    ],
+    'view_manager' => [
+        'template_path_stack' => [
+            dirname(__DIR__) . '/view',
         ],
     ],
     'service_manager' => [
@@ -36,6 +50,15 @@ return [
             'McpServer\ResourceFormatter' => Service\Mcp\Format\ResourceFormatterFactory::class,
             'McpServer\SearchFilters' => Service\Mcp\Tool\Builtin\SearchFiltersFactory::class,
             'McpServer\ValueFormatter' => Service\Mcp\Format\ValueFormatterFactory::class,
+        ],
+    ],
+    'navigation' => [
+        'AdminModule' => [
+            [
+                'label' => 'MCP Server', // @translate
+                'route' => 'admin/mcp-server',
+                'resource' => 'McpServer\Controller\Admin\Index',
+            ],
         ],
     ],
     'router' => [
@@ -54,6 +77,26 @@ return [
                     ],
                 ],
                 'may_terminate' => true,
+            ],
+            // The MCP Server page of the admin, where users manage their MCP
+            // keys.
+            'admin' => [
+                'child_routes' => [
+                    'mcp-server' => [
+                        'type' => \Laminas\Router\Http\Segment::class,
+                        'options' => [
+                            'route' => '/mcp-server[/:action]',
+                            'constraints' => [
+                                'action' => 'index|add-key|delete-key',
+                            ],
+                            'defaults' => [
+                                '__NAMESPACE__' => 'McpServer\Controller\Admin',
+                                'controller' => 'Index',
+                                'action' => 'index',
+                            ],
+                        ],
+                    ],
+                ],
             ],
         ],
     ],

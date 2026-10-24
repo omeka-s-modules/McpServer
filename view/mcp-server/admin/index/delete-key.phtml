@@ -1,0 +1,15 @@
+<?php
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+$this->htmlElement('body')->appendAttribute('class', 'mcp-server');
+$form->setAttribute('action', $this->url('admin/mcp-server', ['action' => 'delete-key'], ['query' => ['id' => $key->getId()]]));
+$owner = $key->getOwner();
+$question = $owner === $this->identity()
+    ? sprintf($translate('Delete the MCP key “%s”?'), $key->getLabel())
+    : sprintf($translate('Delete the MCP key “%1$s” of %2$s?'), $key->getLabel(), $owner->getName());
+?>
+<?php echo $this->pageTitle($key->getLabel(), 1, $translate('MCP keys'), $translate('Delete')); ?>
+
+<p><?php echo $escape($question); ?> <?php echo $translate('Assistants using it will stop connecting.'); ?></p>
+<?php echo $this->form($form); ?>
+<p><?php echo $this->hyperlink($translate('Cancel'), $this->url('admin/mcp-server')); ?></p>
