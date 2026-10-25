@@ -7,9 +7,9 @@ return [
         // modules add tools by adding to this key in their own config.
         'tools' => [
             'factories' => [
+                'get_overview' => Service\Mcp\Tool\Builtin\GetOverviewFactory::class,
                 'search_items' => Service\Mcp\Tool\Builtin\SearchItemsFactory::class,
                 'get_item' => Service\Mcp\Tool\Builtin\GetItemFactory::class,
-                'get_overview' => Service\Mcp\Tool\Builtin\GetOverviewFactory::class,
                 'search_media' => Service\Mcp\Tool\Builtin\SearchMediaFactory::class,
                 'get_media' => Service\Mcp\Tool\Builtin\GetMediaFactory::class,
                 'search_item_sets' => Service\Mcp\Tool\Builtin\SearchItemSetsFactory::class,
@@ -30,6 +30,7 @@ return [
         'factories' => [
             'McpServer\Controller\Index' => Service\Controller\IndexControllerFactory::class,
             'McpServer\Controller\Admin\Index' => Service\Controller\Admin\IndexControllerFactory::class,
+            'McpServer\Controller\Admin\Key' => Service\Controller\Admin\KeyControllerFactory::class,
         ],
     ],
     'view_manager' => [
@@ -43,6 +44,7 @@ return [
         ],
         'factories' => [
             'McpServer\Dispatcher' => Service\Mcp\Protocol\DispatcherFactory::class,
+            'McpServer\ToolRequests' => Service\Mcp\Protocol\ToolRequestsFactory::class,
             'McpServer\ToolManager' => Service\Mcp\Tool\ManagerFactory::class,
             'McpServer\ToolRunner' => Service\Mcp\Tool\ToolRunnerFactory::class,
             'McpServer\NameLookup' => Service\Mcp\Query\NameLookupFactory::class,
@@ -52,12 +54,30 @@ return [
             'McpServer\ValueFormatter' => Service\Mcp\Format\ValueFormatterFactory::class,
         ],
     ],
+    'js_translate_strings' => [
+        'Show more', // @translate
+        'Show less', // @translate
+    ],
     'navigation' => [
         'AdminModule' => [
             [
                 'label' => 'MCP Server', // @translate
                 'route' => 'admin/mcp-server',
                 'resource' => 'McpServer\Controller\Admin\Index',
+                'pages' => [
+                    [
+                        'label' => 'Overview', // @translate
+                        'route' => 'admin/mcp-server',
+                        'controller' => 'index',
+                        'resource' => 'McpServer\Controller\Admin\Index',
+                    ],
+                    [
+                        'label' => 'Keys', // @translate
+                        'route' => 'admin/mcp-server',
+                        'controller' => 'key',
+                        'resource' => 'McpServer\Controller\Admin\Key',
+                    ],
+                ],
             ],
         ],
     ],
@@ -78,20 +98,21 @@ return [
                 ],
                 'may_terminate' => true,
             ],
-            // The MCP Server page of the admin, where users manage their MCP
-            // keys.
+            // The MCP Server pages of the admin: an overview of the server,
+            // and the MCP keys users manage, each with its own controller.
             'admin' => [
                 'child_routes' => [
                     'mcp-server' => [
                         'type' => \Laminas\Router\Http\Segment::class,
                         'options' => [
-                            'route' => '/mcp-server[/:action]',
+                            'route' => '/mcp-server[/:controller[/:action]]',
                             'constraints' => [
-                                'action' => 'index|add-key|delete-key',
+                                'controller' => 'index|key',
+                                'action' => '[a-zA-Z][a-zA-Z0-9-]*',
                             ],
                             'defaults' => [
                                 '__NAMESPACE__' => 'McpServer\Controller\Admin',
-                                'controller' => 'Index',
+                                'controller' => 'index',
                                 'action' => 'index',
                             ],
                         ],

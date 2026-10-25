@@ -1,0 +1,15 @@
+<?php
+// The content of the sidebar that confirms deleting a key.
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+$form->setAttribute('action', $this->url('admin/mcp-server', ['controller' => 'key', 'action' => 'delete'], ['query' => ['id' => $key->getId()]]));
+$owner = $key->getOwner();
+$question = $owner === $this->identity()
+    ? sprintf($translate('Delete the MCP key “%s”?'), $key->getLabel())
+    : sprintf($translate('Delete %1$s\'s MCP key “%2$s”?'), $owner->getName(), $key->getLabel());
+?>
+<div id="sidebar-confirm">
+    <h3><?php echo $translate('Delete MCP key'); ?></h3>
+    <p><?php echo $escape($question); ?> <?php echo $translate('Assistants using it will stop connecting.'); ?></p>
+    <?php echo $this->form($form); ?>
+</div>

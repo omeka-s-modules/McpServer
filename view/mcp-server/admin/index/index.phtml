@@ -1,55 +1,34 @@
 <?php
 $translate = $this->plugin('translate');
 $escape = $this->plugin('escapeHtml');
-$i18n = $this->plugin('i18n');
 $this->htmlElement('body')->appendAttribute('class', 'mcp-server');
-$form->setAttribute('action', $this->url('admin/mcp-server', ['action' => 'add-key']));
+$this->headLink()->appendStylesheet($this->assetUrl('css/admin.css', 'McpServer'));
+$this->headScript()->appendFile($this->assetUrl('js/description-toggle.js', 'McpServer'));
 ?>
-<?php echo $this->pageTitle($translate('MCP Server')); ?>
+<?php echo $this->pageTitle($translate('Overview'), 1, $translate('MCP Server')); ?>
 
-<h2><?php echo $translate('Address'); ?></h2>
-<p><?php echo $translate('Add this address to an AI assistant as a remote MCP server. Without a key, the assistant sees public content only.'); ?></p>
-<p><code><?php echo $escape($this->url('mcp', [], ['force_canonical' => true])); ?></code></p>
+<h3><?php echo $translate('Address'); ?></h3>
+<p><code><?php echo $escape($address); ?></code></p>
+<p><?php echo $translate('Add this address to an AI assistant as a remote MCP server.'); ?></p>
+<p><?php echo sprintf(
+    $escape($translate('Without a key, assistants see public content only. To let an assistant read what a user may see, create a key under %s.')),
+    $this->hyperlink($translate('Keys'), $this->url('admin/mcp-server', ['controller' => 'key']))
+); ?></p>
 
-<h2><?php echo $translate('MCP keys'); ?></h2>
-<p><?php echo $translate('An MCP key connects an AI assistant as its user. The assistant can read what the user may see, including private content, but can\'t change anything.'); ?></p>
-<?php if ($keys): ?>
-<table class="tablesaw" data-tablesaw-mode="stack">
+<h3><?php echo $translate('Tools'); ?></h3>
+<table class="tablesaw mcp-server-tools" data-tablesaw-mode="stack">
     <thead>
         <tr>
-            <th><?php echo $translate('Label'); ?></th>
-            <?php if ($showOwners): ?>
-            <th><?php echo $translate('User'); ?></th>
-            <?php endif; ?>
-            <th><?php echo $translate('Created'); ?></th>
-            <th><?php echo $translate('Last used'); ?></th>
-            <th><?php echo $translate('Delete'); ?></th>
+            <th><?php echo $translate('Title'); ?></th>
+            <th><?php echo $translate('Description'); ?></th>
         </tr>
     </thead>
     <tbody>
-        <?php foreach ($keys as $key): ?>
-        <?php $owner = $key->getOwner(); ?>
+        <?php foreach ($tools as $tool): ?>
         <tr>
-            <td><?php echo $escape($key->getLabel()); ?></td>
-            <?php if ($showOwners): ?>
-            <td><?php echo $this->hyperlink($owner->getName(), $this->url('admin/id', ['controller' => 'user', 'action' => 'show', 'id' => $owner->getId()])); ?></td>
-            <?php endif; ?>
-            <td><?php echo $escape($i18n->dateFormat($key->getCreated())); ?></td>
-            <td><?php echo $escape($key->getLastUsed() ? $i18n->dateFormat($key->getLastUsed(), 'medium', 'short') : $translate('Never')); ?></td>
-            <td><?php echo $this->hyperlink(
-                $translate('Delete'),
-                $this->url('admin/mcp-server', ['action' => 'delete-key'], ['query' => ['id' => $key->getId()]]),
-                ['aria-label' => sprintf($translate('Delete key “%s”'), $key->getLabel())]
-            ); ?></td>
+            <td><?php echo $escape($tool['title']); ?></td>
+            <td><div class="mcp-server-description"><?php echo $escape($tool['description']); ?></div></td>
         </tr>
         <?php endforeach; ?>
     </tbody>
 </table>
-<?php else: ?>
-<div class="no-resources">
-    <p><?php echo $translate('No MCP keys yet.'); ?></p>
-</div>
-<?php endif; ?>
-
-<h2><?php echo $translate('Add a new key'); ?></h2>
-<?php echo $this->form($form); ?>

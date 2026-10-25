@@ -1,0 +1,16 @@
+<?php
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+$this->htmlElement('body')->appendAttribute('class', 'mcp-server add');
+$form->setAttribute('action', $this->url('admin/mcp-server', ['controller' => 'key', 'action' => 'add']));
+$form->prepare();
+?>
+<?php echo $this->pageTitle($translate('Add new key'), 1, $translate('MCP Server')); ?>
+<?php echo $this->form()->openTag($form); ?>
+<div id="page-actions">
+    <?php echo $this->hyperlink($translate('Cancel'), $this->url('admin/mcp-server', ['controller' => 'key']), ['class' => 'button']); ?>
+    <button type="submit"><?php echo $escape($translate('Create key')); ?></button>
+</div>
+<p><?php echo $translate('Name the key after where it\'s used, such as "Claude desktop", to tell keys apart. Omeka shows its address only once, after it\'s created.'); ?></p>
+<?php echo $this->formCollection($form, false); ?>
+<?php echo $this->form()->closeTag(); ?>

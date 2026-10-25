@@ -177,7 +177,7 @@ class IndexController extends AbstractActionController
     {
         if (null !== $request->getQuery('key_identity') || null !== $request->getQuery('key_credential')) {
             throw new ProtocolException(
-                'Omeka API keys don\'t work here. Create an MCP key on the MCP Server page of the Omeka admin, and use the address it gives.',
+                'Omeka API keys don\'t work here. Create an MCP key in the Omeka admin, under MCP Server > Keys, and use the address it gives.',
                 ProtocolException::INVALID_REQUEST,
                 400
             );
@@ -191,7 +191,7 @@ class IndexController extends AbstractActionController
             : null;
         if (!$mcpKey || !$mcpKey->getOwner()->isActive()) {
             throw new ProtocolException(
-                'The MCP key in the address wasn\'t accepted. Create a new one on the MCP Server page of the Omeka admin.',
+                'The MCP key in the address wasn\'t accepted. Create a new one in the Omeka admin, under MCP Server > Keys.',
                 ProtocolException::INVALID_REQUEST,
                 403
             );

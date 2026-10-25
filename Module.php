@@ -19,10 +19,10 @@ class Module extends AbstractModule
         // Anyone may reach the endpoint. A request is anonymous unless it
         // carries an MCP key, and the API applies the caller's permissions.
         $acl->allow(null, 'McpServer\Controller\Index');
-        // Every signed-in user may open the MCP Server page, since anyone may
-        // have keys; admin pages already require signing in. The controller
-        // checks that the user may manage the keys in question.
-        $acl->allow(null, 'McpServer\Controller\Admin\Index');
+        // Every signed-in user may open the MCP Server pages, since anyone may
+        // have keys; admin pages already require signing in. The key
+        // controller checks that the user may manage the keys in question.
+        $acl->allow(null, ['McpServer\Controller\Admin\Index', 'McpServer\Controller\Admin\Key']);
     }
 
     public function install(ServiceLocatorInterface $services)

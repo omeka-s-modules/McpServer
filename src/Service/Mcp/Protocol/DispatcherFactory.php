@@ -6,7 +6,6 @@ use Laminas\ServiceManager\Factory\FactoryInterface;
 use McpServer\Mcp\Protocol\Dispatcher;
 use McpServer\Mcp\Protocol\EnvelopeEra;
 use McpServer\Mcp\Protocol\HandshakeEra;
-use McpServer\Mcp\Protocol\ToolRequests;
 
 class DispatcherFactory implements FactoryInterface
 {
@@ -23,7 +22,7 @@ class DispatcherFactory implements FactoryInterface
         }
         $logger = $services->get('Omeka\Logger');
         $instructions = $this->getInstructions($title);
-        $toolRequests = new ToolRequests($services->get('McpServer\ToolManager'), $services->get('McpServer\ToolRunner'), $logger);
+        $toolRequests = $services->get('McpServer\ToolRequests');
         return new Dispatcher(
             new HandshakeEra($toolRequests, $serverInfo, $instructions),
             new EnvelopeEra($toolRequests, $serverInfo, $instructions),

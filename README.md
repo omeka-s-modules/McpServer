@@ -74,10 +74,10 @@ content too, add an MCP key to the address:
 https://example.org/mcp?key=KEY
 ```
 
-Create the key on the **MCP Server** page of the Omeka admin, which also shows the
-endpoint's address. Omeka shows the address with the key only once, when the key is
-created. Whoever may manage a user's API keys, such as a Global Administrator, may manage
-their MCP keys there too.
+Create the key in the Omeka admin, under **MCP Server > Keys**. Omeka shows the address
+with the key only once, when the key is created. Whoever may manage a user's API keys,
+such as a Global Administrator, may manage their MCP keys there too. **MCP Server >
+Overview** shows the endpoint's address and the tools assistants can use.
 
 The assistant sees what the key's user may see:
 
@@ -97,7 +97,7 @@ A key in the address still lets anyone who sees the address read what its user m
   proxy in front of it, and in the assistant's connector settings.
 - **Where a connector is shared,** as on some assistants' team plans, everyone using it
   shares its key. Use an account that sees only what all of them should see.
-- **To revoke access, delete the key** on the **MCP Server** page, which also shows when
+- **To revoke access, delete the key** under **MCP Server > Keys**, which also shows when
   each key was last used. A request with a key that no longer works is refused, rather
   than answered as if it had none.
 

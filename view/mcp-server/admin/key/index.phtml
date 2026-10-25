@@ -1,0 +1,69 @@
+<?php
+$translate = $this->plugin('translate');
+$escape = $this->plugin('escapeHtml');
+$i18n = $this->plugin('i18n');
+$this->htmlElement('body')->appendAttribute('class', 'mcp-server browse');
+$this->headLink()->appendStylesheet($this->assetUrl('css/admin.css', 'McpServer'));
+?>
+<?php echo $this->pageTitle($translate('Keys'), 1, $translate('MCP Server')); ?>
+
+<div id="page-actions">
+    <?php echo $this->hyperlink($translate('Add new key'), $this->url('admin/mcp-server', ['controller' => 'key', 'action' => 'add']), ['class' => 'button']); ?>
+</div>
+
+<p><?php echo $translate('An MCP key lets an AI assistant read Omeka as the key\'s user: it sees what that user may see and can\'t change anything. Lost an address? Delete its key and add a new one.'); ?></p>
+
+<?php if ($keys): ?>
+<table class="tablesaw" data-tablesaw-mode="stack">
+    <thead>
+        <tr>
+            <th><?php echo $translate('Label'); ?></th>
+            <?php if ($showOwners): ?>
+            <th><?php echo $translate('User'); ?></th>
+            <?php endif; ?>
+            <th><?php echo $translate('Created'); ?></th>
+            <th><?php echo $translate('Last used'); ?></th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($keys as $key): ?>
+        <?php $owner = $key->getOwner(); ?>
+        <tr>
+            <td>
+                <?php echo $escape($key->getLabel()); ?>
+                <ul class="actions">
+                    <li><?php echo $this->hyperlink('', '#', [
+                        'data-sidebar-content-url' => $this->url('admin/mcp-server', ['controller' => 'key', 'action' => 'delete-confirm'], ['query' => ['id' => $key->getId()]]),
+                        'class' => 'o-icon-delete sidebar-content',
+                        'aria-label' => sprintf($translate('Delete key “%s”'), $key->getLabel()),
+                        'title' => $translate('Delete'),
+                    ]); ?></li>
+                </ul>
+            </td>
+            <?php if ($showOwners): ?>
+            <td>
+                <?php echo $this->hyperlink($owner->getName(), $this->url('admin/id', ['controller' => 'user', 'action' => 'show', 'id' => $owner->getId()])); ?>
+                <?php if (!$owner->isActive()): ?>
+                <span class="o-icon-user-inactive" role="img" aria-label="<?php echo $escape($translate('Inactive')); ?>" title="<?php echo $escape($translate('Inactive')); ?>"></span>
+                <?php endif; ?>
+            </td>
+            <?php endif; ?>
+            <td><?php echo $escape($i18n->dateFormat($key->getCreated())); ?></td>
+            <td><?php echo $escape($key->getLastUsed() ? $i18n->dateFormat($key->getLastUsed(), 'medium', 'short') : $translate('Never')); ?></td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+<?php else: ?>
+<div class="no-resources">
+    <p><?php echo $translate('No MCP keys yet.'); ?></p>
+</div>
+<?php endif; ?>
+
+<div class="sidebar">
+    <?php echo $this->hyperlink('', '#', [
+        'class' => 'sidebar-close o-icon-close',
+        'title' => $translate('Close'),
+    ]); ?>
+    <div class="sidebar-content"></div>
+</div>

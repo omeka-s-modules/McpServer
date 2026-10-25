@@ -37,17 +37,11 @@ class KeyForm extends Form implements InputFilterProviderInterface
                 ],
                 'attributes' => [
                     'id' => 'mcp-server-key-user',
+                    'class' => 'chosen-select',
                     'required' => true,
                 ],
             ]);
         }
-        $this->add([
-            'type' => 'submit',
-            'name' => 'submit',
-            'attributes' => [
-                'value' => 'Create key', // @translate
-            ],
-        ]);
     }
 
     public function getInputFilterSpecification()

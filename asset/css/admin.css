@@ -1,0 +1,42 @@
+/* A tool's description, cut to two lines by description-toggle.js until its
+   Show more button is pressed. Without the script, it shows in full. */
+.mcp-server-description.is-cut {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+}
+
+/* The Show more button reads as a link, as the text around it does, without
+   the box and height core gives every button. Its focus outline stays. */
+.mcp-server-description-toggle {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    min-height: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+button.mcp-server-description-toggle:hover {
+    box-shadow: none;
+}
+
+/* The tools table gives most of its width to descriptions; Omeka's admin
+   tables otherwise split it evenly. */
+.mcp-server-tools th:first-child {
+    width: 25%;
+}
+
+/* A new key's address box, no wider than the message it's in. Monospace, so
+   its size in characters fits the address exactly, and so characters such as
+   l, I, and 1 in the key are easy to tell apart. */
+.mcp-server-new-address {
+    max-width: 100%;
+    box-sizing: border-box;
+    font-family: monospace;
+}
