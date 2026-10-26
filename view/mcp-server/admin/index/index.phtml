@@ -9,9 +9,8 @@ $this->headScript()->appendFile($this->assetUrl('js/description-toggle.js', 'Mcp
 
 <h3><?php echo $translate('Address'); ?></h3>
 <p><code><?php echo $escape($address); ?></code></p>
-<p><?php echo $translate('Add this address to an AI assistant as a remote MCP server.'); ?></p>
 <p><?php echo sprintf(
-    $escape($translate('Without a key, assistants see public content only. To let an assistant read what a user may see, create a key under %s.')),
+    $escape($translate('Add this address to an AI assistant as a remote MCP server, and it can read your public content. To let it read private content too, create an MCP key under %s and use the address it gives instead. The assistant then sees what the key\'s user may see.')),
     $this->hyperlink($translate('Keys'), $this->url('admin/mcp-server', ['controller' => 'key']))
 ); ?></p>
 
