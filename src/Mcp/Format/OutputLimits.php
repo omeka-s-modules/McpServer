@@ -9,7 +9,7 @@ namespace McpServer\Mcp\Format;
  * It holds the limits on how much of a resource a tool shows, and the highest
  * page any tool takes. Limits on how many resources a call returns or counts
  * live with the code that applies them: the tools' page sizes, including
- * GetOverview::PER_PAGE, AbstractSearchTool::FIELDS_PAGE_LENGTH_MAX, and
+ * GetOverview::PER_PAGE, AbstractSearchTool::PROPERTIES_PAGE_LENGTH_MAX, and
  * ResourceCounter::COUNT_MAX.
  *
  * The rule in ToolInterface says nothing is cut silently. The formatters use
@@ -31,9 +31,9 @@ final class OutputLimits
     // other items, before it's cut.
     const LIST_LIMIT = 100;
 
-    // Most values of one field a search result shows, when a search names
-    // fields to show.
-    const FIELD_VALUES_LIMIT = 10;
+    // Most values of one property a search result shows, when a search names
+    // properties to show.
+    const PROPERTY_VALUES_LIMIT = 10;
 
     // Most characters of one text read at a time, from an offset, to read
     // the rest of a text cut at TEXT_LIMIT.
@@ -63,11 +63,11 @@ final class OutputLimits
     // That a text in module data was cut.
     const MODULE_DATA_TRUNCATED = 'module_data_truncated';
 
-    // The full length of each field a search result cut, and that a value in
-    // one was shortened.
-    const FIELDS_TOTALS = 'fields_totals';
+    // The full length of each property a search result cut, and that a value
+    // in one was shortened.
+    const PROPERTIES_TOTALS = 'properties_totals';
 
-    const FIELDS_TRUNCATED = 'fields_truncated';
+    const PROPERTIES_TRUNCATED = 'properties_truncated';
 
     /**
      * Cut text longer than TEXT_LIMIT, saying how long it was.

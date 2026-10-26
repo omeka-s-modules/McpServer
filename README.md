@@ -137,17 +137,18 @@ its own.
 | Tool | What it does |
 |---|---|
 | `get_overview` | Describes the installation: counts, dates, and what search can filter on |
-| `search_items` | Finds items by words, filters, and conditions on fields |
+| `search_items` | Finds items by words, filters, and conditions on properties |
 | `get_item` | Reads one item in full |
-| `count_values` | Counts a field's values, most common first or alphabetically, such as creators, subjects, or image rights |
-| `count_fields` | Counts which fields records have filled in, such as for a metadata audit |
-| `search_media` | Finds media by words, type, item, and conditions on fields |
+| `count_values` | Counts a property's values, most common first or alphabetically, such as creators, subjects, or image rights |
+| `count_properties` | Counts which properties records have filled in, such as for a metadata audit |
+| `search_media` | Finds media by words, type, item, and conditions on properties |
 | `get_media` | Reads one media, with its image for the assistant to look at |
-| `search_item_sets` | Finds item sets by words and conditions on fields |
+| `search_item_sets` | Finds item sets by words and conditions on properties |
 | `get_item_set` | Reads one item set in full, with its item count |
 
 Assistants usually start with `get_overview`, then search or count, then read the items
-they need. All tools are read-only.
+they need. All tools are read-only. Like Omeka, the tools call a record's fields
+properties, and name each one by its term, such as `dcterms:title`.
 
 When an assistant may see private content, results mark it as Omeka's JSON-LD does:
 `"is_public": false` on a private item, media, item set, or value. Search results show
@@ -187,16 +188,16 @@ Finds items, a page at a time, as short summaries with a link to each item's pub
 | `site` | string | Only items in this site, by slug. |
 | `is_public` | boolean | Only public items (`true`) or private ones (`false`). |
 | `has_media` | boolean | Only items with media (`true`) or without (`false`). |
-| `where` | object[] | Conditions on fields, all of which must hold. At most 10. See below. |
+| `where` | object[] | Conditions on properties, all of which must hold. At most 10. See below. |
 | `sort` | string | `relevance`, `added`, `modified`, `title`, or a property term such as `dcterms:date`. |
 | `order` | string | `asc` or `desc`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 10. |
-| `fields` | string[] | Fields whose values each result should list, such as `dcterms:rights`. At most 10. See below. |
+| `properties` | string[] | Properties whose values each result should list, such as `dcterms:rights`. At most 10. See below. |
 
-Each `where` condition has a `field` (a property term), an `op`, and usually a `value`:
+Each `where` condition has a `property` (by term), an `op`, and usually a `value`:
 
-| `op` | Matches results whose field… |
+| `op` | Matches results whose property… |
 |---|---|
 | `equals` | is exactly the value |
 | `contains` | contains the value |
@@ -206,10 +207,10 @@ Each `where` condition has a `field` (a property term), an `op`, and usually a `
 | `exists` | has any value (no `value` needed) |
 | `missing` | has no value (no `value` needed) |
 
-With `fields`, each result lists the values of the fields named in place of its usual
-summary, beside its ID, title, and link: up to 10 values of each field, each shortened to
-300 characters. That reads a field across many results at once, instead of opening each
-one.
+With `properties`, each result lists the values of the properties named in place of its
+usual summary, beside its ID, title, and link: up to 10 values of each property, each
+shortened to 300 characters. That reads a property across many results at once, instead
+of opening each one.
 
 ### get_item
 
@@ -217,23 +218,23 @@ Reads one item in full: every value with its label and any annotations, its medi
 item sets, a link to its public page, and in `module_data`, anything other modules add,
 such as map locations.
 
-A field with more than 100 values shows the first 100 and its total, and `field` reads
+A property with more than 100 values shows the first 100 and its total, and `property` reads
 all of them, a page at a time. A value longer than 2,000 characters, such as a long
-transcription, is cut, and `field` with `offset` reads the rest of it, 10,000 characters
+transcription, is cut, and `property` with `offset` reads the rest of it, 10,000 characters
 at a time.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `id` | integer | The item's ID. Required. |
 | `response_format` | string | `concise` (the default) for readable values with labels, or `detailed` for Omeka's own JSON-LD, which also lists everything that links to this one. |
-| `field` | string | Return only this property's values, by term, such as `dcterms:subject`, 100 to a page. Not with `detailed`. |
-| `page` | integer | With `field`, the page of values, starting at 1. |
-| `offset` | integer | With `field`, read one value's text from this character, starting at 0. Not with `page`. |
-| `position` | integer | With `offset`, which of the field's values to read, starting at 1. Default 1. |
+| `property` | string | Return only this property's values, by term, such as `dcterms:subject`, 100 to a page. Not with `detailed`. |
+| `page` | integer | With `property`, the page of values, starting at 1. |
+| `offset` | integer | With `property`, read one value's text from this character, starting at 0. Not with `page`. |
+| `position` | integer | With `offset`, which of the property's values to read, starting at 1. Default 1. |
 
 ### count_values
 
-Counts the values of one field, with how many items have each, a page at a time: most
+Counts the values of one property, with how many items have each, a page at a time: most
 common first, or alphabetically, which puts variant spellings of the same value side by
 side. Takes the same filters as `search_items`, so it can count within a subset, such as
 the most common subjects among paintings. A value that links to another item counts by
@@ -244,7 +245,7 @@ rights and credits recorded for each image, and `resource_type` counts theirs in
 
 | Parameter | Type | Description |
 |---|---|---|
-| `field` | string | The property to count, such as `dcterms:subject`. Required. |
+| `property` | string | The property to count, by term, such as `dcterms:subject`. Required. |
 | `prefix_length` | integer | Count values by their first characters, from 1 to 50, rather than whole. Dates stored starting with the year count by century with 2, and by decade with 3. |
 | `sort` | string | `count` (the default) for the most common first, or `value` for alphabetical order. |
 | `page` | integer | Page number, starting at 1. |
@@ -253,13 +254,14 @@ rights and credits recorded for each image, and `resource_type` counts theirs in
 | `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
 | `query`, `contains`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
 
-### count_fields
+### count_properties
 
-Counts which fields are filled in: for the items that match the filters, how many have
-each field, most common first. It shows what metadata a set of records has, or where it
-has gaps, in one call, such as which fields the people records lack. A field none of them
-has isn't listed; to find the records missing a field, search with a `missing` condition.
-Where values carry language tags, a field also lists how many have it in each language,
+Counts which properties are filled in: for the items that match the filters, how many
+have each property, most common first. It shows what metadata a set of records has, or
+where it has gaps, in one call, such as which properties the people records lack. A
+property none of them has isn't listed; to find the records missing one, search with a
+`missing` condition. Where values carry language tags, a property also lists how many have
+it in each language,
 to see how far translations go.
 
 | Parameter | Type | Description |
@@ -278,7 +280,7 @@ Results are short summaries with the item each media belongs to.
 |---|---|---|
 | `media_type` | string | Only media of this exact type, such as `application/pdf`. |
 | `item` | integer | Only media of this item, by ID, in the order they were added unless sorted otherwise. |
-| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `fields` | | The same as in `search_items`. |
+| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `properties` | | The same as in `search_items`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 20. |
 
@@ -298,7 +300,8 @@ text as `content`, cut like a long value.
 | `id` | integer | The media's ID. Required. |
 | `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
 | `image` | boolean | Include the image. Default `true`. |
-| `field`, `page`, `offset`, `position` | | The same as in `get_item`. `field` can also be `content`, to read an HTML media's text with `offset`. |
+| `content` | boolean | Read an HTML media's own text instead of its record, with `offset`, 10,000 characters at a time. |
+| `property`, `page`, `offset`, `position` | | The same as in `get_item`. |
 
 ### search_item_sets
 
@@ -308,7 +311,7 @@ item sets, so this is for searching them by what they're about.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `fields` | | The same as in `search_items`. |
+| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `properties` | | The same as in `search_items`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 20. |
 
@@ -322,7 +325,7 @@ has, a link to its public page, and anything other modules add. To list its item
 |---|---|---|
 | `id` | integer | The item set's ID. Required. |
 | `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
-| `field`, `page`, `offset`, `position` | | The same as in `get_item`. |
+| `property`, `page`, `offset`, `position` | | The same as in `get_item`. |
 
 ## Privacy and security
 
@@ -346,19 +349,19 @@ Omeka account without handling a key, is planned for a later version.
 These keep each answer within what assistants accept. When something is cut, the result
 says so, and says how to read the rest, if there is a way.
 
-- Values longer than 2,000 characters, such as long transcriptions, are cut, and `field`
-  with `offset` reads the rest. Text cut inside an annotation or in `module_data` can't be
+- Values longer than 2,000 characters, such as long transcriptions, are cut, and
+  `property` with `offset` reads the rest. Text cut inside an annotation or in `module_data` can't be
   read further.
-- An item, media, or item set shows at most 100 values of one field, and `field` reads
-  the rest. Other lists longer than 100 entries, such as the links from other items in the
+- An item, media, or item set shows at most 100 values of one property, and `property`
+  reads the rest. Other lists longer than 100 entries, such as the links from other items in the
   `detailed` format, are cut too, with their full length given.
 - An item lists at most 50 of its media, and `search_media` with `item` lists them all.
-- With `fields`, a search result lists at most 10 values of each field, each shortened to
-  300 characters, and a page is at most 40,000 characters; a longer one is refused, with
-  the `per_page` that fits. `field` reads a field in full.
+- With `properties`, a search result lists at most 10 values of each property, each
+  shortened to 300 characters, and a page is at most 40,000 characters; a longer one is
+  refused, with the `per_page` that fits. `property` reads a property in full.
 - `get_overview` shows at most 200 entries of each list, and `list` reads the rest.
 - `get_media` sends the large thumbnail (800 pixels by default), never the original file.
-- `count_values` and `count_fields` count across at most 200,000 matching items, media,
+- `count_values` and `count_properties` count across at most 200,000 matching items, media,
   or item sets. Narrow larger sets with filters. Media can reach this much sooner than
   items, as when each page of a scanned book is its own media. Above 200,000 items,
   `get_overview` leaves out its media type counts.

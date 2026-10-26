@@ -20,7 +20,7 @@ use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
  * the same way: in a concise form by default, or as Omeka's own JSON-LD on
  * request.
  *
- * Each can also read one field in full: a page of values at a time, or one
+ * Each can also read one property in full: a page of values at a time, or one
  * long text from an offset. This is how a model reaches what a concise form
  * cut, as OutputLimitNotes tells it.
  */
@@ -60,27 +60,18 @@ abstract class AbstractGetTool implements ToolInterface
     abstract protected function getConcise(AbstractResourceEntityRepresentation $resource): array;
 
     /**
-     * Get the schema properties a tool takes besides the shared ones.
+     * Get the schema of the arguments a tool takes besides the shared ones.
      */
-    protected function getOwnProperties(): array
+    protected function getOwnSchema(): array
     {
         return [];
     }
 
     /**
-     * Describe the fields a tool reads besides properties, for the "field"
-     * argument's description.
+     * Read something a tool has besides properties, such as a media's own
+     * text, when its arguments ask for it, or null when they don't.
      */
-    protected function getOwnFieldsDescription(): string
-    {
-        return '';
-    }
-
-    /**
-     * Read a field a tool has besides properties, or null when the term isn't
-     * one.
-     */
-    protected function readOwnField(AbstractResourceEntityRepresentation $resource, ArgumentReader $reader, string $term): ?ToolResult
+    protected function readOwn(AbstractResourceEntityRepresentation $resource, ArgumentReader $reader): ?ToolResult
     {
         return null;
     }
@@ -112,7 +103,7 @@ abstract class AbstractGetTool implements ToolInterface
                     'default' => 'concise',
                     'description' => '"concise" for readable values with labels, or "detailed" for Omeka\'s full JSON-LD.',
                 ],
-            ] + $this->getOwnProperties() + $this->getFieldSchema(),
+            ] + $this->getOwnSchema() + $this->getPropertyReadingSchema(),
             'required' => ['id'],
         ];
     }
@@ -132,11 +123,15 @@ abstract class AbstractGetTool implements ToolInterface
         } catch (NotFoundException $e) {
             throw new ToolException(sprintf('No %s with id %d exists or is visible to you.', $this->getSingularNoun(), $id));
         }
-        if ($reader->has('field')) {
+        $own = $this->readOwn($resource, $reader);
+        if ($own) {
+            return $own;
+        }
+        if ($reader->has('property')) {
             if ('detailed' === $format) {
-                throw new ToolException('"field" reads readable values, so it doesn\'t take "response_format" "detailed".');
+                throw new ToolException('"property" reads readable values, so it doesn\'t take "response_format" "detailed".');
             }
-            return $this->readField($resource, $reader);
+            return $this->readProperty($resource, $reader);
         }
         [$image, $imageNote] = $this->getImage($resource, $reader);
         if ('detailed' !== $format) {
@@ -153,17 +148,16 @@ abstract class AbstractGetTool implements ToolInterface
     }
 
     /**
-     * Get the schema properties for reading one field.
+     * Get the schema of the arguments for reading one property.
      */
-    protected function getFieldSchema(): array
+    protected function getPropertyReadingSchema(): array
     {
         return [
-            'field' => [
+            'property' => [
                 'type' => 'string',
                 'description' => sprintf(
-                    'Read only this property\'s values, by term, all of them, %d at a time. Use it when a property has more values than the full form shows, or with "offset" to read a text the full form cut.%s',
-                    OutputLimits::LIST_LIMIT,
-                    $this->getOwnFieldsDescription()
+                    'Read only this property\'s values, by term, all of them, %d at a time. Use it when a property has more values than the full form shows, or with "offset" to read a text the full form cut.',
+                    OutputLimits::LIST_LIMIT
                 ),
             ],
             'page' => [
@@ -171,20 +165,20 @@ abstract class AbstractGetTool implements ToolInterface
                 'minimum' => 1,
                 'maximum' => OutputLimits::PAGE_MAX,
                 'default' => 1,
-                'description' => 'With "field", the page of values to return, starting at 1.',
+                'description' => 'With "property", the page of values to return, starting at 1.',
             ],
             'position' => [
                 'type' => 'integer',
                 'minimum' => 1,
                 'default' => 1,
-                'description' => 'With "field" and "offset", which of the property\'s values to read, by its position among them, starting at 1.',
+                'description' => 'With "property" and "offset", which of the property\'s values to read, by its position among them, starting at 1.',
             ],
             'offset' => [
                 'type' => 'integer',
                 'minimum' => 0,
                 'default' => 0,
                 'description' => sprintf(
-                    'With "field", read one value\'s text from this character, starting at 0, %s characters at a time.',
+                    'With "property", read one value\'s text from this character, starting at 0, %s characters at a time.',
                     number_format(OutputLimits::CHUNK_LIMIT)
                 ),
             ],
@@ -192,21 +186,17 @@ abstract class AbstractGetTool implements ToolInterface
     }
 
     /**
-     * Read one field's values, or one long text.
+     * Read one property's values, or one long text.
      *
-     * @throws ToolException When the resource has no values for the field
+     * @throws ToolException When the resource has no values for the property
      */
-    protected function readField(AbstractResourceEntityRepresentation $resource, ArgumentReader $reader): ToolResult
+    protected function readProperty(AbstractResourceEntityRepresentation $resource, ArgumentReader $reader): ToolResult
     {
-        $term = $reader->getText('field');
-        $own = $this->readOwnField($resource, $reader, $term);
-        if ($own) {
-            return $own;
-        }
+        $term = $reader->getText('property');
         $total = count($resource->values()[$term]['values'] ?? []);
         if (!$total) {
             $terms = array_keys(array_filter($resource->values(), fn ($property) => $property['values']));
-            throw new ToolException(sprintf('This %s has no values for "%s". Its fields are: %s.', $this->getSingularNoun(), $term, implode(', ', $terms)));
+            throw new ToolException(sprintf('This %s has no values for "%s". Its properties are: %s.', $this->getSingularNoun(), $term, implode(', ', $terms)));
         }
         // "offset", or a "position" past the first, reads one value's text. A
         // "position" of 1 alone is the default sent explicitly, and pages.
@@ -214,20 +204,20 @@ abstract class AbstractGetTool implements ToolInterface
             return $this->readValue($resource, $reader, $term, $total);
         }
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
-        $field = $this->valueFormatter->fieldPage($resource, $term, $page);
+        $values = $this->valueFormatter->propertyPage($resource, $term, $page);
         $output = [
             'id' => $resource->id(),
             'title' => $resource->displayTitle(),
-            'field' => $term,
+            'property' => $term,
             'page' => $page,
             'per_page' => OutputLimits::LIST_LIMIT,
-        ] + $field;
+        ] + $values;
         $notes = [];
         $pages = (int) ceil($total / OutputLimits::LIST_LIMIT);
         if ($page < $pages) {
             $notes[] = sprintf('There are %d values on %d pages. Call again with "page" %d for the next.', $total, $pages, $page + 1);
         }
-        $notes[] = OutputLimitNotes::forFieldPage($term, $field['values'], ($page - 1) * OutputLimits::LIST_LIMIT + 1);
+        $notes[] = OutputLimitNotes::forPropertyPage($term, $values['values'], ($page - 1) * OutputLimits::LIST_LIMIT + 1);
         $notes = array_filter($notes);
         return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
     }
@@ -235,7 +225,7 @@ abstract class AbstractGetTool implements ToolInterface
     /**
      * Read part of one value's text, from an offset.
      *
-     * @param int $total How many values the resource has for the field
+     * @param int $total How many values the resource has for the property
      */
     protected function readValue(AbstractResourceEntityRepresentation $resource, ArgumentReader $reader, string $term, int $total): ToolResult
     {
@@ -249,7 +239,7 @@ abstract class AbstractGetTool implements ToolInterface
         $output = [
             'id' => $resource->id(),
             'title' => $resource->displayTitle(),
-            'field' => $term,
+            'property' => $term,
             'label' => $chunk['label'],
             'position' => $position,
             OutputLimits::TOTAL => $total,
@@ -264,7 +254,7 @@ abstract class AbstractGetTool implements ToolInterface
     protected function refusePage(ArgumentReader $reader): void
     {
         if (1 !== $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX)) {
-            throw new ToolException('"page" pages through a field\'s values, and "offset" reads one text, so the two don\'t go together.');
+            throw new ToolException('"page" pages through a property\'s values, and "offset" reads one text, so the two don\'t go together.');
         }
     }
 

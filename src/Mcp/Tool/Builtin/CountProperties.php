@@ -11,9 +11,9 @@ use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 
 /**
- * Counts which fields the items, media, or item sets that match the filters
- * have, and how many have each, in each language too where values carry
- * language tags.
+ * Counts which properties the items, media, or item sets that match the
+ * filters have, and how many have each, in each language too where values
+ * carry language tags.
  *
  * The counting is ResourceCounter's, under the rule in ToolInterface, as for
  * count_values: the API returns the IDs of the matching resources, applying
@@ -21,7 +21,7 @@ use McpServer\Mcp\Tool\ToolResult;
  * reads only their values. Core's Doctrine filters then hide private values,
  * and a link to a resource the caller can't see doesn't count.
  */
-class CountFields implements ToolInterface
+class CountProperties implements ToolInterface
 {
     protected $searchFilters;
 
@@ -38,20 +38,20 @@ class CountFields implements ToolInterface
 
     public function getTitle(): string
     {
-        return 'Count fields';
+        return 'Count properties';
     }
 
     public function getDescription(): string
     {
-        return 'Count which fields are filled in: for the items that match the filters, how many have each '
-            . 'field. Use it to see what metadata a set of records has, or to audit it for gaps, in one call '
-            . 'rather than counting one field at a time with count_values. Takes the same filters as '
+        return 'Count which properties (fields) are filled in: for the items that match the filters, how many '
+            . 'have each property. Use it to see what metadata a set of records has, or to audit it for gaps, in '
+            . 'one call rather than counting one property at a time with count_values. Takes the same filters as '
             . 'search_items, to look within a subset such as one class or item set.'
             . "\n\n"
             . 'Counts items by default. Media and item sets have metadata of their own: set "resource_type" to '
-            . 'count theirs. Lists every field at least one matching record has, most common first. Where values '
-            . 'carry language tags, a field also lists how many have it in each language, to see how far '
-            . 'translations go. A field none has isn\'t listed; to find the records missing a field, search '
+            . 'count theirs. Lists every property at least one matching record has, most common first. Where '
+            . 'values carry language tags, a property also lists how many have it in each language, to see how '
+            . 'far translations go. A property none has isn\'t listed; to find the records missing one, search '
             . 'with a "where" condition with "missing".';
     }
 
@@ -64,7 +64,7 @@ class CountFields implements ToolInterface
                     'type' => 'string',
                     'enum' => SearchFilters::RESOURCES,
                     'default' => 'items',
-                    'description' => 'Whose fields to count: items, media, or item sets.',
+                    'description' => 'Whose properties to count: items, media, or item sets.',
                 ],
             ] + $this->searchFilters->getFilterSchema(null),
         ];
@@ -89,34 +89,34 @@ class CountFields implements ToolInterface
         $ids = $this->counter->getResourceIds($resource, $filters);
         if (null === $ids) {
             throw new ToolException(sprintf(
-                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a field.',
+                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a property.',
                 number_format(ResourceCounter::COUNT_MAX), $noun
             ));
         }
-        $properties = array_column($this->names->getUsedProperties(), null, 'id');
-        // How many have each field in each language, most first.
+        $used = array_column($this->names->getUsedProperties(), null, 'id');
+        // How many have each property in each language, most first.
         $languages = [];
-        foreach ($this->counter->countFieldLanguages($ids) as $row) {
+        foreach ($this->counter->countPropertyLanguages($ids) as $row) {
             $languages[$row['property']][$row['lang']] = (int) $row['resources'];
         }
-        $fields = [];
-        foreach ($this->counter->countFields($ids) as $row) {
-            $property = $properties[$row['property']] ?? null;
+        $properties = [];
+        foreach ($this->counter->countProperties($ids) as $row) {
+            $property = $used[$row['property']] ?? null;
             if ($property) {
-                $fields[] = ['field' => $property['term'], 'label' => $property['label'], $resource => (int) $row['resources']]
+                $properties[] = ['property' => $property['term'], 'label' => $property['label'], $resource => (int) $row['resources']]
                     + (isset($languages[$row['property']]) ? ['languages' => $languages[$row['property']]] : []);
             }
         }
         // Most common first, then by term, so the order is stable.
-        usort($fields, fn ($a, $b) => [$b[$resource], $a['field']] <=> [$a[$resource], $b['field']]);
+        usort($properties, fn ($a, $b) => [$b[$resource], $a['property']] <=> [$a[$resource], $b['property']]);
         $output = [
             'matching_' . $resource => count($ids),
-            'fields' => $fields,
+            'properties' => $properties,
         ];
         $note = null;
         if (!$ids) {
             $note = $this->searchFilters->explainEmpty($filters, $noun);
-        } elseif (!$fields) {
+        } elseif (!$properties) {
             $note = sprintf('None of the matching %s has a value you can see.', $noun);
         }
         return ToolResult::json($output, $note);

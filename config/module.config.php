@@ -12,7 +12,7 @@ return [
             'factories' => [
                 'get_overview' => Service\Mcp\Tool\Builtin\GetOverviewFactory::class,
                 'count_values' => Service\Mcp\Tool\Builtin\CountValuesFactory::class,
-                'count_fields' => Service\Mcp\Tool\Builtin\CountFieldsFactory::class,
+                'count_properties' => Service\Mcp\Tool\Builtin\CountPropertiesFactory::class,
                 'search_items' => Service\Mcp\Tool\Builtin\SearchItemsFactory::class,
                 'search_media' => Service\Mcp\Tool\Builtin\SearchMediaFactory::class,
                 'search_item_sets' => Service\Mcp\Tool\Builtin\SearchItemSetsFactory::class,

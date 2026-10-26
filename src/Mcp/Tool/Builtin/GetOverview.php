@@ -57,7 +57,7 @@ class GetOverview implements ToolInterface
             . 'media and items have each; the item sets, with ids and item counts (get_item_set describes one); '
             . 'the classes items use, with counts; the properties in use, for "where" conditions, sorting, and '
             . 'count_values; and the sites, with their summaries. Call this before filtering search_items by item '
-            . sprintf('set, class, field, or site. A list longer than %d entries is cut; "list" and "page" read all of it.', self::PER_PAGE);
+            . sprintf('set, class, property, or site. A list longer than %d entries is cut; "list" and "page" read all of it.', self::PER_PAGE);
     }
 
     public function getInputSchema(): array

@@ -11,7 +11,7 @@ use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 
 /**
- * Counts the values of one field across the items, media, or item sets that
+ * Counts the values of one property across the items, media, or item sets that
  * match the filters. With prefix_length, values count by their first
  * characters instead, such as dates by century.
  *
@@ -36,7 +36,7 @@ class CountValues implements ToolInterface
 
     const SORTS = ['count', 'value'];
 
-    // Longest value shown, since a field may hold long text.
+    // Longest value shown, since a property may hold long text.
     const VALUE_LIMIT = 300;
 
     // Most characters "prefix_length" counts values by.
@@ -59,7 +59,7 @@ class CountValues implements ToolInterface
 
     public function getDescription(): string
     {
-        return 'Count the values of one field: which values are most common, and how many items have each. Use '
+        return 'Count the values of one property (field): which values are most common, and how many items have each. Use '
             . 'it for questions such as the most frequent creators, or the most common subjects among paintings, '
             . 'instead of paging through search results. Takes the same filters as search_items, to count within '
             . 'a subset. A value that links to another item counts by that item\'s title. Call get_overview first '
@@ -79,7 +79,7 @@ class CountValues implements ToolInterface
         return [
             'type' => 'object',
             'properties' => [
-                'field' => [
+                'property' => [
                     'type' => 'string',
                     'description' => 'The property to count, by term, e.g. "dcterms:subject".',
                 ],
@@ -116,7 +116,7 @@ class CountValues implements ToolInterface
                     'description' => 'Whose values to count: items, media, or item sets.',
                 ],
             ] + $this->searchFilters->getFilterSchema(null),
-            'required' => ['field'],
+            'required' => ['property'],
         ];
     }
 
@@ -128,11 +128,11 @@ class CountValues implements ToolInterface
     public function call(array $arguments, Context $context): ToolResult
     {
         $reader = new ArgumentReader($arguments);
-        $field = $reader->getText('field');
-        if (null === $field) {
-            throw new ToolException('"field" is needed: a property term such as "dcterms:subject".');
+        $term = $reader->getText('property');
+        if (null === $term) {
+            throw new ToolException('"property" is needed: a term such as "dcterms:subject".');
         }
-        $propertyId = $this->searchFilters->findProperty($field);
+        $propertyId = $this->searchFilters->findProperty($term);
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
         $perPage = $reader->getInt('per_page', self::PER_PAGE_DEFAULT, 1, self::PER_PAGE_MAX);
         $byValue = 'value' === $reader->getEnum('sort', self::SORTS, 'count');
@@ -148,7 +148,7 @@ class CountValues implements ToolInterface
         $ids = $this->counter->getResourceIds($resource, $filters);
         if (null === $ids) {
             throw new ToolException(sprintf(
-                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a field.',
+                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a property.',
                 number_format(ResourceCounter::COUNT_MAX), $noun
             ));
         }
@@ -174,14 +174,14 @@ class CountValues implements ToolInterface
             // can be empty while there are values.
             $totals = $this->counter->countValueTotals($propertyId, $ids, $prefixLength);
         }
-        $output = ['field' => $field];
+        $output = ['property' => $term];
         if ($prefixLength) {
             // The values are the groups' first characters.
             $output['prefix_length'] = $prefixLength;
         }
         $output += [
             'matching_' . $resource => count($ids),
-            $resource . '_with_field' => $totals['resources'],
+            $resource . '_with_property' => $totals['resources'],
             'distinct_values' => $totals['values'],
             'page' => $page,
             'per_page' => $perPage,
@@ -194,11 +194,11 @@ class CountValues implements ToolInterface
             $annotated = $this->counter->getAnnotatedProperties($propertyId, $ids);
             if ($annotated) {
                 $note = sprintf(
-                    'None of the matching %s has a value for %s, but it\'s used in annotations on their %s values. Annotations can\'t be searched or counted with these tools. get_item with "field" set to %s shows each value with its annotations.',
-                    $noun, $field, implode(' and ', $annotated), 1 === count($annotated) ? $annotated[0] : 'one of those'
+                    'None of the matching %s has a value for %s, but it\'s used in annotations on their %s values. Annotations can\'t be searched or counted with these tools. get_item with "property" set to %s shows each value with its annotations.',
+                    $noun, $term, implode(' and ', $annotated), 1 === count($annotated) ? $annotated[0] : 'one of those'
                 );
             } else {
-                $note = sprintf('None of the matching %s has a value for %s.', $noun, $field);
+                $note = sprintf('None of the matching %s has a value for %s.', $noun, $term);
                 if ('items' === $resource) {
                     $note .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
                 }
@@ -206,7 +206,7 @@ class CountValues implements ToolInterface
         } elseif ($shortened) {
             $note = sprintf(
                 'Values longer than %d characters are shortened, ending in "…", and marked truncated. To find the %s with one, use search_%s with a "starts_with" condition on %s, giving its text without the "…".',
-                self::VALUE_LIMIT, $noun, $resource, $field
+                self::VALUE_LIMIT, $noun, $resource, $term
             );
         }
         return ToolResult::json($output, $note);

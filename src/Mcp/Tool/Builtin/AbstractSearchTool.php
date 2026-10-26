@@ -15,19 +15,19 @@ use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 /**
  * The base of search_items, search_media, and search_item_sets, which take the
  * same filters, sort the same way, and return a page of short summaries at a
- * time, or with "fields", the values of the fields named.
+ * time, or with "properties", the values of the properties named.
  */
 abstract class AbstractSearchTool implements ToolInterface
 {
     const PER_PAGE_MAX = 50;
 
-    // Most fields a search may ask each result to show.
-    const FIELDS_MAX = 10;
+    // Most properties a search may ask each result to show.
+    const PROPERTIES_MAX = 10;
 
-    // Longest page a search with fields returns, in characters of JSON, since
-    // assistants set longer results aside: Claude Code saves one over 50,000
-    // characters to a file rather than showing it.
-    const FIELDS_PAGE_LENGTH_MAX = 40000;
+    // Longest page a search with properties returns, in characters of JSON,
+    // since assistants set longer results aside: Claude Code saves one over
+    // 50,000 characters to a file rather than showing it.
+    const PROPERTIES_PAGE_LENGTH_MAX = 40000;
 
     protected $api;
 
@@ -142,13 +142,13 @@ abstract class AbstractSearchTool implements ToolInterface
                 'default' => $this->getPerPageDefault(),
                 'description' => sprintf('Results per page, from 1 to %d.', self::PER_PAGE_MAX),
             ],
-            'fields' => [
+            'properties' => [
                 'type' => 'array',
                 'items' => ['type' => 'string'],
-                'maxItems' => self::FIELDS_MAX,
+                'maxItems' => self::PROPERTIES_MAX,
                 'description' => sprintf(
-                    'Property terms, such as "dcterms:rights", whose values each result should list: up to %d fields, and %d values of each. Each result then shows these fields in place of its summary, beside its id, title, and link, so name any others it should show, such as "dcterms:description". Reads fields across many results at once, instead of opening each one.',
-                    self::FIELDS_MAX, OutputLimits::FIELD_VALUES_LIMIT
+                    'Properties whose values each result should list, by term, such as "dcterms:rights": up to %d properties, and %d values of each. Each result then shows them in place of its summary, beside its id, title, and link, so name any others it should show, such as "dcterms:description". Reads properties (fields) across many results at once, instead of opening each one.',
+                    self::PROPERTIES_MAX, OutputLimits::PROPERTY_VALUES_LIMIT
                 ),
             ],
         ];
@@ -160,18 +160,18 @@ abstract class AbstractSearchTool implements ToolInterface
      *
      * @throws ToolException
      */
-    protected function getFields(ArgumentReader $reader): array
+    protected function getPropertyTerms(ArgumentReader $reader): array
     {
-        $fields = [];
-        foreach ($reader->getList('fields', self::FIELDS_MAX) as $term) {
+        $terms = [];
+        foreach ($reader->getList('properties', self::PROPERTIES_MAX) as $term) {
             if (!is_string($term) || '' === trim($term)) {
-                throw new ToolException('"fields" must list property terms, such as "dcterms:rights".');
+                throw new ToolException('"properties" must list property terms, such as "dcterms:rights".');
             }
             $term = trim($term);
             $this->searchFilters->findProperty($term);
-            $fields[$term] = $term;
+            $terms[$term] = $term;
         }
-        return array_values($fields);
+        return array_values($terms);
     }
 
     /**
@@ -183,7 +183,7 @@ abstract class AbstractSearchTool implements ToolInterface
         $resourceName = $this->getResourceName();
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
         $perPage = $reader->getInt('per_page', $this->getPerPageDefault(), 1, self::PER_PAGE_MAX);
-        $fields = $this->getFields($reader);
+        $terms = $this->getPropertyTerms($reader);
         $toolQuery = $this->getToolQuery($reader);
         $query = $this->searchFilters->buildFilters($reader, $resourceName, $this->getFilterAdvice());
         $query += $this->searchFilters->buildSort($reader, isset($query['fulltext_search']), $this->getDefaultSort($toolQuery));
@@ -196,19 +196,19 @@ abstract class AbstractSearchTool implements ToolInterface
             'page' => $page,
             'per_page' => $perPage,
             $resourceName => array_map(
-                fn ($resource) => ($fields ? $this->formatter->briefSummary($resource) : $this->summarize($resource))
+                fn ($resource) => ($terms ? $this->formatter->briefSummary($resource) : $this->summarize($resource))
                     + $this->formatter->sortDate($resource, $sortedDate)
-                    + ($fields ? $this->formatter->fieldValues($resource, $fields) : []),
+                    + ($terms ? $this->formatter->propertyValues($resource, $terms) : []),
                 $results
             ),
         ];
-        if ($fields) {
+        if ($terms) {
             $length = mb_strlen(json_encode($output, ToolResult::JSON_FLAGS));
-            if ($length > self::FIELDS_PAGE_LENGTH_MAX) {
+            if ($length > self::PROPERTIES_PAGE_LENGTH_MAX) {
                 throw new ToolException(sprintf(
-                    'With these fields, this page of %d results would be %s characters, more than the %s a page may have. Ask for "per_page" %d or fewer, or for fewer fields.',
-                    count($results), number_format($length), number_format(self::FIELDS_PAGE_LENGTH_MAX),
-                    max(1, intdiv(count($results) * self::FIELDS_PAGE_LENGTH_MAX, $length))
+                    'With these properties, this page of %d results would be %s characters, more than the %s a page may have. Ask for "per_page" %d or fewer, or for fewer properties.',
+                    count($results), number_format($length), number_format(self::PROPERTIES_PAGE_LENGTH_MAX),
+                    max(1, intdiv(count($results) * self::PROPERTIES_PAGE_LENGTH_MAX, $length))
                 ));
             }
         }
@@ -216,7 +216,7 @@ abstract class AbstractSearchTool implements ToolInterface
         $notes[] = 0 === $output['total_results']
             ? $this->getEmptyNote($query)
             : $this->getSortNote($query, $results, $output['total_results']);
-        $notes[] = OutputLimitNotes::forSearchFields($output[$resourceName], $resourceName);
+        $notes[] = OutputLimitNotes::forSearchProperties($output[$resourceName], $resourceName);
         $notes = array_filter($notes);
         return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
     }
@@ -233,7 +233,7 @@ abstract class AbstractSearchTool implements ToolInterface
      * Say when sorting by a property doesn't order the results as it seems to.
      *
      * Core sorts on a property's stored text, and silently. Results without
-     * the field have no text, so they come first in ascending order and last
+     * the property have no text, so they come first in ascending order and last
      * in descending, and values that link to other resources have none
      * either. A page that only looks sorted would mislead a model.
      */
@@ -246,18 +246,18 @@ abstract class AbstractSearchTool implements ToolInterface
         $noun = $this->getNoun();
         $countQuery = array_diff_key($query, ['page' => true, 'per_page' => true]) + ['limit' => 0];
         $countQuery['property'][] = ['joiner' => 'and', 'property' => $term, 'type' => 'ex'];
-        $withField = $this->api->search($this->getResourceName(), $countQuery)->getTotalResults();
-        if (0 === $withField) {
+        $withProperty = $this->api->search($this->getResourceName(), $countQuery)->getTotalResults();
+        if (0 === $withProperty) {
             return sprintf(
-                'None of the matching %s has a value for %s, so the results are not sorted by it. Sort by a field they use, as their full records show.',
+                'None of the matching %s has a value for %s, so the results are not sorted by it. Sort by a property they use, as their full records show.',
                 $noun, $term
             );
         }
         $notes = [];
-        if ($withField < $total) {
+        if ($withProperty < $total) {
             $notes[] = sprintf(
                 'Only %d of the %d matching %s have a value for %s. Those without one have nothing to sort on, so they are listed %s; a "where" condition with "exists" on %s leaves them out.',
-                $withField, $total, $noun, $term, 'asc' === $query['sort_order'] ? 'first' : 'last', $term
+                $withProperty, $total, $noun, $term, 'asc' === $query['sort_order'] ? 'first' : 'last', $term
             );
         }
         $withValue = array_filter($results, fn ($resource) => $resource->value($term));

@@ -10,7 +10,7 @@ use Omeka\Entity\Value;
 use Omeka\Entity\ValueAnnotation;
 
 /**
- * Counts items, media, and item sets, and the values and fields among them,
+ * Counts items, media, and item sets, and the values and properties among them,
  * including only what the caller can see.
  *
  * This is the one place the module queries Doctrine directly, since Omeka's
@@ -245,7 +245,7 @@ class ResourceCounter
      * Get a page of the values of a property among the given resources, with
      * how many resources have each.
      *
-     * The database sorts and pages, so a field with many distinct values,
+     * The database sorts and pages, so a property with many distinct values,
      * such as titles, never loads them all. A value counts by VALUE_TEXT. A
      * link to a resource the caller can't see has no label, so it doesn't
      * count.
@@ -282,7 +282,7 @@ class ResourceCounter
      * @param int[] $ids From getResourceIds()
      * @return array List of ['property' => property ID, 'resources' => count]
      */
-    public function countFields(array $ids): array
+    public function countProperties(array $ids): array
     {
         if (!$ids) {
             return [];
@@ -301,7 +301,7 @@ class ResourceCounter
      * @param int[] $ids From getResourceIds()
      * @return array List of ['property' => property ID, 'lang', 'resources' => count]
      */
-    public function countFieldLanguages(array $ids): array
+    public function countPropertyLanguages(array $ids): array
     {
         if (!$ids) {
             return [];

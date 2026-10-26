@@ -109,12 +109,12 @@ class SearchFilters
             'where' => [
                 'type' => 'array',
                 'maxItems' => self::WHERE_MAX,
-                'description' => 'Conditions on fields, all of which must hold. Dates are usually stored starting '
+                'description' => 'Conditions on properties, all of which must hold. Dates are usually stored starting '
                     . 'with the year, such as "1776-08-22", so "starts_with" "17" finds the 1700s.',
                 'items' => [
                     'type' => 'object',
                     'properties' => [
-                        'field' => ['type' => 'string', 'description' => 'A property term, e.g. "dcterms:creator".'],
+                        'property' => ['type' => 'string', 'description' => 'A property, by term, e.g. "dcterms:creator".'],
                         'op' => [
                             'type' => 'string',
                             'enum' => array_keys(self::OPERATORS),
@@ -122,7 +122,7 @@ class SearchFilters
                         ],
                         'value' => ['type' => ['string', 'integer']],
                     ],
-                    'required' => ['field', 'op'],
+                    'required' => ['property', 'op'],
                 ],
             ],
         ];
@@ -261,7 +261,7 @@ class SearchFilters
         $terms = $this->names->getAnnotationOnlyTerms(array_column($query['property'] ?? [], 'property'));
         if ($terms) {
             return sprintf(
-                'No %s matched. %s %s used only in value annotations, which "where" can\'t search. count_values on %s names the fields whose values carry those annotations, and get_item with "field" set to one of them shows each value with its annotations.',
+                'No %s matched. %s %s used only in value annotations, which "where" can\'t search. count_values on %s names the properties whose values carry those annotations, and get_item with "property" set to one of them shows each value with its annotations.',
                 $noun, implode(' and ', $terms), count($terms) > 1 ? 'are' : 'is', $terms[0]
             );
         }
@@ -358,15 +358,15 @@ class SearchFilters
     protected function translateCondition($condition): array
     {
         if (!is_array($condition) || array_is_list($condition)) {
-            throw new ToolException('Each condition must be an object with "field", "op", and usually "value".');
+            throw new ToolException('Each condition must be an object with "property", "op", and usually "value".');
         }
         $reader = new ArgumentReader($condition);
-        $field = $reader->getText('field');
+        $term = $reader->getText('property');
         $op = $reader->getEnum('op', array_keys(self::OPERATORS));
-        if (null === $field || null === $op) {
-            throw new ToolException('Each condition needs both "field" (a property term) and "op".');
+        if (null === $term || null === $op) {
+            throw new ToolException('Each condition needs both "property" (a term) and "op".');
         }
-        $row = ['joiner' => 'and', 'property' => $this->findProperty($field), 'type' => self::OPERATORS[$op]];
+        $row = ['joiner' => 'and', 'property' => $this->findProperty($term), 'type' => self::OPERATORS[$op]];
         if (in_array($op, ['exists', 'missing'], true)) {
             return $row;
         }

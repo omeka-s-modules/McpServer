@@ -151,9 +151,9 @@ class ResourceFormatter
     }
 
     /**
-     * Get the short form of a result for a search that named fields: what
+     * Get the short form of a result for a search that named properties: what
      * identifies it, and for a media its item, leaving the rest of a summary
-     * to the fields named.
+     * to the properties named.
      */
     public function briefSummary(AbstractResourceEntityRepresentation $resource): array
     {
@@ -170,42 +170,42 @@ class ResourceFormatter
     }
 
     /**
-     * Get the values of the fields a search named, for a search result.
+     * Get the values of the properties a search named, for a search result.
      *
-     * Each field lists up to OutputLimits::FIELD_VALUES_LIMIT values as the
-     * text get_item shows, without the link or URI it gives beside it, each
-     * shortened to a summary's length; a field the resource lacks is an empty
-     * list. Cuts are marked beside the fields: each cut field's full length,
-     * and whether any value was shortened. Values come from the
+     * Each property lists up to OutputLimits::PROPERTY_VALUES_LIMIT values as
+     * the text get_item shows, without the link or URI it gives beside it,
+     * each shortened to a summary's length; a property the resource lacks is
+     * an empty list. Cuts are marked beside the properties: each cut
+     * property's full length, and whether any value was shortened. Values come from the
      * representation the API returned, so the caller sees only the values
      * they may, and a value's language and privacy are marked as
      * summaryValue() marks them.
      *
      * @param string[] $terms
      */
-    public function fieldValues(AbstractResourceEntityRepresentation $resource, array $terms): array
+    public function propertyValues(AbstractResourceEntityRepresentation $resource, array $terms): array
     {
-        $fields = [];
+        $properties = [];
         $totals = [];
         $shortened = false;
         foreach ($terms as $term) {
             $values = $resource->value($term, ['all' => true]);
-            $fields[$term] = [];
-            foreach (array_slice($values, 0, OutputLimits::FIELD_VALUES_LIMIT) as $value) {
+            $properties[$term] = [];
+            foreach (array_slice($values, 0, OutputLimits::PROPERTY_VALUES_LIMIT) as $value) {
                 $text = trim((string) $this->valueFormatter->valueText($value)['text']);
                 $shortened = $shortened || mb_strlen($text) > OutputLimits::DESCRIPTION_LIMIT;
-                $fields[$term][] = $this->summaryValue($value, OutputLimits::shorten($text, OutputLimits::DESCRIPTION_LIMIT));
+                $properties[$term][] = $this->summaryValue($value, OutputLimits::shorten($text, OutputLimits::DESCRIPTION_LIMIT));
             }
-            if (count($values) > OutputLimits::FIELD_VALUES_LIMIT) {
+            if (count($values) > OutputLimits::PROPERTY_VALUES_LIMIT) {
                 $totals[$term] = count($values);
             }
         }
-        $output = ['fields' => $fields];
+        $output = ['properties' => $properties];
         if ($totals) {
-            $output[OutputLimits::FIELDS_TOTALS] = $totals;
+            $output[OutputLimits::PROPERTIES_TOTALS] = $totals;
         }
         if ($shortened) {
-            $output[OutputLimits::FIELDS_TRUNCATED] = true;
+            $output[OutputLimits::PROPERTIES_TRUNCATED] = true;
         }
         return $output;
     }

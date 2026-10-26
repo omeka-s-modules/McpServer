@@ -65,7 +65,7 @@ class ValueFormatter
      * @return array|null ['label', 'total', 'values'], or null when the
      *   resource has no values for the property
      */
-    public function fieldPage(AbstractResourceEntityRepresentation $resource, string $term, int $page): ?array
+    public function propertyPage(AbstractResourceEntityRepresentation $resource, string $term, int $page): ?array
     {
         $property = $resource->values()[$term] ?? null;
         if (!$property || !$property['values']) {

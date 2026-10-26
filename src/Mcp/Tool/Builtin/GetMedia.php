@@ -3,6 +3,7 @@ namespace McpServer\Mcp\Tool\Builtin;
 
 use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\JsonLdFormatter;
+use McpServer\Mcp\Format\OutputLimits;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Format\ValueFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
@@ -18,7 +19,7 @@ use Omeka\File\ThumbnailManager;
  * Reads one media, with its image when it has a thumbnail.
  *
  * It reads like get_item, and adds the image and an HTML media's text, which
- * "field" reads as "content".
+ * "content" reads.
  */
 class GetMedia extends AbstractGetTool
 {
@@ -69,7 +70,7 @@ class GetMedia extends AbstractGetTool
         return $this->formatter->media($media);
     }
 
-    protected function getOwnProperties(): array
+    protected function getOwnSchema(): array
     {
         return [
             'image' => [
@@ -77,20 +78,28 @@ class GetMedia extends AbstractGetTool
                 'default' => true,
                 'description' => 'Include the image. Turn it off to read only the metadata.',
             ],
+            'content' => [
+                'type' => 'boolean',
+                'description' => sprintf(
+                    'Read this media\'s own text, as an HTML media holds it, instead of its record: %s characters at a time from "offset".',
+                    number_format(OutputLimits::CHUNK_LIMIT)
+                ),
+            ],
         ];
     }
 
-    protected function getOwnFieldsDescription(): string
-    {
-        return ' "content" reads an HTML media\'s text the same way.';
-    }
-
     /**
-     * Read an HTML media's text, as "content".
+     * Read an HTML media's text, when "content" asks for it.
      */
-    protected function readOwnField(AbstractResourceEntityRepresentation $media, ArgumentReader $reader, string $term): ?ToolResult
+    protected function readOwn(AbstractResourceEntityRepresentation $media, ArgumentReader $reader): ?ToolResult
     {
-        return 'content' === $term ? $this->readContent($media, $reader) : null;
+        if (!$reader->getBool('content', false)) {
+            return null;
+        }
+        if ($reader->has('property') || 'detailed' === $reader->getEnum('response_format', self::FORMATS, 'concise')) {
+            throw new ToolException('"content" reads this media\'s own text, so it doesn\'t take "property" or "response_format" "detailed".');
+        }
+        return $this->readContent($media, $reader);
     }
 
     /**
@@ -112,7 +121,6 @@ class GetMedia extends AbstractGetTool
         $output = [
             'id' => $media->id(),
             'title' => $media->displayTitle(),
-            'field' => 'content',
         ];
         return $this->getChunkResult($output, $chunk, $offset);
     }

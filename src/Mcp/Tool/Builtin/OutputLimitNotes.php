@@ -25,13 +25,13 @@ final class OutputLimitNotes
     public static function forConcise(array $output): ?string
     {
         $notes = [];
-        $cutFields = [];
+        $cutProperties = [];
         $readable = [];
         $annotationTextsCut = false;
         $annotationListsCut = false;
         foreach ($output['values'] ?? [] as $term => $property) {
             if (isset($property[OutputLimits::TOTAL])) {
-                $cutFields[] = sprintf('%s has %d', $term, $property[OutputLimits::TOTAL]);
+                $cutProperties[] = sprintf('%s has %d', $term, $property[OutputLimits::TOTAL]);
             }
             [$positions, $inAnnotations] = self::findCutTexts($property['values'], 1);
             foreach ($positions as $position) {
@@ -43,10 +43,10 @@ final class OutputLimitNotes
         if (!empty($output['content'][OutputLimits::TRUNCATED])) {
             $readable[] = ['content', null];
         }
-        if ($cutFields) {
+        if ($cutProperties) {
             $notes[] = sprintf(
-                'Only the first %d values of a property are shown, and %s. Call again with "field" to read all of a property\'s values.',
-                OutputLimits::LIST_LIMIT, implode(', ', $cutFields)
+                'Only the first %d values of a property are shown, and %s. Call again with "property" to read all of a property\'s values.',
+                OutputLimits::LIST_LIMIT, implode(', ', $cutProperties)
             );
         }
         if (isset($output[OutputLimits::MEDIA_TOTAL]) && $output[OutputLimits::MEDIA_TOTAL] > count($output['media'] ?? [])) {
@@ -74,31 +74,32 @@ final class OutputLimitNotes
     }
 
     /**
-     * Say what the fields a search named cut in its results, and how to read
+     * Say what the properties a search named cut in its results, and how to read
      * them in full.
      *
-     * Each result marks its cuts: fields_totals for a field with more values
-     * than it lists, and fields_truncated when a value was shortened.
+     * Each result marks its cuts: properties_totals for a property with more
+     * values than it lists, and properties_truncated when a value was
+     * shortened.
      *
      * @param array $summaries The page of results
      * @param string $resource "items", "media", or "item_sets"
      */
-    public static function forSearchFields(array $summaries, string $resource): ?string
+    public static function forSearchProperties(array $summaries, string $resource): ?string
     {
-        $listsCut = array_filter(array_column($summaries, OutputLimits::FIELDS_TOTALS));
-        $textsCut = array_filter(array_column($summaries, OutputLimits::FIELDS_TRUNCATED));
+        $listsCut = array_filter(array_column($summaries, OutputLimits::PROPERTIES_TOTALS));
+        $textsCut = array_filter(array_column($summaries, OutputLimits::PROPERTIES_TRUNCATED));
         if (!$listsCut && !$textsCut) {
             return null;
         }
         $cuts = [];
         if ($listsCut) {
-            $cuts[] = sprintf('a field lists its first %d values (fields_totals gives the full count of each field cut)', OutputLimits::FIELD_VALUES_LIMIT);
+            $cuts[] = sprintf('a property lists its first %d values (properties_totals gives the full count of each property cut)', OutputLimits::PROPERTY_VALUES_LIMIT);
         }
         if ($textsCut) {
             $cuts[] = sprintf('a value longer than %d characters is shortened, ending in "…"', OutputLimits::DESCRIPTION_LIMIT);
         }
         $readTool = ['items' => 'get_item', 'media' => 'get_media', 'item_sets' => 'get_item_set'][$resource];
-        return sprintf('In "fields", %s. To read all of a field, call %s with "field".', implode(', and ', $cuts), $readTool);
+        return sprintf('In "properties", %s. To read all of a property, call %s with "property".', implode(', and ', $cuts), $readTool);
     }
 
     /**
@@ -116,11 +117,11 @@ final class OutputLimitNotes
         }
         if ($textsCut) {
             $notes[] = sprintf(
-                'Text was cut after its first %s characters, where it ends "%s". To read the rest of a property\'s value, call again with its "field", its "position" (from 1), and "offset" %d, without "detailed". Offsets count a value\'s readable text, which for HTML and other markup differs from its @value; read those from "offset" 0. Each call returns up to %s characters, and says where the next one starts. Text cut elsewhere, such as in an annotation, can\'t be read further through these tools.',
+                'Text was cut after its first %s characters, where it ends "%s". To read the rest of a property\'s value, call again with its "property", its "position" (from 1), and "offset" %d, without "detailed". Offsets count a value\'s readable text, which for HTML and other markup differs from its @value; read those from "offset" 0. Each call returns up to %s characters, and says where the next one starts. Text cut elsewhere, such as in an annotation, can\'t be read further through these tools.',
                 number_format(OutputLimits::TEXT_LIMIT), sprintf(OutputLimits::CUT_MARKER, 'N'), OutputLimits::TEXT_LIMIT, number_format(OutputLimits::CHUNK_LIMIT)
             );
             if ($resource instanceof MediaRepresentation && 'html' === $resource->ingester()) {
-                $notes[] = 'This HTML media\'s own text, in o-cnt:chars and data, reads in full with "field" "content".';
+                $notes[] = 'This HTML media\'s own text, in o-cnt:chars and data, reads in full with "content" set to true.';
             }
         }
         return $notes ? implode("\n", $notes) : null;
@@ -131,7 +132,7 @@ final class OutputLimitNotes
      *
      * @param int $first The position of the page's first value, from 1
      */
-    public static function forFieldPage(string $term, array $values, int $first): ?string
+    public static function forPropertyPage(string $term, array $values, int $first): ?string
     {
         [$positions, $inAnnotations] = self::findCutTexts($values, $first);
         $notes = [self::textsNote(
@@ -160,7 +161,7 @@ final class OutputLimitNotes
         )];
         $terms = array_intersect($names, array_keys($resource->values()));
         if ($terms) {
-            $notes[] = 'Call again with "field", and without "detailed", to read all of a property\'s values.';
+            $notes[] = 'Call again with "property", and without "detailed", to read all of a property\'s values.';
         }
         if (isset($cut['o:media'])) {
             $notes[] = sprintf('search_media with "item" %d lists all the media.', $resource->id());
@@ -172,7 +173,7 @@ final class OutputLimitNotes
         if ($reverse) {
             // Items, media, and item sets can all link here.
             $notes[] = sprintf(
-                'To find everything linking here, use a "links_to" condition on that field with the value %d: search_items finds items, search_media media, and search_item_sets item sets.',
+                'To find everything linking here, use a "links_to" condition on that property with the value %d: search_items finds items, search_media media, and search_item_sets item sets.',
                 $resource->id()
             );
         }
@@ -256,7 +257,9 @@ final class OutputLimitNotes
             $last = array_pop($names);
             $list = $names ? sprintf('%s%s and %s', implode(', ', $names), count($names) > 1 ? ',' : '', $last) : $last;
             [$term, $position] = $readable[0];
-            $example = json_encode(['field' => $term] + ($position ? ['position' => $position] : []) + ['offset' => OutputLimits::TEXT_LIMIT]);
+            // A media's own text is read with "content", a property's with
+            // "property".
+            $example = json_encode(($position ? ['property' => $term, 'position' => $position] : ['content' => true]) + ['offset' => OutputLimits::TEXT_LIMIT]);
             $notes[] = sprintf(
                 '%s %s cut after %s first %s characters.',
                 // The content is named last, so it starts the sentence only
@@ -269,7 +272,7 @@ final class OutputLimitNotes
             $notes[] = $names
                 ? sprintf(
                     'To read the rest of one, call again with %s "offset" %d, such as %s.',
-                    array_filter(array_column($readable, 1)) ? 'its "field", its "position", and' : 'its "field" and',
+                    array_filter(array_column($readable, 1)) ? 'its "property", its "position", and' : 'its "property" and',
                     OutputLimits::TEXT_LIMIT, $example
                 )
                 : sprintf('To read the rest, call again with %s.', $example);
