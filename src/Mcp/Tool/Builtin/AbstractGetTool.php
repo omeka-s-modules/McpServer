@@ -105,6 +105,7 @@ abstract class AbstractGetTool implements ToolInterface
                 ],
             ] + $this->getOwnSchema() + $this->getPropertyReadingSchema(),
             'required' => ['id'],
+            'additionalProperties' => false,
         ];
     }
 
@@ -170,13 +171,11 @@ abstract class AbstractGetTool implements ToolInterface
             'position' => [
                 'type' => 'integer',
                 'minimum' => 1,
-                'default' => 1,
                 'description' => 'With "property" and "offset", which of the property\'s values to read, by its position among them, starting at 1.',
             ],
             'offset' => [
                 'type' => 'integer',
                 'minimum' => 0,
-                'default' => 0,
                 'description' => sprintf(
                     'With "property", read one value\'s text from this character, starting at 0, %s characters at a time.',
                     number_format(OutputLimits::CHUNK_LIMIT)
@@ -244,7 +243,11 @@ abstract class AbstractGetTool implements ToolInterface
             'position' => $position,
             OutputLimits::TOTAL => $total,
         ];
-        return $this->getChunkResult($output, $chunk, $offset);
+        // Reading one value of several, perhaps only by sending defaults.
+        $lead = $total > 1
+            ? sprintf('This is value %d of the %d of %s. Leave out "offset" and "position" to list them all.', $position, $total, $term)
+            : null;
+        return $this->getChunkResult($output, $chunk, $offset, $lead);
     }
 
     /**
@@ -263,17 +266,18 @@ abstract class AbstractGetTool implements ToolInterface
      * offset when there's more.
      *
      * @param array $chunk ['length', 'text']
+     * @param string|null $lead A note to put first
      */
-    protected function getChunkResult(array $output, array $chunk, int $offset): ToolResult
+    protected function getChunkResult(array $output, array $chunk, int $offset, ?string $lead = null): ToolResult
     {
         $output += ['offset' => $offset, 'length' => $chunk['length'], 'text' => $chunk['text']];
         $end = $offset + mb_strlen($chunk['text']);
-        $note = $end < $chunk['length']
+        $notes = array_filter([$lead, $end < $chunk['length']
             ? sprintf(
                 'These are characters %s to %s of %s. Call again with "offset" %d for the next.',
                 number_format($offset), number_format($end), number_format($chunk['length']), $end
             )
-            : null;
-        return ToolResult::json($output, $note);
+            : null]);
+        return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
     }
 }

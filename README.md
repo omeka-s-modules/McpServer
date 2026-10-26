@@ -181,7 +181,7 @@ Finds items, a page at a time, as short summaries with a link to each item's pub
 
 | Parameter | Type | Description |
 |---|---|---|
-| `query` | string | Words to search for, ranked by relevance. Matches whole words only. |
+| `query` | string | Words to search for. Finds records with any of the words, most relevant first, and matches whole words only. |
 | `contains` | string | Text that must appear somewhere in an item's values, even inside a word. |
 | `item_set` | integer[] | Only items in any of these item sets, by ID. At most 100. |
 | `class` | string | Only items of this class, by term (`dctype:Text`) or label (`Text`). |
@@ -261,8 +261,7 @@ have each property, most common first. It shows what metadata a set of records h
 where it has gaps, in one call, such as which properties the people records lack. A
 property none of them has isn't listed; to find the records missing one, search with a
 `missing` condition. Where values carry language tags, a property also lists how many have
-it in each language,
-to see how far translations go.
+it in each language, to see how far translations go.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -370,8 +369,9 @@ says so, and says how to read the rest, if there is a way.
 - Value annotations, such as a date's "approximate", are shown with their values but
   can't be searched or counted. When a search or count finds nothing because of that, the
   result says so and says where to read them.
-- Full-text search (`query`) matches whole words, so "letter" doesn't find "letters", and
-  it ignores very common words. Use `contains` to match part of a word.
+- Full-text search (`query`) finds records with any of the words, and matches whole words,
+  so "letter" doesn't find "letters". It ignores very common words. Use `contains` to
+  match part of a word, or to require one.
 
 ## Troubleshooting
 
@@ -445,7 +445,9 @@ For counts, and to check whether a property or class is in use, use the
 see. Read a tool's arguments with `ArgumentReader`, and throw a `ToolException` for an
 error the assistant should see and can act on, such as a bad argument. Return results
 with `ToolResult::json()`, and put any guidance for the assistant, such as why nothing
-matched, in its note rather than in the data.
+matched, in its note rather than in the data. When a tool's input schema sets
+`additionalProperties` to `false`, as the built-in tools' do, an argument it doesn't name
+is refused before the tool runs, so a misspelled filter can't pass for one applied.
 
 ## Why the protocol is built in
 

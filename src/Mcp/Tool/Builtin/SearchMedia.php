@@ -36,6 +36,7 @@ class SearchMedia extends AbstractSearchTool
                     'description' => 'Only media of this item, by id, in the order they were added unless sorted otherwise.',
                 ],
             ] + $this->getSearchSchema(),
+            'additionalProperties' => false,
         ];
     }
 

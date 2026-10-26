@@ -78,6 +78,7 @@ class GetOverview implements ToolInterface
                     'description' => 'With "list", the page of entries to return, starting at 1.',
                 ],
             ],
+            'additionalProperties' => false,
         ];
     }
 

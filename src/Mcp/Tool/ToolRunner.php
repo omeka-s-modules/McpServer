@@ -40,7 +40,10 @@ class ToolRunner
     public function run(string $name, array $arguments, Context $context): ToolResult
     {
         try {
-            return $this->tools->get($name)->call($arguments, $context);
+            $tool = $this->tools->get($name);
+            $result = $tool->call($arguments, $context);
+            $this->refuseUnknownArguments($name, $tool->getInputSchema(), $arguments);
+            return $result;
         } catch (ToolException $e) {
             return ToolResult::error($e->getMessage());
         } catch (NotFoundException $e) {
@@ -52,6 +55,34 @@ class ToolRunner
         } catch (Throwable $e) {
             $this->logger->err(sprintf('MCP Server: the tool "%s" failed: %s', $name, $e));
             return ToolResult::error('The tool failed. The error was logged on the server.');
+        }
+    }
+
+    /**
+     * Refuse arguments a tool's schema doesn't name, when the schema allows
+     * no others, so a misspelled filter can't pass for one applied.
+     *
+     * Checked after the tool runs, so a tool's own refusal of an argument it
+     * knows but can't apply, with its advice, comes first. A blank argument
+     * counts as absent, as tools treat blank arguments.
+     *
+     * @throws ToolException
+     */
+    protected function refuseUnknownArguments(string $name, array $schema, array $arguments): void
+    {
+        if (false !== ($schema['additionalProperties'] ?? true)) {
+            return;
+        }
+        $known = array_keys($schema['properties'] ?? []);
+        $given = array_filter($arguments, fn ($value) => null !== $value && [] !== $value && !(is_string($value) && '' === trim($value)));
+        $unknown = array_diff(array_map('strval', array_keys($given)), $known);
+        if ($unknown) {
+            throw new ToolException(sprintf(
+                'Unknown argument%s %s. %s takes: %s.',
+                count($unknown) > 1 ? 's' : '',
+                implode(', ', array_map(fn ($key) => sprintf('"%s"', $key), $unknown)),
+                $name, implode(', ', $known)
+            ));
         }
     }
 

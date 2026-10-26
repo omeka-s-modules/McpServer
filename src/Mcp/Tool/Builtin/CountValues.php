@@ -117,6 +117,7 @@ class CountValues implements ToolInterface
                 ],
             ] + $this->searchFilters->getFilterSchema(null),
             'required' => ['property'],
+            'additionalProperties' => false,
         ];
     }
 
@@ -189,7 +190,7 @@ class CountValues implements ToolInterface
         ];
         $note = null;
         if (!$ids) {
-            $note = $this->searchFilters->explainEmpty($filters, $noun);
+            $note = $this->searchFilters->explainEmpty($resource, $filters);
         } elseif (!$totals['resources']) {
             $annotated = $this->counter->getAnnotatedProperties($propertyId, $ids);
             if ($annotated) {

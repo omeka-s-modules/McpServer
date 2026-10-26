@@ -56,7 +56,7 @@ abstract class AbstractSearchTool implements ToolInterface
 
     public function getInputSchema(): array
     {
-        return ['type' => 'object', 'properties' => $this->getSearchSchema()];
+        return ['type' => 'object', 'properties' => $this->getSearchSchema(), 'additionalProperties' => false];
     }
 
     public function getAnnotations(): array
@@ -226,7 +226,7 @@ abstract class AbstractSearchTool implements ToolInterface
      */
     protected function getEmptyNote(array $query): string
     {
-        return $this->searchFilters->explainEmpty($query, $this->getNoun());
+        return $this->searchFilters->explainEmpty($this->getResourceName(), $query);
     }
 
     /**

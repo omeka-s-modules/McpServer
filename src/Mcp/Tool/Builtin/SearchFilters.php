@@ -2,7 +2,9 @@
 namespace McpServer\Mcp\Tool\Builtin;
 
 use McpServer\Mcp\Exception\ToolException;
+use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Query\NameLookup;
+use McpServer\Mcp\Query\ResourceCounter;
 use McpServer\Mcp\Tool\ArgumentReader;
 
 /**
@@ -55,9 +57,16 @@ class SearchFilters
 
     protected $names;
 
-    public function __construct(NameLookup $names)
+    protected $counter;
+
+    // The terms findProperty() resolved, by property ID, so a note can name a
+    // condition's property.
+    protected $terms = [];
+
+    public function __construct(NameLookup $names, ResourceCounter $counter)
     {
         $this->names = $names;
+        $this->counter = $counter;
     }
 
     /**
@@ -74,7 +83,7 @@ class SearchFilters
         $schema = [
             'query' => [
                 'type' => 'string',
-                'description' => 'Words to search for, ranked by relevance. Matches whole words only.',
+                'description' => 'Words to search for, most relevant first. Finds records with any of the words, ranking those with more of them first, and matches whole words only. To require a word, add "contains" or a "where" condition.',
             ],
             'contains' => [
                 'type' => 'string',
@@ -123,6 +132,7 @@ class SearchFilters
                         'value' => ['type' => ['string', 'integer']],
                     ],
                     'required' => ['property', 'op'],
+                    'additionalProperties' => false,
                 ],
             ],
         ];
@@ -244,18 +254,11 @@ class SearchFilters
     /**
      * Say why a query may have matched nothing, for a tool's note.
      *
-     * @param string $noun What was searched, such as "item sets"
+     * @param string $resource "items", "media", or "item_sets"
      */
-    public function explainEmpty(array $query, string $noun): string
+    public function explainEmpty(string $resource, array $query): string
     {
-        if (isset($query['fulltext_search'])) {
-            // MySQL's full-text index skips stopwords and short words, so a
-            // search for "the" finds nothing rather than everything.
-            return sprintf(
-                'No %s matched. Full-text search ignores very common words and words shorter than three letters, so if the query was made only of those, try more specific words, or "contains". Otherwise the installation may have nothing on this.',
-                $noun
-            );
-        }
+        $noun = $this->noun($resource);
         // A condition on a property used only in annotations can't match,
         // since core searches the values of resources, not of annotations.
         $terms = $this->names->getAnnotationOnlyTerms(array_column($query['property'] ?? [], 'property'));
@@ -265,6 +268,18 @@ class SearchFilters
                 $noun, implode(' and ', $terms), count($terms) > 1 ? 'are' : 'is', $terms[0]
             );
         }
+        $missing = $this->explainMissingProperties($resource, $query);
+        if ($missing) {
+            return $missing;
+        }
+        if (isset($query['fulltext_search'])) {
+            // MySQL's full-text index skips stopwords and short words, so a
+            // search for "the" finds nothing rather than everything.
+            return sprintf(
+                'No %s matched. Full-text search ignores very common words and words shorter than three letters, so if the query was made only of those, try more specific words, or "contains". Otherwise the installation may have nothing on this.',
+                $noun
+            );
+        }
         if (isset($query['is_public']) && !$query['is_public']) {
             return sprintf(
                 'No %1$s matched. "is_public" false finds only the private %1$s you may see, which is none without an MCP key, so there may be others.',
@@ -272,6 +287,60 @@ class SearchFilters
             );
         }
         return sprintf('No %s matched. Loosen the filters, or check them against get_overview.', $noun);
+    }
+
+    /**
+     * Say which "where" condition can't match because none of the records
+     * that meet the rest of the query has its property, naming the date
+     * properties they use when the missing one is a date.
+     *
+     * Records keep dates in different properties, so a condition on the wrong
+     * one is a common dead end. It counts once per condition, so it runs only
+     * when nothing matched.
+     */
+    protected function explainMissingProperties(string $resource, array $query): ?string
+    {
+        $query = array_diff_key($query, ['page' => true, 'per_page' => true]);
+        $conditions = $query['property'] ?? [];
+        foreach ($conditions as $index => $condition) {
+            $term = $this->terms[$condition['property']] ?? null;
+            if ('nex' === $condition['type'] || null === $term) {
+                continue;
+            }
+            $rest = $query;
+            unset($rest['property'][$index]);
+            $rest['property'] = array_values($rest['property']);
+            if ($this->countHaving($resource, $rest, $condition['property'])) {
+                continue;
+            }
+            $noun = $this->noun($resource);
+            $note = sprintf(
+                'No %1$s matched: none of the %1$s that meet the rest of the query has a value for %2$s, so that condition can\'t match.',
+                $noun, $term
+            );
+            if (!in_array($term, ResourceFormatter::DATE_TERMS, true)) {
+                return $note . ' count_properties lists the properties they have.';
+            }
+            $used = [];
+            foreach (array_diff(ResourceFormatter::DATE_TERMS, [$term]) as $dateTerm) {
+                $property = $this->names->findUsedTerm('properties', $dateTerm);
+                $count = $property ? $this->countHaving($resource, $rest, $property['id']) : 0;
+                if ($count) {
+                    $used[] = sprintf('%s (%d of them)', $dateTerm, $count);
+                }
+            }
+            return $used ? sprintf('%s They keep their dates in %s.', $note, implode(' and ', $used)) : $note;
+        }
+        return null;
+    }
+
+    /**
+     * Count the resources that match a query and have a value of a property.
+     */
+    protected function countHaving(string $resource, array $query, int $propertyId): int
+    {
+        $query['property'][] = ['joiner' => 'and', 'property' => $propertyId, 'type' => 'ex'];
+        return $this->counter->countResources($resource, $query);
     }
 
     /**
@@ -325,6 +394,7 @@ class SearchFilters
         if (!$property) {
             throw new ToolException(sprintf('No values use the property "%s". Call get_overview to see the properties in use.', $term));
         }
+        $this->terms[$property['id']] = $term;
         return $property['id'];
     }
 
@@ -359,6 +429,10 @@ class SearchFilters
     {
         if (!is_array($condition) || array_is_list($condition)) {
             throw new ToolException('Each condition must be an object with "property", "op", and usually "value".');
+        }
+        $unknown = array_diff(array_map('strval', array_keys($condition)), ['property', 'op', 'value']);
+        if ($unknown) {
+            throw new ToolException(sprintf('Unknown key "%s". Each condition takes "property", "op", and "value".', reset($unknown)));
         }
         $reader = new ArgumentReader($condition);
         $term = $reader->getText('property');

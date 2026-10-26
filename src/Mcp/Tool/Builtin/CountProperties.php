@@ -67,6 +67,7 @@ class CountProperties implements ToolInterface
                     'description' => 'Whose properties to count: items, media, or item sets.',
                 ],
             ] + $this->searchFilters->getFilterSchema(null),
+            'additionalProperties' => false,
         ];
     }
 
@@ -115,7 +116,7 @@ class CountProperties implements ToolInterface
         ];
         $note = null;
         if (!$ids) {
-            $note = $this->searchFilters->explainEmpty($filters, $noun);
+            $note = $this->searchFilters->explainEmpty($resource, $filters);
         } elseif (!$properties) {
             $note = sprintf('None of the matching %s has a value you can see.', $noun);
         }
