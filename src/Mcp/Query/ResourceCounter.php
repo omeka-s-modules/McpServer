@@ -253,12 +253,14 @@ class ResourceCounter
      * @param int[] $ids From getResourceIds()
      * @param bool $byValue Sort alphabetically by value, rather than most
      *   common first. Either order is stable, so pages don't overlap.
+     * @param int|null $prefixLength Count values by this many of their first
+     *   characters, rather than whole
      * @return array List of ['text', 'resources']
      */
-    public function countValues(int $propertyId, array $ids, int $limit, int $offset = 0, bool $byValue = false): array
+    public function countValues(int $propertyId, array $ids, int $limit, int $offset = 0, bool $byValue = false, ?int $prefixLength = null): array
     {
         $qb = $this->createValueQuery($propertyId, $ids)
-            ->select(self::VALUE_TEXT . ' AS text', 'COUNT(DISTINCT v.resource) AS resources')
+            ->select($this->valueText($prefixLength) . ' AS text', 'COUNT(DISTINCT v.resource) AS resources')
             ->groupBy('text');
         if ($byValue) {
             $qb->orderBy('text', 'ASC');
@@ -272,16 +274,61 @@ class ResourceCounter
     }
 
     /**
+     * Count the given resources that have each property.
+     *
+     * A value that links to a resource the caller can't see doesn't count, as
+     * get_item doesn't show it.
+     *
+     * @param int[] $ids From getResourceIds()
+     * @return array List of ['property' => property ID, 'resources' => count]
+     */
+    public function countFields(array $ids): array
+    {
+        if (!$ids) {
+            return [];
+        }
+        return $this->createValueQuery(null, $ids)
+            ->select('IDENTITY(v.property) AS property', 'COUNT(DISTINCT v.resource) AS resources')
+            ->groupBy('v.property')
+            ->getQuery()
+            ->getScalarResult();
+    }
+
+    /**
+     * Count the given resources that have each property in each language,
+     * most first, leaving out values with no language tag.
+     *
+     * @param int[] $ids From getResourceIds()
+     * @return array List of ['property' => property ID, 'lang', 'resources' => count]
+     */
+    public function countFieldLanguages(array $ids): array
+    {
+        if (!$ids) {
+            return [];
+        }
+        return $this->createValueQuery(null, $ids)
+            ->select('IDENTITY(v.property) AS property', 'v.lang AS lang', 'COUNT(DISTINCT v.resource) AS resources')
+            ->andWhere("v.lang IS NOT NULL AND v.lang <> ''")
+            ->groupBy('v.property')
+            ->addGroupBy('v.lang')
+            ->orderBy('resources', 'DESC')
+            ->addOrderBy('lang')
+            ->getQuery()
+            ->getScalarResult();
+    }
+
+    /**
      * Count the given resources that have a value of a property, and the
      * distinct values they have.
      *
      * @param int[] $ids From getResourceIds()
+     * @param int|null $prefixLength As for countValues()
      * @return array ['resources' => int, 'values' => int]
      */
-    public function countValueTotals(int $propertyId, array $ids): array
+    public function countValueTotals(int $propertyId, array $ids, ?int $prefixLength = null): array
     {
         $row = $this->createValueQuery($propertyId, $ids)
-            ->select('COUNT(DISTINCT v.resource) AS resources', 'COUNT(DISTINCT ' . self::VALUE_TEXT . ') AS distinct_values')
+            ->select('COUNT(DISTINCT v.resource) AS resources', 'COUNT(DISTINCT ' . $this->valueText($prefixLength) . ') AS distinct_values')
             ->getQuery()
             ->getSingleResult();
         return ['resources' => (int) $row['resources'], 'values' => (int) $row['distinct_values']];
@@ -377,18 +424,28 @@ class ResourceCounter
     }
 
     /**
-     * Start a query over the values of a property, limited to the given
-     * resources, leaving out links to resources the caller can't see.
+     * Get what a value counts by: VALUE_TEXT, or its first characters.
      */
-    protected function createValueQuery(int $propertyId, array $ids)
+    protected function valueText(?int $prefixLength): string
     {
-        return $this->entityManager->createQueryBuilder()
+        return $prefixLength ? sprintf('SUBSTRING(%s, 1, %d)', self::VALUE_TEXT, $prefixLength) : self::VALUE_TEXT;
+    }
+
+    /**
+     * Start a query over the values of the given resources, of one property
+     * or of all, leaving out links to resources the caller can't see.
+     */
+    protected function createValueQuery(?int $propertyId, array $ids)
+    {
+        $qb = $this->entityManager->createQueryBuilder()
             ->from(Value::class, 'v')
             ->leftJoin('v.valueResource', 'vr')
-            ->where('v.property = :property')
-            ->andWhere('v.resource IN (:resources)')
+            ->where('v.resource IN (:resources)')
             ->andWhere('(vr.id IS NOT NULL OR v.value IS NOT NULL OR v.uri IS NOT NULL)')
-            ->setParameter('property', $propertyId)
             ->setParameter('resources', $ids);
+        if (null !== $propertyId) {
+            $qb->andWhere('v.property = :property')->setParameter('property', $propertyId);
+        }
+        return $qb;
     }
 }

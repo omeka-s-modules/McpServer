@@ -38,6 +38,9 @@ class CountValues implements ToolInterface
     // Longest value shown, since a field may hold long text.
     const VALUE_LIMIT = 300;
 
+    // Most characters "prefix_length" counts values by.
+    const PREFIX_LENGTH_MAX = 50;
+
     protected $searchFilters;
 
     protected $counter;
@@ -67,7 +70,7 @@ class CountValues implements ToolInterface
             . "\n\n"
             . 'Returns a page of values; distinct_values says how many there are, and "page" reaches the rest. '
             . 'Sort by "value" to list them alphabetically, which puts variant spellings of the same value '
-            . 'side by side.';
+            . 'side by side. To see how dates spread, count them by century or decade with "prefix_length".';
     }
 
     public function getInputSchema(): array
@@ -78,6 +81,12 @@ class CountValues implements ToolInterface
                 'field' => [
                     'type' => 'string',
                     'description' => 'The property to count, by term, e.g. "dcterms:subject".',
+                ],
+                'prefix_length' => [
+                    'type' => 'integer',
+                    'minimum' => 1,
+                    'maximum' => self::PREFIX_LENGTH_MAX,
+                    'description' => 'Count values by their first this many characters, rather than whole. Dates are usually stored starting with the year, so 2 counts them by century ("17" for the 1700s) and 3 by decade. A group\'s text works as a "starts_with" condition in a search, to list its records.',
                 ],
                 'sort' => [
                     'type' => 'string',
@@ -126,6 +135,7 @@ class CountValues implements ToolInterface
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
         $perPage = $reader->getInt('per_page', self::PER_PAGE_DEFAULT, 1, self::PER_PAGE_MAX);
         $byValue = 'value' === $reader->getEnum('sort', self::SORTS, 'count');
+        $prefixLength = $reader->getInt('prefix_length', null, 1, self::PREFIX_LENGTH_MAX);
         $resource = $reader->getEnum('resource_type', SearchFilters::RESOURCES, 'items');
         // What the resources are called in messages, such as "item sets".
         $noun = $this->searchFilters->noun($resource);
@@ -144,7 +154,7 @@ class CountValues implements ToolInterface
         $values = [];
         $shortened = false;
         $totals = ['resources' => 0, 'values' => 0];
-        $rows = $ids ? $this->counter->countValues($propertyId, $ids, $perPage, ($page - 1) * $perPage, $byValue) : [];
+        $rows = $ids ? $this->counter->countValues($propertyId, $ids, $perPage, ($page - 1) * $perPage, $byValue, $prefixLength) : [];
         foreach ($rows as $row) {
             $value = [
                 // A linked resource with no title shows as "[Untitled]", as get_item
@@ -161,10 +171,14 @@ class CountValues implements ToolInterface
         if ($rows || ($ids && $page > 1)) {
             // With no rows on the first page, both totals are 0. A later page
             // can be empty while there are values.
-            $totals = $this->counter->countValueTotals($propertyId, $ids);
+            $totals = $this->counter->countValueTotals($propertyId, $ids, $prefixLength);
         }
-        $output = [
-            'field' => $field,
+        $output = ['field' => $field];
+        if ($prefixLength) {
+            // The values are the groups' first characters.
+            $output['prefix_length'] = $prefixLength;
+        }
+        $output += [
             'matching_' . $resource => count($ids),
             $resource . '_with_field' => $totals['resources'],
             'distinct_values' => $totals['values'],

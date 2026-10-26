@@ -85,7 +85,10 @@ The assistant sees what the key's user may see:
 - **Authors and Researchers** see public content and what they own.
 
 Full records carry Omeka's own flags, as its JSON-LD does: `"is_public": false` on a
-private item, media, item set, or value.
+private item, media, item set, or value. Search results mark them too: a private value
+in a summary or in `fields` is `{"text": "…", "is_public": false}` rather than its text
+alone. To list only private items, media, or item sets, search or count with
+`is_public` set to `false`.
 
 An MCP key works only at `/mcp`, whose tools only read, and never for Omeka's REST API.
 So it can't be used to change anything, whatever its user's role. Omeka API keys don't
@@ -109,6 +112,7 @@ A key in the address still lets anyone who sees the address read what its user m
 | `search_items` | Finds items by words, filters, and conditions on fields |
 | `get_item` | Reads one item in full |
 | `count_values` | Counts a field's values, most common first or alphabetically, such as creators, subjects, or image rights |
+| `count_fields` | Counts which fields records have filled in, such as for a metadata audit |
 | `search_media` | Finds media by words, type, item, and conditions on fields |
 | `get_media` | Reads one media, with its image for the assistant to look at |
 | `search_item_sets` | Finds item sets by words and conditions on fields |
@@ -139,6 +143,8 @@ of one, a page at a time:
 ### search_items
 
 Finds items, a page at a time, as short summaries with a link to each item's public page.
+A value in a summary with a language tag is `{"text": …, "lang": …}` rather than its
+text alone, and a private one carries `"is_public": false`.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -147,12 +153,14 @@ Finds items, a page at a time, as short summaries with a link to each item's pub
 | `item_set` | integer[] | Only items in any of these item sets, by ID. At most 100. |
 | `class` | string | Only items of this class, by term (`dctype:Text`) or label (`Text`). |
 | `site` | string | Only items in this site, by slug. |
+| `is_public` | boolean | Only public items (`true`) or private ones (`false`). |
 | `has_media` | boolean | Only items with media (`true`) or without (`false`). |
 | `where` | object[] | Conditions on fields, all of which must hold. At most 10. See below. |
 | `sort` | string | `relevance`, `added`, `modified`, `title`, or a property term such as `dcterms:date`. |
 | `order` | string | `asc` or `desc`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 10. |
+| `fields` | string[] | Fields whose values each result should list, such as `dcterms:rights`: up to 10 fields and 10 values of each, each value shortened to 300 characters. Each result then has these fields in place of its summary, beside its ID, title, and link, with values in the same form as in summaries. Saves reading each result in full. |
 
 Each `where` condition has a `field` (a property term), an `op`, and usually a `value`:
 
@@ -200,12 +208,28 @@ rights and credits recorded for each image, and `resource_type` counts theirs in
 | Parameter | Type | Description |
 |---|---|---|
 | `field` | string | The property to count, such as `dcterms:subject`. Required. |
+| `prefix_length` | integer | Count values by their first characters, from 1 to 50, rather than whole. Dates stored starting with the year count by century with 2, and by decade with 3. |
 | `sort` | string | `count` (the default) for the most common first, or `value` for alphabetical order. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Values per page, from 1 to 100. Default 20. |
 | `resource_type` | string | `items` (the default), `media`, or `item_sets`. |
 | `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
-| `query`, `contains`, `item_set`, `class`, `site`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
+| `query`, `contains`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
+
+### count_fields
+
+Counts which fields are filled in: for the items that match the filters, how many have
+each field, most common first. It shows what metadata a set of records has, or where it
+has gaps, in one call, such as which fields the people records lack. A field none of them
+has isn't listed; to find the records missing a field, search with a `missing` condition.
+Where values carry language tags, a field also lists how many have it in each language,
+to see how far translations go.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `resource_type` | string | `items` (the default), `media`, or `item_sets`. |
+| `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
+| `query`, `contains`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
 
 ### search_media
 
@@ -217,7 +241,7 @@ Results are short summaries with the item each media belongs to.
 |---|---|---|
 | `media_type` | string | Only media of this exact type, such as `application/pdf`. |
 | `item` | integer | Only media of this item, by ID, in the order they were added unless sorted otherwise. |
-| `query`, `contains`, `class`, `site`, `where`, `sort`, `order` | | The same as in `search_items`. |
+| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `fields` | | The same as in `search_items`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 20. |
 
@@ -247,7 +271,7 @@ item sets, so this is for searching them by what they're about.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `query`, `contains`, `class`, `site`, `where`, `sort`, `order` | | The same as in `search_items`. |
+| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `fields` | | The same as in `search_items`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 20. |
 
@@ -303,12 +327,15 @@ says so, and says how to read the rest, if there is a way.
   the rest. Other lists longer than 100 entries, such as the links from other items in the
   `detailed` format, are cut too, with their full length given.
 - An item lists at most 50 of its media, and `search_media` with `item` lists them all.
+- With `fields`, a search result lists at most 10 values of each field, each shortened to
+  300 characters, and a page is at most 40,000 characters; a longer one is refused, with
+  the `per_page` that fits. `field` reads a field in full.
 - `get_overview` shows at most 200 entries of each list, and `list` reads the rest.
 - `get_media` sends the large thumbnail (800 pixels by default), never the original file.
-- `count_values` counts across at most 200,000 matching items, media, or item sets.
-  Narrow larger sets with filters. Media can reach this much sooner than items, as when
-  each page of a scanned book is its own media. Above 200,000 items, `get_overview`
-  leaves out its media type counts.
+- `count_values` and `count_fields` count across at most 200,000 matching items, media,
+  or item sets. Narrow larger sets with filters. Media can reach this much sooner than
+  items, as when each page of a scanned book is its own media. Above 200,000 items,
+  `get_overview` leaves out its media type counts.
 - `count_values` shortens values longer than 300 characters and marks them as cut. To
   find what has one, search with a `starts_with` condition on its text.
 - Value annotations, such as a date's "approximate", are shown with their values but

@@ -6,6 +6,7 @@ use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 use Omeka\Api\Representation\ItemRepresentation;
 use Omeka\Api\Representation\ItemSetRepresentation;
 use Omeka\Api\Representation\MediaRepresentation;
+use Omeka\Api\Representation\ValueRepresentation;
 use Omeka\Settings\Settings;
 
 /**
@@ -51,12 +52,12 @@ class ResourceFormatter
         foreach (self::DATE_TERMS as $term) {
             $value = $item->value($term);
             if ($value) {
-                $date = OutputLimits::cut($this->valueFormatter->valueText($value)['text']);
+                $date = $this->summaryValue($value, OutputLimits::cut($this->valueFormatter->valueText($value)['text']));
                 break;
             }
         }
         $creators = array_values(array_filter(array_map(
-            fn ($value) => OutputLimits::cut($this->valueFormatter->valueText($value)['text']),
+            fn ($value) => $this->summaryValue($value, OutputLimits::cut($this->valueFormatter->valueText($value)['text'])),
             $item->value('dcterms:creator', ['all' => true])
         )));
         return OutputLimits::withoutEmpty($this->summaryFields($item) + [
@@ -150,20 +151,79 @@ class ResourceFormatter
     }
 
     /**
+     * Get the short form of a result for a search that named fields: what
+     * identifies it, and for a media its item, leaving the rest of a summary
+     * to the fields named.
+     */
+    public function briefSummary(AbstractResourceEntityRepresentation $resource): array
+    {
+        $summary = [
+            'id' => $resource->id(),
+            'title' => $resource->displayTitle(),
+            'is_public' => $this->privateMark($resource),
+            'url' => $this->publicUrl($resource),
+        ];
+        if ($resource instanceof MediaRepresentation) {
+            $summary['item'] = $this->mediaItem($resource);
+        }
+        return OutputLimits::withoutEmpty($summary);
+    }
+
+    /**
+     * Get the values of the fields a search named, for a summary.
+     *
+     * Each field lists up to OutputLimits::FIELD_VALUES_LIMIT values as the
+     * text get_item shows, without the link or URI it gives beside it, each
+     * shortened to a summary's length; a field the resource lacks is an empty
+     * list. Cuts are marked beside the fields: each cut field's full length,
+     * and whether any value was shortened. Values come from the
+     * representation the API returned, so the caller sees only the values
+     * they may, and a private one is marked as summaryValue() marks it.
+     *
+     * @param string[] $terms
+     */
+    public function fieldValues(AbstractResourceEntityRepresentation $resource, array $terms): array
+    {
+        $fields = [];
+        $totals = [];
+        $shortened = false;
+        foreach ($terms as $term) {
+            $values = $resource->value($term, ['all' => true]);
+            $fields[$term] = [];
+            foreach (array_slice($values, 0, OutputLimits::FIELD_VALUES_LIMIT) as $value) {
+                $text = trim((string) $this->valueFormatter->valueText($value)['text']);
+                $shortened = $shortened || mb_strlen($text) > OutputLimits::DESCRIPTION_LIMIT;
+                $fields[$term][] = $this->summaryValue($value, OutputLimits::shorten($text, OutputLimits::DESCRIPTION_LIMIT));
+            }
+            if (count($values) > OutputLimits::FIELD_VALUES_LIMIT) {
+                $totals[$term] = count($values);
+            }
+        }
+        $output = ['fields' => $fields];
+        if ($totals) {
+            $output[OutputLimits::FIELDS_TOTALS] = $totals;
+        }
+        if ($shortened) {
+            $output[OutputLimits::FIELDS_TRUNCATED] = true;
+        }
+        return $output;
+    }
+
+    /**
      * Get a resource's description, shortened for a summary.
      *
      * Reads the same property displayDescription() reads, rendered as
      * ValueFormatter renders it. displayDescription() casts to a string, which
      * outside a site page empties a linked resource and leaves HTML as markup.
      */
-    protected function description(AbstractResourceEntityRepresentation $resource): ?string
+    protected function description(AbstractResourceEntityRepresentation $resource): string|array|null
     {
         $template = $resource->resourceTemplate();
         $term = ($template && $template->descriptionProperty())
             ? $template->descriptionProperty()->term()
             : 'dcterms:description';
         $value = $resource->value($term);
-        return $value ? OutputLimits::shorten($this->valueFormatter->valueText($value)['text'], OutputLimits::DESCRIPTION_LIMIT) : null;
+        return $value ? $this->summaryValue($value, OutputLimits::shorten($this->valueFormatter->valueText($value)['text'], OutputLimits::DESCRIPTION_LIMIT)) : null;
     }
 
     /**
@@ -207,11 +267,10 @@ class ResourceFormatter
      */
     public function mediaSummary(MediaRepresentation $media): array
     {
-        $item = $media->item();
         return OutputLimits::withoutEmpty($this->summaryFields($media) + [
             'media_type' => $media->mediaType(),
             'original_url' => $media->originalUrl(),
-            'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
+            'item' => $this->mediaItem($media),
         ]);
     }
 
@@ -221,18 +280,26 @@ class ResourceFormatter
      */
     public function media(MediaRepresentation $media): array
     {
-        $item = $media->item();
         $values = $this->valueFormatter->values($media);
         return OutputLimits::withoutEmpty($this->fullFields($media) + [
             'media_type' => $media->mediaType(),
             'original_url' => $media->originalUrl(),
             // The original file name or URL.
             'source' => $media->source(),
-            'item' => ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)],
+            'item' => $this->mediaItem($media),
             'content' => $this->mediaContent($media),
             'values' => $values,
             ...$this->jsonLdFormatter->moduleData($media, array_keys($values)),
         ]);
+    }
+
+    /**
+     * Get the item a media belongs to, as a media's forms list it.
+     */
+    protected function mediaItem(MediaRepresentation $media): array
+    {
+        $item = $media->item();
+        return ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)];
     }
 
     /**
@@ -310,6 +377,24 @@ class ResourceFormatter
     protected function privateMark(AbstractResourceEntityRepresentation $resource): ?bool
     {
         return $resource->isPublic() ? null : false;
+    }
+
+    /**
+     * Get a value's text as a summary shows it: the text alone, or with its
+     * language and a mark when private, as get_item gives them. A private
+     * value is one a caller signed in with an MCP key may see, and the mark
+     * tells the model it isn't on the public site.
+     *
+     * @return string|array The text, or ['text', 'lang', 'is_public' => false]
+     *   with whichever of the last two apply
+     */
+    protected function summaryValue(ValueRepresentation $value, string $text)
+    {
+        $marks = OutputLimits::withoutEmpty([
+            'lang' => $value->lang(),
+            'is_public' => $value->isPublic() ? null : false,
+        ]);
+        return $marks ? ['text' => $text] + $marks : $text;
     }
 
     protected function resourceClass(AbstractResourceEntityRepresentation $resource): ?array

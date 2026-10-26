@@ -1,6 +1,7 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
+use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\OutputLimits;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
@@ -19,6 +20,14 @@ use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 abstract class AbstractSearchTool implements ToolInterface
 {
     const PER_PAGE_MAX = 50;
+
+    // Most fields a search may ask each result to show.
+    const FIELDS_MAX = 10;
+
+    // Longest page a search with fields returns, in characters of JSON, since
+    // assistants set longer results aside: Claude Code saves one over 50,000
+    // characters to a file rather than showing it.
+    const FIELDS_PAGE_LENGTH_MAX = 40000;
 
     protected $api;
 
@@ -133,7 +142,36 @@ abstract class AbstractSearchTool implements ToolInterface
                 'default' => $this->getPerPageDefault(),
                 'description' => sprintf('Results per page, from 1 to %d.', self::PER_PAGE_MAX),
             ],
+            'fields' => [
+                'type' => 'array',
+                'items' => ['type' => 'string'],
+                'maxItems' => self::FIELDS_MAX,
+                'description' => sprintf(
+                    'Property terms, such as "dcterms:rights", whose values each result should list: up to %d fields, and %d values of each. Each result then shows these fields in place of its summary, beside its id, title, and link, so name any others it should show, such as "dcterms:description". Reads fields across many results at once, instead of opening each one.',
+                    self::FIELDS_MAX, OutputLimits::FIELD_VALUES_LIMIT
+                ),
+            ],
         ];
+    }
+
+    /**
+     * Get the property terms whose values each result should show, each one
+     * a property in use.
+     *
+     * @throws ToolException
+     */
+    protected function getFields(ArgumentReader $reader): array
+    {
+        $fields = [];
+        foreach ($reader->getList('fields', self::FIELDS_MAX) as $term) {
+            if (!is_string($term) || '' === trim($term)) {
+                throw new ToolException('"fields" must list property terms, such as "dcterms:rights".');
+            }
+            $term = trim($term);
+            $this->searchFilters->findProperty($term);
+            $fields[$term] = $term;
+        }
+        return array_values($fields);
     }
 
     /**
@@ -145,6 +183,8 @@ abstract class AbstractSearchTool implements ToolInterface
         $resourceName = $this->getResourceName();
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
         $perPage = $reader->getInt('per_page', $this->getPerPageDefault(), 1, self::PER_PAGE_MAX);
+        $fields = $this->getFields($reader);
+        $notes = [];
         $toolQuery = $this->getToolQuery($reader);
         $query = $this->searchFilters->buildFilters($reader, $resourceName, $this->getFilterAdvice());
         $query += $this->searchFilters->buildSort($reader, isset($query['fulltext_search']), $this->getDefaultSort($toolQuery));
@@ -157,14 +197,28 @@ abstract class AbstractSearchTool implements ToolInterface
             'page' => $page,
             'per_page' => $perPage,
             $resourceName => array_map(
-                fn ($resource) => $this->summarize($resource) + $this->formatter->sortDate($resource, $sortedDate),
+                fn ($resource) => ($fields ? $this->formatter->briefSummary($resource) : $this->summarize($resource))
+                    + $this->formatter->sortDate($resource, $sortedDate)
+                    + ($fields ? $this->formatter->fieldValues($resource, $fields) : []),
                 $results
             ),
         ];
-        $note = 0 === $output['total_results']
+        if ($fields) {
+            $length = mb_strlen(json_encode($output, ToolResult::JSON_FLAGS));
+            if ($length > self::FIELDS_PAGE_LENGTH_MAX) {
+                throw new ToolException(sprintf(
+                    'With these fields, this page of %d results would be %s characters, more than the %s a page may have. Ask for "per_page" %d or fewer, or for fewer fields.',
+                    count($results), number_format($length), number_format(self::FIELDS_PAGE_LENGTH_MAX),
+                    max(1, intdiv(count($results) * self::FIELDS_PAGE_LENGTH_MAX, $length))
+                ));
+            }
+        }
+        $notes[] = 0 === $output['total_results']
             ? $this->getEmptyNote($query)
             : $this->getSortNote($query, $results, $output['total_results']);
-        return ToolResult::json($output, $note);
+        $notes[] = OutputLimitNotes::forSearchFields($output[$resourceName], $resourceName);
+        $notes = array_filter($notes);
+        return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
     }
 
     /**

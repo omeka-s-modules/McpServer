@@ -15,8 +15,8 @@ class SearchItemSets extends AbstractSearchTool
         return 'Search and filter item sets, the groups items belong to (called collections in Omeka Classic), by their title, '
             . 'description, and other metadata. Returns a page of short summaries: id, title, class, '
             . 'description, how many items the set has, and a link to its public page, plus the total number '
-            . 'of matches. Call get_item_set with an id to read one in full, and search_items with "item_set" '
-            . 'to list its items.'
+            . 'of matches. Call get_item_set with an id to read one in full, or name the fields you need in "fields" '
+            . 'to see them for every result, and search_items with "item_set" to list a set\'s items.'
             . "\n\n"
             . sprintf('get_overview already lists up to %d item sets with their item counts. Use this to search them by ', GetOverview::PER_PAGE)
             . 'what they\'re about, or when there are more. Takes the same query, filters, and sorting as '

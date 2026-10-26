@@ -16,7 +16,8 @@ class SearchItems extends AbstractSearchTool
             . 'class, description, date, creator, and a link to the item\'s public page, plus the total number '
             . 'of matches. A summary\'s date is the first of dcterms:date, dcterms:created, or dcterms:issued '
             . 'that the item has, so check which field an item uses before sorting on it. Call get_item with an '
-            . 'id to read an item in full.'
+            . 'id to read an item in full, or name the fields you need in "fields" to see them for every result, such '
+            . 'as each item\'s rights or subjects.'
             . "\n\n"
             . '"query" is full-text search, most relevant first. It matches whole words only, so "letter" '
             . 'doesn\'t find "letters"; use "contains" to match part of a word, such as a plural. Filters narrow '

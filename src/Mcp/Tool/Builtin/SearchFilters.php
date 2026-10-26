@@ -94,6 +94,10 @@ class SearchFilters
                 'type' => 'string',
                 'description' => 'Only those in this site, by slug.',
             ],
+            'is_public' => [
+                'type' => 'boolean',
+                'description' => 'Only those that are public (true) or private (false). Private ones appear only to a caller signed in with an MCP key.',
+            ],
             'has_media' => [
                 'type' => 'boolean',
                 'description' => 'Only items with media (true) or without (false).',
@@ -170,6 +174,9 @@ class SearchFilters
         }
         if (null !== ($site = $reader->getText('site'))) {
             $query['site_id'] = $this->findSite($site);
+        }
+        if (null !== ($isPublic = $reader->getBool('is_public'))) {
+            $query['is_public'] = $isPublic ? 1 : 0;
         }
         if (null !== ($hasMedia = $reader->getBool('has_media'))) {
             $query['has_media'] = $hasMedia ? 1 : 0;
@@ -256,6 +263,12 @@ class SearchFilters
             return sprintf(
                 'No %s matched. %s %s used only in value annotations, which "where" can\'t search. count_values on %s names the fields whose values carry those annotations, and get_item with "field" set to one of them shows each value with its annotations.',
                 $noun, implode(' and ', $terms), count($terms) > 1 ? 'are' : 'is', $terms[0]
+            );
+        }
+        if (isset($query['is_public']) && !$query['is_public']) {
+            return sprintf(
+                'No %1$s matched. "is_public" false finds only the private %1$s you may see, which is none without an MCP key, so there may be others.',
+                $noun
             );
         }
         return sprintf('No %s matched. Loosen the filters, or check them against get_overview.', $noun);

@@ -74,6 +74,34 @@ final class OutputLimitNotes
     }
 
     /**
+     * Say what the fields a search named cut in its results, and how to read
+     * them in full.
+     *
+     * Each result marks its cuts: fields_totals for a field with more values
+     * than it lists, and fields_truncated when a value was shortened.
+     *
+     * @param array $summaries The page of results
+     * @param string $resource "items", "media", or "item_sets"
+     */
+    public static function forSearchFields(array $summaries, string $resource): ?string
+    {
+        $listsCut = array_filter(array_column($summaries, OutputLimits::FIELDS_TOTALS));
+        $textsCut = array_filter(array_column($summaries, OutputLimits::FIELDS_TRUNCATED));
+        if (!$listsCut && !$textsCut) {
+            return null;
+        }
+        $cuts = [];
+        if ($listsCut) {
+            $cuts[] = sprintf('a field lists its first %d values (fields_totals gives the full count of each field cut)', OutputLimits::FIELD_VALUES_LIMIT);
+        }
+        if ($textsCut) {
+            $cuts[] = sprintf('a value longer than %d characters is shortened, ending in "…"', OutputLimits::DESCRIPTION_LIMIT);
+        }
+        $readTool = ['items' => 'get_item', 'media' => 'get_media', 'item_sets' => 'get_item_set'][$resource];
+        return sprintf('In "fields", %s. To read all of a field, call %s with "field".', implode(', and ', $cuts), $readTool);
+    }
+
+    /**
      * Say what the JSON-LD form cut, and how to reach the rest, as the
      * detailed format's note.
      *
