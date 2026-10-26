@@ -12,7 +12,8 @@ use McpServer\Mcp\Tool\ToolResult;
 
 /**
  * Counts the values of one field across the items, media, or item sets that
- * match the filters.
+ * match the filters. With prefix_length, values count by their first
+ * characters instead, such as dates by century.
  *
  * Omeka's API can't group, so the counting is ResourceCounter's, under the
  * rule in ToolInterface: the API returns the IDs of the matching resources,

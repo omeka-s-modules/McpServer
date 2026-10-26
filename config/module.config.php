@@ -5,6 +5,9 @@ return [
     'mcp_server' => [
         // MCP tools. The registered name is the tool name clients see. Other
         // modules add tools by adding to this key in their own config.
+        // Listed in the order tools/list gives them: the overview first, which
+        // several descriptions tell the model to call first, then the counts,
+        // the searches, and the reads.
         'tools' => [
             'factories' => [
                 'get_overview' => Service\Mcp\Tool\Builtin\GetOverviewFactory::class,

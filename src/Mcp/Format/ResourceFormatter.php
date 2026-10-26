@@ -170,7 +170,7 @@ class ResourceFormatter
     }
 
     /**
-     * Get the values of the fields a search named, for a summary.
+     * Get the values of the fields a search named, for a search result.
      *
      * Each field lists up to OutputLimits::FIELD_VALUES_LIMIT values as the
      * text get_item shows, without the link or URI it gives beside it, each
@@ -178,7 +178,8 @@ class ResourceFormatter
      * list. Cuts are marked beside the fields: each cut field's full length,
      * and whether any value was shortened. Values come from the
      * representation the API returned, so the caller sees only the values
-     * they may, and a private one is marked as summaryValue() marks it.
+     * they may, and a value's language and privacy are marked as
+     * summaryValue() marks them.
      *
      * @param string[] $terms
      */
@@ -210,7 +211,8 @@ class ResourceFormatter
     }
 
     /**
-     * Get a resource's description, shortened for a summary.
+     * Get a resource's description, shortened for a summary and marked as
+     * summaryValue() marks a value.
      *
      * Reads the same property displayDescription() reads, rendered as
      * ValueFormatter renders it. displayDescription() casts to a string, which

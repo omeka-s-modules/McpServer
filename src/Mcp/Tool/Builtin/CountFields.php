@@ -12,7 +12,8 @@ use McpServer\Mcp\Tool\ToolResult;
 
 /**
  * Counts which fields the items, media, or item sets that match the filters
- * have, and how many have each.
+ * have, and how many have each, in each language too where values carry
+ * language tags.
  *
  * The counting is ResourceCounter's, under the rule in ToolInterface, as for
  * count_values: the API returns the IDs of the matching resources, applying

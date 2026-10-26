@@ -10,7 +10,7 @@ use Omeka\Entity\Value;
 use Omeka\Entity\ValueAnnotation;
 
 /**
- * Counts items, media, and item sets, and the values of a field among them,
+ * Counts items, media, and item sets, and the values and fields among them,
  * including only what the caller can see.
  *
  * This is the one place the module queries Doctrine directly, since Omeka's

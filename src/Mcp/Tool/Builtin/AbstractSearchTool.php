@@ -15,7 +15,7 @@ use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 /**
  * The base of search_items, search_media, and search_item_sets, which take the
  * same filters, sort the same way, and return a page of short summaries at a
- * time.
+ * time, or with "fields", the values of the fields named.
  */
 abstract class AbstractSearchTool implements ToolInterface
 {
@@ -184,7 +184,6 @@ abstract class AbstractSearchTool implements ToolInterface
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
         $perPage = $reader->getInt('per_page', $this->getPerPageDefault(), 1, self::PER_PAGE_MAX);
         $fields = $this->getFields($reader);
-        $notes = [];
         $toolQuery = $this->getToolQuery($reader);
         $query = $this->searchFilters->buildFilters($reader, $resourceName, $this->getFilterAdvice());
         $query += $this->searchFilters->buildSort($reader, isset($query['fulltext_search']), $this->getDefaultSort($toolQuery));
@@ -213,6 +212,7 @@ abstract class AbstractSearchTool implements ToolInterface
                 ));
             }
         }
+        $notes = [];
         $notes[] = 0 === $output['total_results']
             ? $this->getEmptyNote($query)
             : $this->getSortNote($query, $results, $output['total_results']);

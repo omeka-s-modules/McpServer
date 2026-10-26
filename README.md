@@ -12,17 +12,18 @@ https://example.org/mcp
 
 - **Read-only.** Assistants can't create, change, or delete anything.
 - **Public content, unless you add a key.** Assistants see what a visitor to your public
-  site sees. With an MCP key in the address, they see what that key's user may see.
-- **No setup for users.** Add the address to an assistant and start asking.
+  site sees. With an MCP key in the address, they see what that key's user may see, and
+  you can require one.
+- **Nothing for users to install.** Add the address to an assistant and start asking.
 
 ## Contents
 
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Connecting an assistant](#connecting-an-assistant)
-- [Seeing private content](#seeing-private-content)
-- [Tools](#tools)
 - [Example prompts](#example-prompts)
+- [MCP keys](#mcp-keys)
+- [Tools](#tools)
 - [Privacy and security](#privacy-and-security)
 - [Limits](#limits)
 - [Troubleshooting](#troubleshooting)
@@ -43,14 +44,18 @@ https://example.org/mcp
 1. Copy the module into Omeka's `modules` directory, in a folder named `McpServer`.
 2. In the Omeka admin, go to **Modules** and click **Install** next to MCP Server.
 
-There's nothing to configure. The endpoint is `/mcp` under your Omeka base URL. Use that
-address exactly, with no slash at the end.
+The endpoint is `/mcp` under your Omeka base URL. **MCP Server > Overview** in the admin
+shows its full address and the tools assistants can use. Use that address exactly, with
+no slash at the end.
+
+The module has one optional setting, **Require sign-in**, off by default. See
+[Requiring a key](#requiring-a-key).
 
 ## Connecting an assistant
 
 Add the server to your assistant as a remote MCP server, using your endpoint's address,
-such as `https://example.org/mcp`. It uses Streamable HTTP and needs no sign-in. Each
-assistant explains where to add one:
+such as `https://example.org/mcp`. It uses Streamable HTTP, and needs no sign-in unless
+you've turned on **Require sign-in**. Each assistant explains where to add one:
 
 - [Claude](https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp),
   on the web or desktop, as a custom connector
@@ -65,7 +70,24 @@ To check that the server responds, list its tools with the
 npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport http --method tools/list
 ```
 
-## Seeing private content
+## Example prompts
+
+Once an assistant is connected, ask in plain language. For example:
+
+- "Give me an overview: what kinds of items are here, and how many?"
+- "Find letters written in the 1700s and summarize what they're about."
+- "I'm teaching a unit on the American Revolution. What primary sources are here, and in
+  what order would you use them?"
+- "Who are the most frequent creators, and what are the most common subjects?"
+- "Look at the photographs of the harbor and describe what they show."
+- "Which items are linked to the item about the town hall?"
+- "Which items have PDF files?"
+- "What is each of the item sets about, and which are the largest?"
+- "What has been added or changed recently?"
+- "Which fields do the records in this item set leave empty?"
+- "Are there inconsistent spellings or rarely used fields in the metadata?"
+
+## MCP keys
 
 Without a key, assistants see public content only. To let an assistant see private
 content too, add an MCP key to the address:
@@ -76,30 +98,19 @@ https://example.org/mcp?key=KEY
 
 Create the key in the Omeka admin, under **MCP Server > Keys**. Omeka shows the address
 with the key only once, when the key is created. Whoever may manage a user's API keys,
-such as a Global Administrator, may manage their MCP keys there too. **MCP Server >
-Overview** shows the endpoint's address and the tools assistants can use.
+such as a Global Administrator, may manage their MCP keys there too.
 
 The assistant sees what the key's user may see:
 
 - **Reviewers, Editors, Supervisors, and Global Administrators** see all private content.
 - **Authors and Researchers** see public content and what they own.
 
-Full records carry Omeka's own flags, as its JSON-LD does: `"is_public": false` on a
-private item, media, item set, or value. Search results mark them too: a private value
-in a summary or in `fields` is `{"text": "…", "is_public": false}` rather than its text
-alone. To list only private items, media, or item sets, search or count with
-`is_public` set to `false`.
-
 An MCP key works only at `/mcp`, whose tools only read, and never for Omeka's REST API.
 So it can't be used to change anything, whatever its user's role. Omeka API keys don't
 work at `/mcp`.
 
-To refuse assistants without a key, check **Require sign-in** in the module's
-configuration. Only a Global Administrator can change it. To give public-only access
-while sign-in is required, create keys for a Researcher account that owns nothing; it
-sees only public content.
-
-A key in the address still lets anyone who sees the address read what its user may see:
+Treat an address with a key like a password. Anyone who sees it can read what its user
+may see:
 
 - **It appears wherever the address does:** in your web server's access logs, in any
   proxy in front of it, and in the assistant's connector settings.
@@ -108,6 +119,18 @@ A key in the address still lets anyone who sees the address read what its user m
 - **To revoke access, delete the key** under **MCP Server > Keys**, which also shows when
   each key was last used. A request with a key that no longer works is refused, rather
   than answered as if it had none.
+
+### Requiring a key
+
+By default, anyone with the address can read your public content. To refuse assistants
+without a key, check **Require sign-in** in the module's configuration: on the
+**Modules** page, click **Configure** next to MCP Server. Only a Global Administrator can
+change it. A request without a key is then refused, with a message saying where to create
+one.
+
+To give public-only access while sign-in is required, create keys for a Researcher
+account that owns nothing; it sees only public content. Each key can then be revoked on
+its own.
 
 ## Tools
 
@@ -125,6 +148,12 @@ A key in the address still lets anyone who sees the address read what its user m
 
 Assistants usually start with `get_overview`, then search or count, then read the items
 they need. All tools are read-only.
+
+When an assistant may see private content, results mark it as Omeka's JSON-LD does:
+`"is_public": false` on a private item, media, item set, or value. Search results show
+values as plain text, so there a private value is `{"text": "…", "is_public": false}`,
+and a value with a language tag is `{"text": "…", "lang": "…"}`. To find only private
+items, media, or item sets, search or count with `is_public` set to `false`.
 
 ### get_overview
 
@@ -148,8 +177,6 @@ of one, a page at a time:
 ### search_items
 
 Finds items, a page at a time, as short summaries with a link to each item's public page.
-A value in a summary with a language tag is `{"text": …, "lang": …}` rather than its
-text alone, and a private one carries `"is_public": false`.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -165,7 +192,7 @@ text alone, and a private one carries `"is_public": false`.
 | `order` | string | `asc` or `desc`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 10. |
-| `fields` | string[] | Fields whose values each result should list, such as `dcterms:rights`: up to 10 fields and 10 values of each, each value shortened to 300 characters. Each result then has these fields in place of its summary, beside its ID, title, and link, with values in the same form as in summaries. Saves reading each result in full. |
+| `fields` | string[] | Fields whose values each result should list, such as `dcterms:rights`. At most 10. See below. |
 
 Each `where` condition has a `field` (a property term), an `op`, and usually a `value`:
 
@@ -178,6 +205,11 @@ Each `where` condition has a `field` (a property term), an `op`, and usually a `
 | `links_to` | links to the resource (an item, media, or item set) with this ID |
 | `exists` | has any value (no `value` needed) |
 | `missing` | has no value (no `value` needed) |
+
+With `fields`, each result lists the values of the fields named in place of its usual
+summary, beside its ID, title, and link: up to 10 values of each field, each shortened to
+300 characters. That reads a field across many results at once, instead of opening each
+one.
 
 ### get_item
 
@@ -292,18 +324,6 @@ has, a link to its public page, and anything other modules add. To list its item
 | `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
 | `field`, `page`, `offset`, `position` | | The same as in `get_item`. |
 
-## Example prompts
-
-- "Give me an overview: what kinds of items are here, and how many?"
-- "Find letters written in the 1700s and summarize what they're about."
-- "Who are the most frequent creators, and what are the most common subjects?"
-- "Look at the photographs of the harbor and describe what they show."
-- "Which items are linked to the item about the town hall?"
-- "Which items have PDF files?"
-- "What is each of the item sets about, and which are the largest?"
-- "What has been added or changed recently?"
-- "Are there inconsistent spellings or rarely used fields in the metadata?"
-
 ## Privacy and security
 
 - **Without a key, only public content is visible.** Every read goes through Omeka's own
@@ -313,9 +333,10 @@ has, a link to its public page, and anything other modules add. To list its item
 - **Nothing can be changed.** All tools are read-only.
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
   never applies. Only an MCP key in the address signs a request in.
-- **The endpoint is public,** like your public site and Omeka's REST API. Anyone who
-  knows the address can use it. If that's a concern, rate-limit it at the web server, as
-  you would any public endpoint.
+- **The endpoint is public by default,** like your public site and Omeka's REST API.
+  Anyone who knows the address can read your public content. To limit it to people
+  you've given keys, [require a key](#requiring-a-key). To limit how often it's used,
+  rate-limit it at the web server, as you would any public endpoint.
 
 Signing in through an assistant's own sign-in screen, so that each person uses their own
 Omeka account without handling a key, is planned for a later version.
@@ -366,7 +387,11 @@ the full-text index: on the admin **Settings** page, check **Index full-text sea
 save.
 
 **An assistant with a key still sees only public content.** The key's user may not see
-private content: an Author or a Researcher sees only what they own. Check the user's role.
+private content: an Author or a Researcher sees public content and only the private
+content they own. Check the user's role.
+
+**Requests without a key are refused.** **Require sign-in** is on. Add a key to the
+address, or turn the setting off in the module's configuration.
 
 **Requests with a key are refused.** The key was mistyped, deleted, or belongs to a
 deactivated user. Create a new key and update the address. Some assistants show a
@@ -434,7 +459,7 @@ as of October 2026 none of the PHP libraries fit Omeka well:
   also requires PHP 8.2 and a newer `symfony/console` than Omeka ships.
 - The standalone SDKs' authentication assumes an outside identity provider, with no way
   to let anonymous requests through while signed-in requests see more. When this server
-  adds OAuth sign-in, Omeka will be the identity provider: anonymous visitors will still
+  adds OAuth sign-in, Omeka will be the identity provider: anonymous visitors can still
   see public content, and signing in will widen what a person sees.
 
 WordPress made the same choice for its MCP adapter. The protocol code is kept apart from
