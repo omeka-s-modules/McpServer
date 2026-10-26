@@ -1,12 +1,18 @@
 <?php
 namespace McpServer;
 
+use Laminas\Mvc\Controller\AbstractController;
 use Laminas\Mvc\MvcEvent;
 use Laminas\ServiceManager\ServiceLocatorInterface;
+use Laminas\View\Renderer\PhpRenderer;
+use McpServer\Form\ConfigForm;
 use Omeka\Module\AbstractModule;
 
 class Module extends AbstractModule
 {
+    // The setting that makes /mcp refuse requests without an MCP key.
+    const REQUIRE_SIGN_IN = 'mcp_server_require_sign_in';
+
     public function getConfig()
     {
         return include __DIR__ . '/config/module.config.php';
@@ -18,11 +24,26 @@ class Module extends AbstractModule
         $acl = $this->getServiceLocator()->get('Omeka\Acl');
         // Anyone may reach the endpoint. A request is anonymous unless it
         // carries an MCP key, and the API applies the caller's permissions.
+        // When the installation requires sign-in, the controller refuses a
+        // request without a key.
         $acl->allow(null, 'McpServer\Controller\Index');
         // Every signed-in user may open the MCP Server pages, since anyone may
         // have keys; admin pages already require signing in. The key
         // controller checks that the user may manage the keys in question.
         $acl->allow(null, ['McpServer\Controller\Admin\Index', 'McpServer\Controller\Admin\Key']);
+    }
+
+    public function getConfigForm(PhpRenderer $renderer)
+    {
+        $form = new ConfigForm;
+        $form->init();
+        $form->setData(['require_sign_in' => $this->getServiceLocator()->get('Omeka\Settings')->get(self::REQUIRE_SIGN_IN, false)]);
+        return $renderer->formCollection($form, false);
+    }
+
+    public function handleConfigForm(AbstractController $controller)
+    {
+        $this->getServiceLocator()->get('Omeka\Settings')->set(self::REQUIRE_SIGN_IN, (bool) $controller->params()->fromPost('require_sign_in'));
     }
 
     public function install(ServiceLocatorInterface $services)
@@ -37,5 +58,6 @@ class Module extends AbstractModule
     public function uninstall(ServiceLocatorInterface $services)
     {
         $services->get('Omeka\Connection')->exec('DROP TABLE IF EXISTS mcp_server_key');
+        $services->get('Omeka\Settings')->delete(self::REQUIRE_SIGN_IN);
     }
 }

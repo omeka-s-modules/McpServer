@@ -94,6 +94,11 @@ An MCP key works only at `/mcp`, whose tools only read, and never for Omeka's RE
 So it can't be used to change anything, whatever its user's role. Omeka API keys don't
 work at `/mcp`.
 
+To refuse assistants without a key, check **Require sign-in** in the module's
+configuration. Only a Global Administrator can change it. To give public-only access
+while sign-in is required, create keys for a Researcher account that owns nothing; it
+sees only public content.
+
 A key in the address still lets anyone who sees the address read what its user may see:
 
 - **It appears wherever the address does:** in your web server's access logs, in any

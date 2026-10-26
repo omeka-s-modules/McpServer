@@ -4,6 +4,7 @@ namespace McpServer\Service\Controller;
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
 use McpServer\Controller\IndexController;
+use McpServer\Module;
 
 class IndexControllerFactory implements FactoryInterface
 {
@@ -15,7 +16,8 @@ class IndexControllerFactory implements FactoryInterface
             array_values($services->get('Config')['api_adapters']['invokables']),
             $services->get('Omeka\EntityManager'),
             fn () => $services->get('McpServer\Dispatcher'),
-            $services->get('Omeka\Logger')
+            $services->get('Omeka\Logger'),
+            (bool) $services->get('Omeka\Settings')->get(Module::REQUIRE_SIGN_IN, false)
         );
     }
 }

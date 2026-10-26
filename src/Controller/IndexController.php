@@ -24,7 +24,7 @@ use Throwable;
  * Dispatcher does all of JSON-RPC. A response with a body has a single JSON
  * body. The server never opens an event stream, never issues a session ID,
  * and never sets cookies. A request without an MCP key is anonymous and sees
- * public content only.
+ * public content only, or is refused when the installation requires sign-in.
  */
 class IndexController extends AbstractActionController
 {
@@ -55,13 +55,16 @@ class IndexController extends AbstractActionController
 
     protected $logger;
 
+    // Whether a request without an MCP key is refused.
+    protected $requireSignIn;
+
     /**
      * @param callable $dispatcherFactory Returns the Dispatcher. It's called
      *   inside the action's error handling, so a failure to build it, such as
      *   invalid tool configuration from another module, is still answered as
      *   JSON.
      */
-    public function __construct(AuthenticationService $auth, Acl $acl, array $apiAdapters, EntityManager $entityManager, callable $dispatcherFactory, LoggerInterface $logger)
+    public function __construct(AuthenticationService $auth, Acl $acl, array $apiAdapters, EntityManager $entityManager, callable $dispatcherFactory, LoggerInterface $logger, bool $requireSignIn)
     {
         $this->auth = $auth;
         $this->acl = $acl;
@@ -69,6 +72,7 @@ class IndexController extends AbstractActionController
         $this->entityManager = $entityManager;
         $this->dispatcherFactory = $dispatcherFactory;
         $this->logger = $logger;
+        $this->requireSignIn = $requireSignIn;
     }
 
     /**
@@ -158,7 +162,8 @@ class IndexController extends AbstractActionController
      * REST API, and only reads, since writes through Omeka's API are denied
      * here. This route never takes the caller from a session or a browser
      * cookie, so without a key the request is anonymous and sees public
-     * content only.
+     * content only. When the installation requires sign-in, a request without
+     * a key is refused instead, with 403 for the reason given below.
      *
      * Omeka API keys are refused, since they can also write through the REST
      * API. This module doesn't use them, but core does: on any key-auth
@@ -184,6 +189,13 @@ class IndexController extends AbstractActionController
         }
         $key = $request->getQuery('key');
         if (null === $key) {
+            if ($this->requireSignIn) {
+                throw new ProtocolException(
+                    'This server requires an MCP key. Create one in the Omeka admin, under MCP Server > Keys, and use the address it gives.',
+                    ProtocolException::INVALID_REQUEST,
+                    403
+                );
+            }
             return;
         }
         $mcpKey = is_string($key) && '' !== $key
