@@ -60,7 +60,11 @@ class JsonLdFormatter
      * locations.
      *
      * Modules extend the JSON-LD through the rep.resource.json event, so
-     * reading it brings their data along with no change on their side. What's
+     * triggering it brings their data along with no change on their side.
+     * It's triggered on an empty JSON-LD rather than the resource's own,
+     * which for a record many others link to lists every one of them; a
+     * listener that read core's keys from it would find none, though core's
+     * and those of the modules known add theirs without reading any. What's
      * left after leaving out JSON-LD syntax, core's own keys, and the
      * resource's property values is theirs. It's passed on as it is, apart
      * from @context keys, which only cost tokens. Long texts and lists are cut
@@ -75,7 +79,10 @@ class JsonLdFormatter
     {
         $coreKeys = $resource instanceof MediaRepresentation ? [...self::CORE_KEYS, ...self::MEDIA_CORE_KEYS] : self::CORE_KEYS;
         $data = new stdClass;
-        foreach (get_object_vars(json_decode(json_encode($resource, self::ROUND_TRIP_FLAGS))) as $key => $value) {
+        $events = $resource->getEventManager();
+        $args = $events->prepareArgs(['jsonLd' => []]);
+        $events->trigger('rep.resource.json', $resource, $args);
+        foreach (get_object_vars(json_decode(json_encode((object) $args['jsonLd'], self::ROUND_TRIP_FLAGS))) as $key => $value) {
             if (str_starts_with($key, '@') || str_starts_with($key, 'o:')
                 || in_array($key, $coreKeys, true) || in_array($key, $terms, true)
             ) {
