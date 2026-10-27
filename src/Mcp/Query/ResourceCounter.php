@@ -14,11 +14,15 @@ use Omeka\Entity\ValueAnnotation;
  * including only what the caller can see.
  *
  * This is the one place the module queries Doctrine directly, since Omeka's
- * API can't group. Every grouped query follows the counting rule in
- * ToolInterface. First the API returns the IDs of the resources to count, so
- * every filter, module extension, and visibility rule applies. Then the query
- * reads only rows tied to those IDs, and core's Doctrine filters hide private
- * values and resources. Media are counted only by item IDs, because core hides
+ * API can't group. Every grouped count follows the counting rule in
+ * ToolInterface. It takes an API resource and query, not IDs, and gets the
+ * IDs of the matching resources from the API itself, through
+ * getResourceIds(), so every filter, module extension, and visibility rule
+ * applies, whoever calls it. Then the query reads only rows tied to those
+ * IDs, and core's Doctrine filters hide private values and links to private
+ * resources. Those filters check only each value's own visibility, never its
+ * resource's, so a private item's public values stay out only because its ID
+ * isn't among them. Media are counted only by item IDs, because core hides
  * the media of private items in an API listener, which Doctrine queries don't
  * pass through.
  *
@@ -73,15 +77,28 @@ class ResourceCounter
     }
 
     /**
-     * Get the IDs of the resources matching a query, or null when there are
-     * more than COUNT_MAX.
+     * Get the IDs of the resources matching a query, once per request, or
+     * null when there are more than COUNT_MAX.
      *
-     * Grouped queries limited to these IDs count only what the caller can see.
+     * The grouped counts take the same resource and query, and get their IDs
+     * here, so they count only what the API shows the caller.
      *
      * @param string $resource "items", "media", or "item_sets"
      * @return int[]|null
      */
     public function getResourceIds(string $resource, array $query = []): ?array
+    {
+        $key = $resource . json_encode($query);
+        if (!array_key_exists($key, $this->cache['ids'] ?? [])) {
+            $this->cache['ids'][$key] = $this->fetchResourceIds($resource, $query);
+        }
+        return $this->cache['ids'][$key];
+    }
+
+    /**
+     * Fetch the IDs getResourceIds() returns, through the API.
+     */
+    protected function fetchResourceIds(string $resource, array $query): ?array
     {
         $total = $this->countResources($resource, $query);
         if ($total > static::COUNT_MAX) {
@@ -160,11 +177,16 @@ class ResourceCounter
      * Annotations can't be searched or counted, so this tells a caller where
      * to read them instead.
      *
-     * @param int[] $ids From getResourceIds()
+     * @param string $resource "items", "media", or "item_sets"
+     * @param array $query An API query, as for getResourceIds()
      * @return string[] Their terms, in order
      */
-    public function getAnnotatedProperties(int $propertyId, array $ids): array
+    public function getAnnotatedProperties(string $resource, array $query, int $propertyId): array
     {
+        $ids = $this->getCountedIds($resource, $query);
+        if (!$ids) {
+            return [];
+        }
         $rows = $this->entityManager->createQueryBuilder()
             ->select("DISTINCT CONCAT(vocabulary.prefix, ':', property.localName) AS term")
             ->from(Value::class, 'v')
@@ -250,15 +272,20 @@ class ResourceCounter
      * link to a resource the caller can't see has no label, so it doesn't
      * count.
      *
-     * @param int[] $ids From getResourceIds()
+     * @param string $resource "items", "media", or "item_sets"
+     * @param array $query An API query, as for getResourceIds()
      * @param bool $byValue Sort alphabetically by value, rather than most
      *   common first. Either order is stable, so pages don't overlap.
      * @param int|null $prefixLength Count values by this many of their first
      *   characters, rather than whole
      * @return array List of ['text', 'resources']
      */
-    public function countValues(int $propertyId, array $ids, int $limit, int $offset = 0, bool $byValue = false, ?int $prefixLength = null): array
+    public function countValues(string $resource, array $query, int $propertyId, int $limit, int $offset = 0, bool $byValue = false, ?int $prefixLength = null): array
     {
+        $ids = $this->getCountedIds($resource, $query);
+        if (!$ids) {
+            return [];
+        }
         $qb = $this->createValueQuery($propertyId, $ids)
             ->select($this->valueText($prefixLength) . ' AS text', 'COUNT(DISTINCT v.resource) AS resources')
             ->groupBy('text');
@@ -279,11 +306,13 @@ class ResourceCounter
      * A value that links to a resource the caller can't see doesn't count, as
      * get_item doesn't show it.
      *
-     * @param int[] $ids From getResourceIds()
+     * @param string $resource "items", "media", or "item_sets"
+     * @param array $query An API query, as for getResourceIds()
      * @return array List of ['property' => property ID, 'resources' => count]
      */
-    public function countProperties(array $ids): array
+    public function countProperties(string $resource, array $query): array
     {
+        $ids = $this->getCountedIds($resource, $query);
         if (!$ids) {
             return [];
         }
@@ -298,11 +327,13 @@ class ResourceCounter
      * Count the given resources that have each property in each language,
      * most first, leaving out values with no language tag.
      *
-     * @param int[] $ids From getResourceIds()
+     * @param string $resource "items", "media", or "item_sets"
+     * @param array $query An API query, as for getResourceIds()
      * @return array List of ['property' => property ID, 'lang', 'resources' => count]
      */
-    public function countPropertyLanguages(array $ids): array
+    public function countPropertyLanguages(string $resource, array $query): array
     {
+        $ids = $this->getCountedIds($resource, $query);
         if (!$ids) {
             return [];
         }
@@ -321,17 +352,33 @@ class ResourceCounter
      * Count the given resources that have a value of a property, and the
      * distinct values they have.
      *
-     * @param int[] $ids From getResourceIds()
+     * @param string $resource "items", "media", or "item_sets"
+     * @param array $query An API query, as for getResourceIds()
      * @param int|null $prefixLength As for countValues()
      * @return array ['resources' => int, 'values' => int]
      */
-    public function countValueTotals(int $propertyId, array $ids, ?int $prefixLength = null): array
+    public function countValueTotals(string $resource, array $query, int $propertyId, ?int $prefixLength = null): array
     {
+        $ids = $this->getCountedIds($resource, $query);
+        if (!$ids) {
+            return ['resources' => 0, 'values' => 0];
+        }
         $row = $this->createValueQuery($propertyId, $ids)
             ->select('COUNT(DISTINCT v.resource) AS resources', 'COUNT(DISTINCT ' . $this->valueText($prefixLength) . ') AS distinct_values')
             ->getQuery()
             ->getSingleResult();
         return ['resources' => (int) $row['resources'], 'values' => (int) $row['distinct_values']];
+    }
+
+    /**
+     * Get the IDs a grouped count reads, from the API, or none above
+     * COUNT_MAX, which callers refuse first with getResourceIds().
+     *
+     * @return int[]
+     */
+    protected function getCountedIds(string $resource, array $query): array
+    {
+        return $this->getResourceIds($resource, $query) ?? [];
     }
 
     /**

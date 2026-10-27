@@ -421,33 +421,100 @@ the migration in the admin.
 
 ## Adding tools from other modules
 
-Other Omeka modules can add their own tools. Implement
+Other Omeka modules can add their own tools. A tool implements
 `McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
-tools and how to read data so that visibility stays correct. This module's own tools, in
-`src/Mcp/Tool/Builtin/`, are working examples. Then register the tool under the
-`mcp_server` key in your module's configuration:
+tools and how to read data so that visibility stays correct. Here is a complete one, which
+counts the items added recently:
+
+```php
+namespace MyModule\Mcp;
+
+use DateTime;
+use McpServer\Mcp\Tool\ArgumentReader;
+use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Tool\ToolAnnotations;
+use McpServer\Mcp\Tool\ToolInterface;
+use McpServer\Mcp\Tool\ToolResult;
+use Omeka\Api\Manager as ApiManager;
+
+class CountRecentItems implements ToolInterface
+{
+    protected $api;
+
+    public function __construct(ApiManager $api)
+    {
+        $this->api = $api;
+    }
+
+    public function getTitle(): string
+    {
+        return 'Count recent items';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Count the items added in the last few days.';
+    }
+
+    public function getInputSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'days' => ['type' => 'integer', 'minimum' => 1, 'description' => 'How many days back to count.'],
+            ],
+            'required' => ['days'],
+            'additionalProperties' => false,
+        ];
+    }
+
+    public function getAnnotations(): array
+    {
+        return ToolAnnotations::READ_ONLY;
+    }
+
+    public function call(array $arguments, Context $context): ToolResult
+    {
+        $days = (new ArgumentReader($arguments))->requireInt('days', 1);
+        $since = (new DateTime("-$days days"))->format('Y-m-d');
+        $items = $this->api->search('items', ['created_after' => $since, 'limit' => 0])->getTotalResults();
+        return ToolResult::json(['days' => $days, 'items' => $items]);
+    }
+}
+```
+
+Its factory builds it with Omeka's API manager, as
+`new CountRecentItems($services->get('Omeka\ApiManager'))`, and your module's
+configuration registers the factory under the `mcp_server` key:
 
 ```php
 'mcp_server' => [
     'tools' => [
         'factories' => [
-            'mymodule_search_things' => Service\SearchThingsFactory::class,
+            'mymodule_count_recent_items' => Service\CountRecentItemsFactory::class,
         ],
     ],
 ],
 ```
 
 Names from other modules start with the module's name, as above. A tool's name should
-never change once released, because clients remember permissions by name.
+never change once released, because clients remember permissions by name. A tool's title,
+description, and schema should be the same for every caller, since the tool list is shared.
+This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples.
 
-For counts, and to check whether a property or class is in use, use the
-`McpServer\ResourceCounter` service, which keeps its queries within what the caller can
-see. Read a tool's arguments with `ArgumentReader`, and throw a `ToolException` for an
-error the assistant should see and can act on, such as a bad argument. Return results
-with `ToolResult::json()`, and put any guidance for the assistant, such as why nothing
-matched, in its note rather than in the data. When a tool's input schema sets
-`additionalProperties` to `false`, as the built-in tools' do, an argument it doesn't name
-is refused before the tool runs, so a misspelled filter can't pass for one applied.
+These are the parts other modules can rely on; everything else may change between versions:
+
+- **`ToolInterface`**, with **`Context`**, **`ToolAnnotations`**, and **`ToolResult`**, in
+  `McpServer\Mcp\Tool`. Return results with `ToolResult::json()`, and put guidance for the
+  assistant, such as why nothing matched, in its note rather than in the data.
+- **`ArgumentReader`**, to read arguments, and **`McpServer\Mcp\Exception\ToolException`**,
+  to refuse a bad call with a message the assistant can act on. When a tool's input schema
+  sets `additionalProperties` to `false`, as above, an argument it doesn't name is refused,
+  so a misspelled filter can't pass for one applied.
+- **The `McpServer\ResourceCounter` service**, for counts the API can't make, and to check
+  whether a property or class is in use. Give it the API resource and query you would
+  search with: it fetches the matching records through the API itself, so it counts only
+  what the caller may see.
 
 ## Why the protocol is built in
 

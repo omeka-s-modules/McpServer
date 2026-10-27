@@ -156,7 +156,7 @@ class CountValues implements ToolInterface
         $values = [];
         $shortened = false;
         $totals = ['resources' => 0, 'values' => 0];
-        $rows = $ids ? $this->counter->countValues($propertyId, $ids, $perPage, ($page - 1) * $perPage, $byValue, $prefixLength) : [];
+        $rows = $ids ? $this->counter->countValues($resource, $filters, $propertyId, $perPage, ($page - 1) * $perPage, $byValue, $prefixLength) : [];
         foreach ($rows as $row) {
             $value = [
                 // A linked resource with no title shows as "[Untitled]", as get_item
@@ -173,7 +173,7 @@ class CountValues implements ToolInterface
         if ($rows || ($ids && $page > 1)) {
             // With no rows on the first page, both totals are 0. A later page
             // can be empty while there are values.
-            $totals = $this->counter->countValueTotals($propertyId, $ids, $prefixLength);
+            $totals = $this->counter->countValueTotals($resource, $filters, $propertyId, $prefixLength);
         }
         $output = ['property' => $term];
         if ($prefixLength) {
@@ -192,7 +192,7 @@ class CountValues implements ToolInterface
         if (!$ids) {
             $note = $this->searchFilters->explainEmpty($resource, $filters);
         } elseif (!$totals['resources']) {
-            $annotated = $this->counter->getAnnotatedProperties($propertyId, $ids);
+            $annotated = $this->counter->getAnnotatedProperties($resource, $filters, $propertyId);
             if ($annotated) {
                 $note = sprintf(
                     'None of the matching %s has a value for %s, but it\'s used in annotations on their %s values. Annotations can\'t be searched or counted with these tools. get_item with "property" set to %s shows each value with its annotations.',

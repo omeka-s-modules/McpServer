@@ -31,20 +31,24 @@ namespace McpServer\Mcp\Tool;
  *   account allows.
  * - Don't use the entity manager to reach resources, except in two cases,
  *   both kept in the McpServer\ResourceCounter service:
- *   - Counting, which the API can't do. A grouped Doctrine query may read
- *     only the values or media of resources whose IDs the API returned, so
- *     the API still decides what's visible, and core's Doctrine filters
- *     still hide private rows.
+ *   - Counting, which the API can't do. ResourceCounter's grouped counts
+ *     take an API resource and query, fetch the matching IDs through the API
+ *     themselves, and read only those resources' rows, so the API still
+ *     decides what's visible, and core's Doctrine filters still hide private
+ *     values.
  *   - Checking whether a property or class is in use, or used only in value
  *     annotations, which the API can't do fast. The check reads a row or
  *     two, and reveals no more than core's "used" filter does, apart from
  *     whether the values are annotations.
  * - Never use raw SQL, which core's Doctrine filters don't reach.
- * - Never list or count media except by item IDs the API returned, because
- *   core hides the media of private items in the API, not in its Doctrine
- *   filters. Reading a linked media's title is fine, since core's own pages
- *   show it.
+ * - Never list or count media through the entity manager except by item IDs
+ *   the API returned, because core hides the media of private items in the
+ *   API, not in its Doctrine filters. Reading a linked media's title is fine,
+ *   since core's own pages show it.
  * - Keep no state between calls. Each call is a separate HTTP request.
+ * - Keep a tool's title, description, schema, and annotations the same for
+ *   every caller. Clients and caches share the tool list, which is answered
+ *   once for everyone.
  * - Change nothing, for now. The endpoint denies every caller the API's
  *   create, update, and delete, and nothing may write in their place: no
  *   jobs, settings, or entity manager. Tools that change things wait for a

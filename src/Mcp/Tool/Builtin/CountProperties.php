@@ -97,11 +97,11 @@ class CountProperties implements ToolInterface
         $used = array_column($this->names->getUsedProperties(), null, 'id');
         // How many have each property in each language, most first.
         $languages = [];
-        foreach ($this->counter->countPropertyLanguages($ids) as $row) {
+        foreach ($this->counter->countPropertyLanguages($resource, $filters) as $row) {
             $languages[$row['property']][$row['lang']] = (int) $row['resources'];
         }
         $properties = [];
-        foreach ($this->counter->countProperties($ids) as $row) {
+        foreach ($this->counter->countProperties($resource, $filters) as $row) {
             $property = $used[$row['property']] ?? null;
             if ($property) {
                 $properties[] = ['property' => $property['term'], 'label' => $property['label'], $resource => (int) $row['resources']]
