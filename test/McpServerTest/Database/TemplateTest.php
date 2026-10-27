@@ -13,9 +13,9 @@ class TemplateTest extends DbTestCase
 
     /**
      * A template for letters, of class Text, whose title is required and
-     * relabeled, with a comment, and whose date starts private, and three
-     * items: a public one and a private one using it, and a public one that
-     * doesn't.
+     * relabeled, with a comment, and whose date starts private and keeps the
+     * vocabulary's label and comment, and three items: a public one and a
+     * private one using it, and a public one that doesn't.
      */
     public function setUp(): void
     {
@@ -56,7 +56,7 @@ class TemplateTest extends DbTestCase
         $this->assertSame(['Letter template', 'dctype:Text', 1], [$template['label'], $template['resource_class']['term'], $template['items']]);
         $this->assertSame([
             ['term' => 'dcterms:title', 'label' => 'Heading', 'comment' => 'What the letter is called.', 'required' => true, 'data_types' => ['literal']],
-            ['term' => 'dcterms:date', 'label' => 'Date', 'private_by_default' => true],
+            ['term' => 'dcterms:date', 'label' => 'Date', 'comment' => 'A point or period of time associated with an event in the lifecycle of the resource.', 'private_by_default' => true],
         ], $template['properties']);
         $result = $this->callTool('get_resource_template', ['id' => 999999999]);
         $this->assertTrue($result->isError());

@@ -22,8 +22,9 @@ class SearchItems extends AbstractSearchTool
             . '"query" is full-text search: it finds records with any of the words, most relevant first, and '
             . 'matches whole words only, so "letter" doesn\'t find "letters"; use "contains" to match part of a '
             . 'word, such as a plural, or to require a word. Filters narrow '
-            . 'the results, alone or with a query: by id, item set, class, site, media, or conditions on properties. Call '
-            . 'get_overview first to see the item sets, classes, properties, and sites you can filter on. '
+            . 'the results, alone or with a query: by id, item set, class, template, site, visibility, media, or '
+            . 'conditions on properties. Call get_overview first to see the item sets, classes, templates, '
+            . 'properties, and sites you can filter on. '
             . 'With no query or filters, lists the most recently added items.';
     }
 

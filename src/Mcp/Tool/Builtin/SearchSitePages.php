@@ -6,10 +6,8 @@ use McpServer\Mcp\Format\SitePageFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
-use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
-use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;
 
 /**
@@ -119,7 +117,7 @@ class SearchSitePages implements ToolInterface
             $query['site_id'] = $this->searchFilters->findSite($site);
         }
         if (null !== ($itemId = $reader->getInt('item', null, 1))) {
-            $query['item_id'] = $this->findItem($itemId);
+            $query['item_id'] = $this->searchFilters->findItem($itemId);
         }
         // Checked here, since buildSort() also takes property terms, which
         // pages don't have.
@@ -139,21 +137,6 @@ class SearchSitePages implements ToolInterface
             ),
         ];
         return ToolResult::json($output, 0 === $output['total_results'] ? $this->getEmptyNote($query) : null);
-    }
-
-    /**
-     * Check that the caller may see an item, so a search by an item they
-     * can't see says so, rather than finding the pages it's on.
-     *
-     * @throws ToolException
-     */
-    protected function findItem(int $id): int
-    {
-        try {
-            return $this->api->read('items', $id)->getContent()->id();
-        } catch (NotFoundException $e) {
-            throw new ToolException(sprintf('No item with id %d exists or is visible to you.', $id));
-        }
     }
 
     /**

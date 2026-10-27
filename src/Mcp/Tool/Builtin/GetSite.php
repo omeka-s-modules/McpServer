@@ -113,7 +113,11 @@ class GetSite implements ToolInterface
     {
         $homepage = $site->homepage();
         $page = ($homepage ? $pages[$homepage->id()] ?? null : null) ?? (current($site->linkedPages()) ?: null);
-        return $page ? ['id' => $page->id(), 'title' => $page->title()] : null;
+        return $page ? OutputLimits::withoutEmpty([
+            'id' => $page->id(),
+            'title' => $page->title(),
+            'is_public' => $page->isPublic() ? null : false,
+        ]) : null;
     }
 
     /**
@@ -146,6 +150,7 @@ class GetSite implements ToolInterface
                 'label' => (string) $builtLink->getLabel(),
                 'type' => (string) $type->getName(),
                 'page_id' => $pageId,
+                'is_public' => null !== $pageId && !$pages[$pageId]->isPublic() ? false : null,
                 'url' => str_starts_with($href, '/') ? $this->view->serverUrl($href) : $href,
                 'links' => $children,
             ]);

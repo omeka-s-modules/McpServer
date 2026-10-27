@@ -143,7 +143,12 @@ class SitePageFormatter
             $items[] = OutputLimits::withoutEmpty([
                 'id' => $item->id(),
                 'title' => $item->displayTitle(),
-                'media' => $media ? ['id' => $media->id(), 'title' => $media->displayTitle()] : null,
+                'is_public' => $item->isPublic() ? null : false,
+                'media' => $media ? OutputLimits::withoutEmpty([
+                    'id' => $media->id(),
+                    'title' => $media->displayTitle(),
+                    'is_public' => $media->isPublic() ? null : false,
+                ]) : null,
                 'caption' => ValueFormatter::htmlToText((string) $attachment->caption()),
             ]);
         }

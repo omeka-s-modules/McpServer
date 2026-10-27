@@ -8,6 +8,7 @@ use Omeka\Entity\Media;
 use Omeka\Entity\Resource;
 use Omeka\Entity\Value;
 use Omeka\Entity\ValueAnnotation;
+use OverflowException;
 
 /**
  * Counts items, media, and item sets, and the values and properties among them,
@@ -33,7 +34,8 @@ use Omeka\Entity\ValueAnnotation;
  * works the same way, reading a row or two.
  *
  * Tools in other modules that need counts should use this service, rather than
- * querying Doctrine themselves.
+ * querying Doctrine themselves. Above COUNT_MAX matching resources, the
+ * counts throw, so check getResourceIds() for null first.
  */
 class ResourceCounter
 {
@@ -208,8 +210,8 @@ class ResourceCounter
      * Count the visible items by class, item set, and resource template, and
      * their media by type, in four grouped queries, once per request.
      *
-     * Item sets the caller can't see may get counts here, so a caller should
-     * read only the counts of sets the API listed.
+     * Counts only the item sets the caller may see, since core's filters
+     * apply to the sets the count joins.
      *
      * @return array|null ['classes' => [id => items], 'item_sets' => [id =>
      *   items], 'templates' => [id => items], 'media_types' => list of
@@ -235,7 +237,9 @@ class ResourceCounter
     }
 
     /**
-     * Count the visible items in each of the given item sets.
+     * Count the visible items in each of the given item sets, leaving out
+     * the sets the caller can't see, so a count can't reveal one. The API's
+     * item set filter doesn't check the set itself.
      *
      * From the grouped counts when this request already has them, otherwise
      * a query per set, which costs less for a few sets than grouping every
@@ -246,7 +250,8 @@ class ResourceCounter
      */
     public function countItemsInSets(array $itemSetIds): array
     {
-        return $this->countItemsPer('item_sets', 'item_set_id', $itemSetIds);
+        $visible = $this->getVisibleItemSetIds();
+        return $this->countItemsPer('item_sets', 'item_set_id', array_filter($itemSetIds, fn ($id) => isset($visible[$id])));
     }
 
     /**
@@ -295,6 +300,7 @@ class ResourceCounter
      * @param int|null $prefixLength Count values by this many of their first
      *   characters, rather than whole
      * @return array List of ['text', 'resources']
+     * @throws OverflowException Above COUNT_MAX matching resources
      */
     public function countValues(string $resource, array $query, int $propertyId, int $limit, int $offset = 0, bool $byValue = false, ?int $prefixLength = null): array
     {
@@ -325,6 +331,7 @@ class ResourceCounter
      * @param string $resource "items", "media", or "item_sets"
      * @param array $query An API query, as for getResourceIds()
      * @return array List of ['property' => property ID, 'resources' => count]
+     * @throws OverflowException Above COUNT_MAX matching resources
      */
     public function countProperties(string $resource, array $query): array
     {
@@ -387,14 +394,24 @@ class ResourceCounter
     }
 
     /**
-     * Get the IDs a grouped count reads, from the API, or none above
-     * COUNT_MAX, which callers refuse first with getResourceIds().
+     * Get the IDs a grouped count reads, from the API.
+     *
+     * Above COUNT_MAX it throws, rather than counting nothing, so a caller
+     * that didn't check getResourceIds() first can't report an empty count.
      *
      * @return int[]
+     * @throws OverflowException
      */
     protected function getCountedIds(string $resource, array $query): array
     {
-        return $this->getResourceIds($resource, $query) ?? [];
+        $ids = $this->getResourceIds($resource, $query);
+        if (null === $ids) {
+            throw new OverflowException(sprintf(
+                'More than %d %s match, too many to count. Check getResourceIds() for null first.',
+                static::COUNT_MAX, $resource
+            ));
+        }
+        return $ids;
     }
 
     /**
@@ -404,6 +421,20 @@ class ResourceCounter
      * @param string $group A key of getGroupedCounts()
      * @param string $filter The item query parameter that selects one group
      */
+    /**
+     * Get the IDs of the item sets the caller may see, from the API, once per
+     * request.
+     *
+     * @return array True, keyed by item set ID
+     */
+    protected function getVisibleItemSetIds(): array
+    {
+        return $this->cache['visible_item_sets'] ??= array_fill_keys(
+            array_map('intval', $this->api->search('item_sets', [], ['returnScalar' => 'id'])->getContent()),
+            true
+        );
+    }
+
     protected function countItemsPer(string $group, string $filter, array $ids): array
     {
         $grouped = $this->cache['grouped_counts'] ?? null;

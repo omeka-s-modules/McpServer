@@ -37,7 +37,7 @@ class DispatcherFactory implements FactoryInterface
     {
         $installation = '' === $title ? 'an Omeka S installation' : sprintf('the Omeka S installation "%s"', $title);
         return sprintf(
-            'This server searches and reads %s: items with their metadata, media, item sets, and the sites and their pages. '
+            'This server searches and reads %s: items with their metadata, media, item sets, resource templates, and the sites and their pages. '
             . 'Results contain what the caller may see: public content, and private content too when the request '
             . 'carries an MCP key. Start with get_overview to see what\'s here and what can be filtered on. Records '
             . 'keep dates in different properties, so before filtering by date, check which they use with '

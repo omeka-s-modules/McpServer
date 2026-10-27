@@ -37,10 +37,11 @@ class GetResourceTemplate implements ToolInterface
     public function getDescription(): string
     {
         return 'Get one resource template by its id, as get_overview lists them: what a kind of record is meant to '
-            . 'hold here. Gives its class, the properties records using it should have, in order, each with the '
-            . 'label and comment the template gives it, whether it\'s required, and the data types its values take, '
-            . 'and how many items use it. Use it to learn what a property means in these records, or to check '
-            . 'records against it, such as with count_properties and "template".';
+            . 'hold here. Gives its class, the properties records using it should have, in order, each with its '
+            . 'label and comment (the template\'s own where it gives them, otherwise the vocabulary\'s), whether '
+            . 'it\'s required, and the data types its values take, and how many items use it. Use it to learn what '
+            . 'a property means in these records, or to check records against it, such as with count_properties '
+            . 'and "template".';
     }
 
     public function getInputSchema(): array
@@ -86,7 +87,8 @@ class GetResourceTemplate implements ToolInterface
 
     /**
      * Get one of the template's properties: its label and comment, the
-     * template's own when it gives them, and how its values are kept.
+     * template's own when it gives them, otherwise the vocabulary's, as
+     * Omeka's resource form shows them, and how its values are kept.
      */
     protected function property(ResourceTemplatePropertyRepresentation $templateProperty): array
     {
@@ -94,7 +96,7 @@ class GetResourceTemplate implements ToolInterface
         return OutputLimits::withoutEmpty([
             'term' => $property->term(),
             'label' => $templateProperty->alternateLabel() ?: $property->label(),
-            'comment' => $templateProperty->alternateComment(),
+            'comment' => $templateProperty->alternateComment() ?: $property->comment(),
             'required' => $templateProperty->isRequired() ?: null,
             // New values start private, an editing default.
             'private_by_default' => $templateProperty->isPrivate() ?: null,

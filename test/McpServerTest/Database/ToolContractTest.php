@@ -6,8 +6,8 @@ use McpServer\Mcp\Tool\ToolInterface;
 use McpServerTest\DbTestCase;
 
 /**
- * Checks every registered tool, other modules' included, against the rules
- * in ToolInterface that can be checked without knowing the tool.
+ * Checks every built-in tool against the rules in ToolInterface that can be
+ * checked without knowing the tool.
  */
 class ToolContractTest extends DbTestCase
 {

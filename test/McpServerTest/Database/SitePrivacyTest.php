@@ -44,6 +44,18 @@ class SitePrivacyTest extends DbTestCase
         $this->assertSame([$ids['shown_item'], $ids['public_item'], $ids['hidden_item']], array_keys($this->shownItems('reviewer')[2]));
     }
 
+    public function testPrivateAttachmentsAreMarked()
+    {
+        $ids = $this->fixtures->ids;
+        $page = $this->resultData($this->callTool('get_site_page', ['id' => $ids['public_page']], $this->fixtures->users['reviewer']));
+        $items = array_column(array_merge(...array_column($page['blocks'], 'items')), null, 'id');
+        $this->assertArrayNotHasKey('is_public', $items[$ids['shown_item']]);
+        $this->assertArrayNotHasKey('is_public', $items[$ids['shown_item']]['media']);
+        $this->assertSame(false, $items[$ids['hidden_item']]['is_public']);
+        $this->assertArrayNotHasKey('is_public', $items[$ids['public_item']]);
+        $this->assertSame(false, $items[$ids['public_item']]['media']['is_public']);
+    }
+
     public function testPrivatePageNeedsARoleOnTheSite()
     {
         $id = $this->fixtures->ids['private_page'];
@@ -67,7 +79,8 @@ class SitePrivacyTest extends DbTestCase
         ));
         $site = $this->resultData($this->callTool('get_site', ['site' => Fixtures::SITE], $this->fixtures->users['site_author']));
         $child = $site['navigation'][0]['links'][0];
-        $this->assertSame([Fixtures::PAGE . ' link', $ids['private_page']], [$child['label'], $child['page_id']]);
+        $this->assertSame([Fixtures::PAGE . ' link', $ids['private_page'], false], [$child['label'], $child['page_id'], $child['is_public']]);
+        $this->assertArrayNotHasKey('is_public', $site['navigation'][0]);
     }
 
     public function testSiteCountsWhatTheCallerMaySee()

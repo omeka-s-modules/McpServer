@@ -190,11 +190,12 @@ class GetOverview implements ToolInterface
             'per_page' => self::PER_PAGE,
         ]);
         $counts = $this->counter->countItemsInSets(array_map(fn ($itemSet) => $itemSet->id(), $response->getContent()));
-        $itemSets = array_map(fn ($itemSet) => [
+        $itemSets = array_map(fn ($itemSet) => OutputLimits::withoutEmpty([
             'id' => $itemSet->id(),
             'title' => $itemSet->displayTitle(),
+            'is_public' => $itemSet->isPublic() ? null : false,
             'items' => $counts[$itemSet->id()],
-        ], $response->getContent());
+        ]), $response->getContent());
         return ['entries' => $itemSets, 'total' => $response->getTotalResults()];
     }
 
@@ -267,15 +268,17 @@ class GetOverview implements ToolInterface
     /**
      * Get the sites, by title, with their summaries shortened.
      *
-     * @return array List of ['slug', 'title', 'summary'], without empty fields
+     * @return array List of ['slug', 'title', 'is_public', 'summary'], without
+     *   empty fields
      */
     protected function getSites(): array
     {
-        return array_map(fn ($site) => array_filter([
+        return array_map(fn ($site) => OutputLimits::withoutEmpty([
             'slug' => $site->slug(),
             'title' => $site->title(),
+            'is_public' => $site->isPublic() ? null : false,
             'summary' => OutputLimits::shorten(trim((string) $site->summary()), OutputLimits::DESCRIPTION_LIMIT),
-        ], fn ($field) => '' !== $field), $this->api->search('sites', ['sort_by' => 'title', 'sort_order' => 'asc'])->getContent());
+        ]), $this->api->search('sites', ['sort_by' => 'title', 'sort_order' => 'asc'])->getContent());
     }
 
     protected function getMediaTypesNote(): string

@@ -9,7 +9,8 @@ use Omeka\Entity\User;
  * An MCP key: a random string that signs an MCP request in as its owner.
  *
  * Only its SHA-256 hash is stored, so the key itself is shown once, when it's
- * created, and a copy of the database holds no usable keys. A key works only
+ * created, and the stored keys can't be used. Until that page shows it, the
+ * new key waits in the session, as a new Omeka API key does. A key works only
  * at /mcp, whose tools only read.
  *
  * @Entity

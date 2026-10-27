@@ -5,8 +5,9 @@ use Omeka\Api\Manager as ApiManager;
 use Omeka\Entity\Vocabulary;
 
 /**
- * Looks up the classes, properties, and sites a model names, and lists the
- * classes and properties in use, limited to what the caller can see.
+ * Looks up the classes, properties, templates, and sites a model names, and
+ * lists the classes and properties in use, limited to what the caller can
+ * see.
  *
  * It answers with plain data, a row or a list, or null when nothing matches,
  * and SearchFilters decides what to tell the model then. The checks that a
@@ -65,8 +66,9 @@ class NameLookup
     /**
      * Get the labels of the resource templates, by template ID.
      *
-     * Core's template search can't find one by label, and an installation has
-     * few templates, so all their labels are read at once.
+     * An installation has few templates, so their labels are read at once.
+     * Then a label can match regardless of case, which core's template search
+     * can't do, and an error can list them.
      */
     public function getTemplateLabels(): array
     {

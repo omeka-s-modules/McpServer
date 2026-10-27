@@ -100,7 +100,7 @@ class SearchFilters
                 'type' => 'array',
                 'items' => ['type' => 'integer'],
                 'maxItems' => self::IDS_MAX,
-                'description' => 'Only these records, by id, such as the ids other results give. With "properties", reads the same properties of records found elsewhere in one call.',
+                'description' => 'Only these records, by id, such as the ids other results give.',
             ],
             'item_set' => [
                 'type' => 'array',
@@ -463,6 +463,20 @@ class SearchFilters
             throw new ToolException(sprintf('There is no site "%s". Call get_overview to see the sites.', $slug));
         }
         return (int) $siteId;
+    }
+
+    /**
+     * Check that the caller may see an item, so a filter by an item they
+     * can't see says so, rather than finding nothing.
+     *
+     * @throws ToolException When no visible item has the id
+     */
+    public function findItem(int $id): int
+    {
+        if (!$this->counter->countResources('items', ['id' => $id])) {
+            throw new ToolException(sprintf('No item with id %d exists or is visible to you.', $id));
+        }
+        return $id;
     }
 
     /**

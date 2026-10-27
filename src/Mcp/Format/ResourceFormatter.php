@@ -76,7 +76,11 @@ class ResourceFormatter
     {
         $media = $item->media();
         $itemSets = array_map(
-            fn ($itemSet) => ['id' => $itemSet->id(), 'title' => $itemSet->displayTitle()],
+            fn ($itemSet) => OutputLimits::withoutEmpty([
+                'id' => $itemSet->id(),
+                'title' => $itemSet->displayTitle(),
+                'is_public' => $this->privateMark($itemSet),
+            ]),
             $item->itemSets()
         );
         $values = $this->valueFormatter->values($item);
@@ -306,7 +310,12 @@ class ResourceFormatter
     protected function mediaItem(MediaRepresentation $media): array
     {
         $item = $media->item();
-        return ['id' => $item->id(), 'title' => $item->displayTitle(), 'url' => $this->publicUrl($item)];
+        return OutputLimits::withoutEmpty([
+            'id' => $item->id(),
+            'title' => $item->displayTitle(),
+            'is_public' => $this->privateMark($item),
+            'url' => $this->publicUrl($item),
+        ]);
     }
 
     /**
@@ -367,22 +376,26 @@ class ResourceFormatter
 
     /**
      * Mark a private resource, which a caller signed in with an MCP key may
-     * see, so the model knows it isn't on the public site.
+     * see, so the model knows it isn't on the public site. A media of a
+     * private item counts as private, since core hides it with its item.
      *
      * @return false|null False for a private resource, or null for a public
      *   one, which leaves the field out
      */
     protected function privateMark(AbstractResourceEntityRepresentation $resource): ?bool
     {
-        return $resource->isPublic() ? null : false;
+        $public = $resource->isPublic()
+            && (!$resource instanceof MediaRepresentation || $resource->item()->isPublic());
+        return $public ? null : false;
     }
 
     /**
      * Get a value's text as a summary shows it: the text alone, or with the
      * id of the record it links to, its language, and a mark when private. The
      * id lets a model follow the link without searching for the record. A
-     * private value is one a caller signed in with an MCP key may see, and the
-     * mark tells the model it isn't on the public site.
+     * private value, or one linking to a private record, is one a caller
+     * signed in with an MCP key may see, and the mark tells the model it isn't
+     * on the public site.
      *
      * @return string|array The text, or ['text', 'id', 'lang', 'is_public' =>
      *   false] with whichever of the last three apply
@@ -393,7 +406,7 @@ class ResourceFormatter
         $marks = OutputLimits::withoutEmpty([
             'id' => $linked ? $linked->id() : null,
             'lang' => $value->lang(),
-            'is_public' => $value->isPublic() ? null : false,
+            'is_public' => $value->isPublic() && (!$linked || $linked->isPublic()) ? null : false,
         ]);
         return $marks ? ['text' => $text] + $marks : $text;
     }

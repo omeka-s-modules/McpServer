@@ -159,7 +159,7 @@ its own.
 | `get_media` | Reads one media, with its image for the assistant to look at |
 | `search_item_sets` | Finds item sets by words and conditions on properties |
 | `get_item_set` | Reads one item set in full, with its item count |
-| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments the template gives them |
+| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments that say what each one means |
 | `get_site` | Describes one site: its summary, how much it holds, and its navigation |
 | `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
 | `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
@@ -173,10 +173,13 @@ content isn't on the public site. It can also look for private content alone.
 
 ### Privacy and security
 
-- **Without a key, only public content is visible.** Every read goes through Omeka's own
-  API, so Omeka's visibility rules apply unchanged. Private items, media, values, and
-  site pages appear only to a request with an MCP key whose user may see them, and so do
-  links to them.
+- **Without a key, only public content is visible.** The tools find records through
+  Omeka's own API, so Omeka's visibility rules apply unchanged, and counts include only
+  the records the API returns. Private items, media, values, and site pages appear only to
+  a request with an MCP key whose user may see them, and so do links to them. Two things
+  follow Omeka's own behavior, as on your public site: a title marked private still shows
+  as the record's title, and word search can find a public item or page by words visitors
+  can't see, in its private media or in the titles of private items a page shows.
 - **Nothing can be changed.** All tools are read-only, and the endpoint refuses writes
   through Omeka's API, even from another module's tool.
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
@@ -271,8 +274,10 @@ read them. The MCP Inspector command under
 limits are.
 
 When an assistant may see private content, results mark it as Omeka's JSON-LD does:
-`"is_public": false` on a private item, media, item set, or value, and on a site page
-that is private or on a private site. Search results show values as plain text, so
+`"is_public": false` on a private item, media, item set, value, site, or site page,
+wherever it appears, such as among an item's item sets or a page's attached items. A
+media of a private item, a value that links to a private record, and a page of a private
+site are marked too, since visitors can't see them either. Search results show values as plain text, so
 there a private value is `{"text": "…", "is_public": false}`, a value with a language
 tag is `{"text": "…", "lang": "…"}`, and a value that links to another record gives its
 `id`, as `{"text": "…", "id": 123}`. To find only private items, media, or item sets,
@@ -283,8 +288,8 @@ search or count with `is_public` set to `false`.
 Other Omeka modules can add their own tools. A tool implements
 `McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
 tools and how to read data so that visibility stays correct. Here is a complete one, which
-picks an item at random, from all of them or from one item set, for exploring the
-collection by chance, something the built-in tools can't do:
+picks an item at random, from all of them or from one item set, for exploring by chance,
+something the built-in tools can't do:
 
 ```php
 namespace MyModule\Mcp;
@@ -312,7 +317,7 @@ class GetRandomItem implements ToolInterface
 
     public function getDescription(): string
     {
-        return 'Pick an item at random, from all of them or from one item set, to explore the collection by chance.';
+        return 'Pick an item at random, from all of them or from one item set, to explore what\'s here by chance.';
     }
 
     public function getInputSchema(): array
@@ -372,8 +377,7 @@ Names from other modules start with the module's name, as above. A tool's name s
 never change once released, because clients remember permissions by name. A tool's title,
 description, and schema should be the same for every caller, since the tool list is shared.
 This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples, and the
-module's tests check every registered tool against these rules. See
-[Running the tests](#running-the-tests).
+module's tests check each of them against these rules.
 
 These are the parts other modules can rely on; everything else may change between versions:
 
@@ -387,7 +391,8 @@ These are the parts other modules can rely on; everything else may change betwee
 - **The `McpServer\ResourceCounter` service**, for counts the API can't make, and to check
   whether a property or class is in use. Give it the API resource and query you would
   search with: it fetches the matching records through the API itself, so it counts only
-  what the caller may see.
+  what the caller may see. Above 200,000 matching records the counts throw, so check
+  `getResourceIds()` for `null` first.
 
 ### Running the tests
 
@@ -405,8 +410,7 @@ run on any development copy of Omeka:
   - searches and counts give the right answers
   - long lists and texts are cut, and the rest can be read
   - the protocol, the endpoint, and MCP keys work as described
-  - every registered tool follows the rules for tools, so a module that adds tools can
-    run them to check its own
+  - every built-in tool follows the rules for tools
 
   They need an empty MySQL database set in Omeka's
   `application/test/config/database.ini`, the one Omeka's own tests use. The tests drop

@@ -28,6 +28,9 @@ class Fixtures
 
     const SITE = 'mcp-test';
 
+    // Templates are readable by anyone, so this label has no marker.
+    const TEMPLATE = 'MCP test template';
+
     /**
      * Users by name: admin (a Global Administrator), reviewer, author (who
      * owns a private item), researcher, and site_author (an Author with a
@@ -64,12 +67,15 @@ class Fixtures
 
     protected function buildResources(): void
     {
+        $this->ids['template'] = $this->create('resource_templates', ['o:label' => self::TEMPLATE]);
+        $template = ['o:id' => $this->ids['template']];
         $this->ids['hidden_set'] = $this->create('item_sets', ['o:is_public' => false, 'dcterms:title' => [$this->literal('dcterms:title', self::HIDDEN . ' item set')]]);
         $this->ids['public_set'] = $this->create('item_sets', ['o:is_public' => true, 'dcterms:title' => [$this->literal('dcterms:title', 'Public item set')]]);
-        // A private item, in both sets, whose media is public itself but
-        // hidden with its item.
+        // A private item, in both sets and using the template, whose media is
+        // public itself but hidden with its item.
         $this->ids['hidden_item'] = $this->create('items', [
             'o:is_public' => false,
+            'o:resource_template' => $template,
             'o:item_set' => [['o:id' => $this->ids['hidden_set']], ['o:id' => $this->ids['public_set']]],
             'dcterms:title' => [$this->literal('dcterms:title', self::HIDDEN . ' item')],
             'dcterms:subject' => [$this->literal('dcterms:subject', self::HIDDEN . ' subject')],
@@ -80,10 +86,11 @@ class Fixtures
             'o:owner' => ['o:id' => $this->users['author']->getId()],
             'dcterms:title' => [$this->literal('dcterms:title', self::OWNED . ' item')],
         ]);
-        // A public item with a private value, a private media, and a link to
-        // the private item, whose title must not show.
+        // A public item using the template, with a private value, a private
+        // media, and a link to the private item, whose title must not show.
         $this->ids['public_item'] = $this->create('items', [
             'o:is_public' => true,
+            'o:resource_template' => $template,
             'o:item_set' => [['o:id' => $this->ids['public_set']]],
             'dcterms:title' => [$this->literal('dcterms:title', 'Public item')],
             'dcterms:description' => [$this->literal('dcterms:description', self::HIDDEN . ' description', false)],

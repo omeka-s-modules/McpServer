@@ -43,7 +43,7 @@ class SearchMedia extends AbstractSearchTool
     protected function getToolQuery(ArgumentReader $reader): array
     {
         $item = $reader->getInt('item', null, 1, ArgumentReader::SAFE_INT);
-        return null === $item ? [] : ['item_id' => $item];
+        return null === $item ? [] : ['item_id' => $this->searchFilters->findItem($item)];
     }
 
     protected function getDefaultSort(array $toolQuery): ?array
@@ -76,11 +76,13 @@ class SearchMedia extends AbstractSearchTool
 
     protected function getEmptyNote(array $query): string
     {
+        // The item is one the caller may see, so either it has no media they
+        // may see, or the other filters left none out of those it has.
+        if (isset($query['item_id']) && !$this->api->search('media', ['item_id' => $query['item_id'], 'limit' => 0])->getTotalResults()) {
+            return 'No media matched: the item has no media you can see.';
+        }
         if (isset($query['media_type'])) {
             return 'No media matched. Media types must match exactly; get_overview lists the ones in use.';
-        }
-        if (isset($query['item_id'])) {
-            return 'No media matched: the item has no media, or isn\'t visible.';
         }
         return parent::getEmptyNote($query);
     }

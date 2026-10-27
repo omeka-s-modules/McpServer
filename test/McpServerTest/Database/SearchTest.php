@@ -103,6 +103,14 @@ class SearchTest extends DbTestCase
         $this->assertCount(1, $this->found(['item' => $this->ids['beta']], 'search_media', 'media'));
     }
 
+    public function testMediaOfAnItemSaysWhyNoneMatched()
+    {
+        $note = fn ($arguments) => $this->resultText($this->callTool('search_media', $arguments));
+        $this->assertStringContainsString('the item has no media you can see', $note(['item' => $this->ids['alpha']]));
+        // The item has media, so the other filter left them out.
+        $this->assertStringNotContainsString('the item has no media', $note(['item' => $this->ids['beta'], 'contains' => 'zebra']));
+    }
+
     public function testIdFilter()
     {
         $ids = $this->ids;
