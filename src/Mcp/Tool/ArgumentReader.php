@@ -1,8 +1,6 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
-use McpServer\Mcp\Exception\ToolException;
-
 /**
  * Typed access to a tool's arguments.
  *

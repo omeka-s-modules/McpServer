@@ -145,7 +145,6 @@ class ResourceFormatter
             'resource_class' => $this->resourceClass($resource),
             'description' => $this->description($resource),
             'url' => $this->publicUrl($resource),
-            'api_url' => $resource->apiUrl(),
             'thumbnail_url' => $resource->thumbnailDisplayUrl('medium'),
         ];
     }
@@ -373,17 +372,20 @@ class ResourceFormatter
     }
 
     /**
-     * Get a value's text as a summary shows it: the text alone, or with its
-     * language and a mark when private, as get_item gives them. A private
-     * value is one a caller signed in with an MCP key may see, and the mark
-     * tells the model it isn't on the public site.
+     * Get a value's text as a summary shows it: the text alone, or with the
+     * id of the record it links to, its language, and a mark when private. The
+     * id lets a model follow the link without searching for the record. A
+     * private value is one a caller signed in with an MCP key may see, and the
+     * mark tells the model it isn't on the public site.
      *
-     * @return string|array The text, or ['text', 'lang', 'is_public' => false]
-     *   with whichever of the last two apply
+     * @return string|array The text, or ['text', 'id', 'lang', 'is_public' =>
+     *   false] with whichever of the last three apply
      */
     protected function summaryValue(ValueRepresentation $value, string $text)
     {
+        $linked = $value->valueResource();
         $marks = OutputLimits::withoutEmpty([
+            'id' => $linked ? $linked->id() : null,
             'lang' => $value->lang(),
             'is_public' => $value->isPublic() ? null : false,
         ]);

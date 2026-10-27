@@ -153,7 +153,8 @@ properties, and name each one by its term, such as `dcterms:title`.
 When an assistant may see private content, results mark it as Omeka's JSON-LD does:
 `"is_public": false` on a private item, media, item set, or value. Search results show
 values as plain text, so there a private value is `{"text": "…", "is_public": false}`,
-and a value with a language tag is `{"text": "…", "lang": "…"}`. To find only private
+a value with a language tag is `{"text": "…", "lang": "…"}`, and a value that links to
+another record gives its `id`, as `{"text": "…", "id": 123}`. To find only private
 items, media, or item sets, search or count with `is_public` set to `false`.
 
 ### get_overview
@@ -507,7 +508,7 @@ These are the parts other modules can rely on; everything else may change betwee
 - **`ToolInterface`**, with **`Context`**, **`ToolAnnotations`**, and **`ToolResult`**, in
   `McpServer\Mcp\Tool`. Return results with `ToolResult::json()`, and put guidance for the
   assistant, such as why nothing matched, in its note rather than in the data.
-- **`ArgumentReader`**, to read arguments, and **`McpServer\Mcp\Exception\ToolException`**,
+- **`ArgumentReader`**, to read arguments, and **`ToolException`**,
   to refuse a bad call with a message the assistant can act on. When a tool's input schema
   sets `additionalProperties` to `false`, as above, an argument it doesn't name is refused,
   so a misspelled filter can't pass for one applied.

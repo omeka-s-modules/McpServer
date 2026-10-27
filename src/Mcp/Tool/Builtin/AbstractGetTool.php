@@ -1,7 +1,6 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
-use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\JsonLdFormatter;
 use McpServer\Mcp\Format\OutputLimits;
 use McpServer\Mcp\Format\ResourceFormatter;
@@ -9,6 +8,7 @@ use McpServer\Mcp\Format\ValueFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
+use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 use Omeka\Api\Exception\NotFoundException;

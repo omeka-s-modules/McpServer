@@ -1,12 +1,12 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
-use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\JsonLdFormatter;
 use McpServer\Mcp\Format\OutputLimits;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Format\ValueFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
+use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolResult;
 use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;

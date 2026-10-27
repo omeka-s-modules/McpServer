@@ -98,7 +98,7 @@ interface ToolInterface
      *
      * @param array $arguments The arguments the client sent, not yet validated;
      *     ArgumentReader helps
-     * @throws \McpServer\Mcp\Exception\ToolException For problems the model
+     * @throws ToolException For problems the model
      *     should see, such as a bad argument
      */
     public function call(array $arguments, Context $context): ToolResult;

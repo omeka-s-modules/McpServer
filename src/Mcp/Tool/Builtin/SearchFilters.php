@@ -2,11 +2,11 @@
 namespace McpServer\Mcp\Tool\Builtin;
 
 use Laminas\Authentication\AuthenticationService;
-use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Query\NameLookup;
 use McpServer\Mcp\Query\ResourceCounter;
 use McpServer\Mcp\Tool\ArgumentReader;
+use McpServer\Mcp\Tool\ToolException;
 
 /**
  * Defines the filters and sorting the search tools share, and translates them

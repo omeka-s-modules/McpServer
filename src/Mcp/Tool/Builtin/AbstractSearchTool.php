@@ -1,12 +1,12 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
-use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\OutputLimits;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
+use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 use Omeka\Api\Manager as ApiManager;
@@ -147,7 +147,7 @@ abstract class AbstractSearchTool implements ToolInterface
                 'items' => ['type' => 'string'],
                 'maxItems' => self::PROPERTIES_MAX,
                 'description' => sprintf(
-                    'Properties whose values each result should list, by term, such as "dcterms:rights": up to %d properties, and %d values of each. Each result then shows them in place of its summary, beside its id, title, and link, so name any others it should show, such as "dcterms:description". Reads properties (fields) across many results at once, instead of opening each one.',
+                    'Properties whose values each result should list, by term, such as "dcterms:rights": up to %d properties, and %d values of each. Each result then shows them in place of its summary, beside its id, title, and link, so name any others it should show, such as "dcterms:description". A value that links to another record gives that record\'s id. Reads properties (fields) across many results at once, instead of opening each one.',
                     self::PROPERTIES_MAX, OutputLimits::PROPERTY_VALUES_LIMIT
                 ),
             ],

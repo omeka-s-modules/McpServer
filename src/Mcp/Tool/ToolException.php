@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Exception;
+namespace McpServer\Mcp\Tool;
 
 use RuntimeException;
 
