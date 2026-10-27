@@ -48,7 +48,8 @@ class SearchSitePages implements ToolInterface
         return 'Search the pages of the sites, such as exhibits and About pages, by their text, their site, or an '
             . 'item they show. Returns a page of short summaries: id, title, site, the page\'s address, and the start '
             . 'of its text, plus the total number of matches. Call get_site_page with an id to read one in full, with '
-            . 'the items it shows. Use this for what the sites say about a subject, since search_items doesn\'t search pages.';
+            . 'the items it shows. Use this for what the sites say about a subject, since search_items doesn\'t search pages. '
+            . 'get_site gives a site\'s pages in the order its navigation shows them.';
     }
 
     public function getInputSchema(): array

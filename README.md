@@ -85,6 +85,7 @@ Once an assistant is connected, ask in plain language. For example:
 - "Which items have PDF files?"
 - "What is each of the item sets about, and which are the largest?"
 - "What do the site's exhibits say about the harbor, and which items do they show?"
+- "Walk me through this site's exhibits in the order a visitor would see them."
 - "What has been added or changed recently?"
 - "Which fields do the records in this item set leave empty?"
 - "Are there inconsistent spellings or rarely used fields in the metadata?"
@@ -104,7 +105,8 @@ such as a Global Administrator, may manage their MCP keys there too.
 
 The assistant sees what the key's user may see:
 
-- **Reviewers, Editors, Supervisors, and Global Administrators** see all private content.
+- **Reviewers, Editors, Supervisors, and Global Administrators** see all private items,
+  media, item sets, and values.
 - **Authors and Researchers** see public content and what they own.
 - **Private site pages,** and the pages of private sites, follow Omeka's rules for sites:
   a user sees them on sites they own or have a role on, and a Global Administrator sees
@@ -160,11 +162,11 @@ properties, and name each one by its term, such as `dcterms:title`.
 
 When an assistant may see private content, results mark it as Omeka's JSON-LD does:
 `"is_public": false` on a private item, media, item set, or value, and on a site page
-that is private or on a private site. Search results show
-values as plain text, so there a private value is `{"text": "…", "is_public": false}`,
-a value with a language tag is `{"text": "…", "lang": "…"}`, and a value that links to
-another record gives its `id`, as `{"text": "…", "id": 123}`. To find only private
-items, media, or item sets, search or count with `is_public` set to `false`.
+that is private or on a private site. Search results show values as plain text, so
+there a private value is `{"text": "…", "is_public": false}`, a value with a language
+tag is `{"text": "…", "lang": "…"}`, and a value that links to another record gives its
+`id`, as `{"text": "…", "id": 123}`. To find only private items, media, or item sets,
+search or count with `is_public` set to `false`.
 
 ### get_overview
 
@@ -193,7 +195,7 @@ Finds items, a page at a time, as short summaries with a link to each item's pub
 |---|---|---|
 | `query` | string | Words to search for. Finds records with any of the words, most relevant first, and matches whole words only. |
 | `contains` | string | Text that must appear somewhere in an item's values, even inside a word. |
-| `id` | integer[] | Only these records, by ID, such as the IDs other results give. At most 100. With `properties`, reads the same properties of records found elsewhere in one call. |
+| `id` | integer[] | Only these items, by ID, such as the IDs other results give. At most 100. With `properties`, reads the same properties of records found elsewhere in one call. |
 | `item_set` | integer[] | Only items in any of these item sets, by ID. At most 100. |
 | `class` | string | Only items of this class, by term (`dctype:Text`) or label (`Text`). |
 | `site` | string | Only items in this site, by slug. |
@@ -340,10 +342,10 @@ has, a link to its public page, and anything other modules add. To list its item
 
 ### search_site_pages
 
-Finds the pages of your sites, such as exhibits and About pages, a page of results at a
-time. Each result gives the page's site, its public address, and the start of its text.
-Item searches don't search pages, so this is how an assistant finds what your sites say
-about a subject.
+Finds the pages of your sites, such as exhibits and About pages. Each result gives the
+page's site, its public address, and the start of its text. Item searches don't search
+pages, so this is how an assistant finds what your sites say about a subject. To see a
+site's pages in the order visitors find them, `get_site` gives its navigation.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -397,7 +399,8 @@ left out, and the links under it take its place. `get_overview` lists the sites.
   API, so Omeka's visibility rules apply unchanged. Private items, media, values, and
   site pages appear only to a request with an MCP key whose user may see them, and so do
   links to them.
-- **Nothing can be changed.** All tools are read-only.
+- **Nothing can be changed.** All tools are read-only, and the endpoint refuses writes
+  through Omeka's API, even from another module's tool.
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
   never applies. Only an MCP key in the address signs a request in.
 - **The endpoint is public by default,** like your public site and Omeka's REST API.
@@ -414,12 +417,12 @@ These keep each answer within what assistants accept. When something is cut, the
 says so, and says how to read the rest, if there is a way.
 
 - Values longer than 2,000 characters, such as long transcriptions, are cut, and
-  `property` with `offset` reads the rest. Text cut inside an annotation or in `module_data` can't be
-  read further. A site page's blocks are cut the same way, and `block` reads the rest;
-  long texts and lists in a block's `data` can't be read further.
+  `property` with `offset` reads the rest. Text cut inside an annotation or in
+  `module_data` can't be read further. A site page's blocks are cut the same way, and
+  `block` reads the rest; long texts and lists in a block's `data` can't be read further.
 - An item, media, or item set shows at most 100 values of one property, and `property`
-  reads the rest. Other lists longer than 100 entries, such as the links from other items in the
-  `detailed` format, are cut too, with their full length given.
+  reads the rest. Other lists longer than 100 entries, such as the links from other items
+  in the `detailed` format, are cut too, with their full length given.
 - An item lists at most 50 of its media, and `search_media` with `item` lists them all.
 - With `properties`, a search result lists at most 10 values of each property, each
   shortened to 300 characters, and a page is at most 40,000 characters; a longer one is
@@ -457,7 +460,8 @@ save.
 
 **An assistant with a key still sees only public content.** The key's user may not see
 private content: an Author or a Researcher sees public content and only the private
-content they own. Check the user's role.
+content they own. Check the user's role. Private site pages follow the site instead: the
+user needs a role on that site, whatever their role elsewhere.
 
 **Requests without a key are refused.** **Require sign-in** is on. Add a key to the
 address, or turn the setting off in the module's configuration.
@@ -482,8 +486,9 @@ the migration in the admin.
   session.
 - **Protocol versions:** 2025-06-18, 2025-11-25, and 2026-07-28.
 - **Capabilities:** tools.
-- **Testing:** the implementation is tested with the official MCP conformance suite,
-  `@modelcontextprotocol/conformance`.
+- **Testing:** the implementation is checked with the official MCP conformance tool,
+  `@modelcontextprotocol/conformance`, and by the module's own tests. See
+  [Running the tests](#running-the-tests).
 
 ## Adding tools from other modules
 
@@ -566,7 +571,9 @@ configuration registers the factory under the `mcp_server` key:
 Names from other modules start with the module's name, as above. A tool's name should
 never change once released, because clients remember permissions by name. A tool's title,
 description, and schema should be the same for every caller, since the tool list is shared.
-This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples.
+This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples, and the
+module's tests check every registered tool against these rules. See
+[Running the tests](#running-the-tests).
 
 These are the parts other modules can rely on; everything else may change between versions:
 
@@ -590,18 +597,22 @@ run on any development copy of Omeka:
 - **Unit tests** check that only a key's hash is kept, how tools are run and their results
   shaped, and the functions that read arguments and that cut, shorten, and convert text.
   They need only Omeka's development dependencies (`composer install`).
-- **Database tests** install Omeka and the module in a fresh database, build public and
-  private records and users in each role, and check that every tool shows each user only
-  what Omeka lets them see, and marks what's private. They also check that searches and
-  counts give the right answers, how the tools cut long lists and texts and read the rest,
-  who may manage whose MCP keys in the admin, that no caller can write through the
-  endpoint, even with a tool that tries, the protocol, the endpoint and its keys, and
-  every registered tool against the rules for tools, so a module that adds tools can run
-  them to check its own. They need an empty MySQL database set in Omeka's
+- **Database tests** install Omeka and the module in a fresh database, and build public
+  and private records and users in each role. They check that:
+  - every tool shows each user only what Omeka lets them see, and marks what's private
+  - nobody can write through the endpoint, even with a tool that tries
+  - in the admin, users can manage only the MCP keys they're allowed to
+  - searches and counts give the right answers
+  - long lists and texts are cut, and the rest can be read
+  - the protocol, the endpoint, and MCP keys work as described
+  - every registered tool follows the rules for tools, so a module that adds tools can
+    run them to check its own
+
+  They need an empty MySQL database set in Omeka's
   `application/test/config/database.ini`, the one Omeka's own tests use. The tests drop
   every table in it.
 
-From Omeka's root, run all of them, or one suite:
+From Omeka's root, run all of them, or only the unit tests:
 
 ```sh
 vendor/bin/phpunit -c modules/McpServer/test/phpunit.xml
