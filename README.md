@@ -297,11 +297,12 @@ its items with `search_items`, then list each item's media with `item`.
 
 ### get_media
 
-Reads one media: its metadata, the item it belongs to, links to its file, and in
-`module_data`, anything other modules add. When the media has a thumbnail, as images and
-usually PDFs and videos do, the result includes that image, so the assistant can see what
-the media shows. An HTML media, which holds its text rather than a file, includes that
-text as `content`, cut like a long value.
+Reads one media: its metadata, the item it belongs to, links to its file, in `data` what
+it was made from, as the module that added it stored it, such as an embedded video's
+title and author, and in `module_data`, anything other modules add. When the media has a
+thumbnail, as images and usually PDFs and videos do, the result includes that image, so
+the assistant can see what the media shows. An HTML media, which holds its text rather
+than a file, includes that text as `content`, cut like a long value.
 
 | Parameter | Type | Description |
 |---|---|---|

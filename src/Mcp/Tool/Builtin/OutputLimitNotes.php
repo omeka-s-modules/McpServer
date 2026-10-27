@@ -20,7 +20,7 @@ final class OutputLimitNotes
      * rest.
      *
      * The data marks each cut: a property's total, media_total,
-     * module_data_totals, or a truncated flag.
+     * module_data_totals, a truncated flag, or data_truncated.
      */
     public static function forConcise(array $output): ?string
     {
@@ -60,6 +60,12 @@ final class OutputLimitNotes
                 'Only the first %d entries of a list in module_data are shown, and %s. The rest can\'t be read through these tools.',
                 OutputLimits::LIST_LIMIT,
                 implode(', ', array_map(fn ($key, $total) => sprintf('%s has %d', $key, $total), array_keys($output[OutputLimits::MODULE_DATA_TOTALS]), $output[OutputLimits::MODULE_DATA_TOTALS]))
+            );
+        }
+        if (!empty($output[OutputLimits::DATA_TRUNCATED])) {
+            $notes[] = sprintf(
+                'Long texts in data were cut to %s characters, and lists to %d entries. The rest can\'t be read through these tools.',
+                number_format(OutputLimits::TEXT_LIMIT), OutputLimits::LIST_LIMIT
             );
         }
         $notes[] = self::textsNote($readable, array_keys(array_filter([

@@ -282,6 +282,7 @@ class ResourceFormatter
     public function media(MediaRepresentation $media): array
     {
         $values = $this->valueFormatter->values($media);
+        $dataCut = false;
         return OutputLimits::withoutEmpty($this->fullFields($media) + [
             'media_type' => $media->mediaType(),
             'original_url' => $media->originalUrl(),
@@ -289,6 +290,10 @@ class ResourceFormatter
             'source' => $media->source(),
             'item' => $this->mediaItem($media),
             'content' => $this->mediaContent($media),
+            // What the media's ingester stored, such as an oEmbed video's title
+            // and author. An HTML media's is its markup, which content gives.
+            'data' => 'html' === $media->ingester() ? null : OutputLimits::compactData((array) $media->mediaData(), $dataCut),
+            OutputLimits::DATA_TRUNCATED => $dataCut ?: null,
             'values' => $values,
             ...$this->jsonLdFormatter->moduleData($media, array_keys($values)),
         ]);

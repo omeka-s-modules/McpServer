@@ -48,7 +48,8 @@ class GetMedia extends AbstractGetTool
     public function getDescription(): string
     {
         return 'Get one media by its id, as given by get_item or search_media: its metadata, the item it '
-            . 'belongs to, links to its file, and in module_data whatever other modules add. When the media has a thumbnail, as images and usually PDFs '
+            . 'belongs to, links to its file, in data what it was made from, such as an embedded video\'s title '
+            . 'and author, and in module_data whatever other modules add. When the media has a thumbnail, as images and usually PDFs '
             . 'and videos do, the result includes that image, up to 800 pixels on its longer side, so you can '
             . 'see what the media shows. Describe only what the image shows, and say when a detail would need '
             . 'the original file. The default response_format, "concise", suits almost every question; use '

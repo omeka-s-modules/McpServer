@@ -71,7 +71,7 @@ final class OutputLimits
 
     const PROPERTIES_TRUNCATED = 'properties_truncated';
 
-    // That a text or list in a site page block's data was cut.
+    // That a text or list in a site page block's data, or a media's, was cut.
     const DATA_TRUNCATED = 'data_truncated';
 
     /**
