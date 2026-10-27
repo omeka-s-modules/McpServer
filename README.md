@@ -283,7 +283,8 @@ search or count with `is_public` set to `false`.
 Other Omeka modules can add their own tools. A tool implements
 `McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
 tools and how to read data so that visibility stays correct. Here is a complete one, which
-finds the other items by an item's creators, such as more works by the same artist:
+picks an item at random, from all of them or from one item set, for exploring the
+collection by chance, something the built-in tools can't do:
 
 ```php
 namespace MyModule\Mcp;
@@ -291,13 +292,11 @@ namespace MyModule\Mcp;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
-use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
-use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;
 
-class SearchItemsByCreator implements ToolInterface
+class GetRandomItem implements ToolInterface
 {
     protected $api;
 
@@ -308,12 +307,12 @@ class SearchItemsByCreator implements ToolInterface
 
     public function getTitle(): string
     {
-        return 'Search items by creator';
+        return 'Get a random item';
     }
 
     public function getDescription(): string
     {
-        return 'Find the other items by an item\'s creators, such as more works by the same artist.';
+        return 'Pick an item at random, from all of them or from one item set, to explore the collection by chance.';
     }
 
     public function getInputSchema(): array
@@ -321,9 +320,8 @@ class SearchItemsByCreator implements ToolInterface
         return [
             'type' => 'object',
             'properties' => [
-                'id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'The item\'s id.'],
+                'item_set' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Pick only from this item set, by id.'],
             ],
-            'required' => ['id'],
             'additionalProperties' => false,
         ];
     }
@@ -335,45 +333,36 @@ class SearchItemsByCreator implements ToolInterface
 
     public function call(array $arguments, Context $context): ToolResult
     {
-        $id = (new ArgumentReader($arguments))->requireInt('id', 1);
-        // Read and search through the API, so the caller sees only what they may.
-        try {
-            $item = $this->api->read('items', $id)->getContent();
-        } catch (NotFoundException $e) {
-            throw new ToolException(sprintf('No item with id %d exists or is visible to you.', $id));
+        $itemSet = (new ArgumentReader($arguments))->getInt('item_set', null, 1);
+        $query = $itemSet ? ['item_set_id' => $itemSet] : [];
+        // Count and pick through the API, so the caller sees only what they may.
+        $total = $this->api->search('items', $query + ['limit' => 0])->getTotalResults();
+        if (!$total) {
+            // Guidance for the assistant goes in the note, not the data.
+            return ToolResult::json(['item' => null], 'There are no items to pick from.');
         }
-        $creators = array_map(fn ($value) => (string) $value, $item->value('dcterms:creator', ['all' => true]));
-        if (!$creators) {
-            throw new ToolException('This item has no creator to search by.');
-        }
-        $query = ['sort_by' => 'title', 'sort_order' => 'asc', 'per_page' => 50];
-        foreach ($creators as $creator) {
-            $query['property'][] = ['joiner' => 'or', 'property' => 'dcterms:creator', 'type' => 'eq', 'text' => $creator];
-        }
-        $others = [];
-        foreach ($this->api->search('items', $query)->getContent() as $other) {
-            if ($other->id() !== $id) {
-                $others[] = ['id' => $other->id(), 'title' => $other->displayTitle()];
-            }
-        }
-        // Guidance for the assistant goes in the note, not the data.
+        $item = $this->api->search('items', $query + [
+            'sort_by' => 'id',
+            'offset' => random_int(0, $total - 1),
+            'limit' => 1,
+        ])->getContent()[0];
         return ToolResult::json(
-            ['creators' => $creators, 'items' => $others],
-            $others ? null : 'Nothing else here is by these creators.'
+            ['item' => ['id' => $item->id(), 'title' => $item->displayTitle()]],
+            'Call get_item with this id to read it in full.'
         );
     }
 }
 ```
 
 Its factory builds it with Omeka's API manager, as
-`new SearchItemsByCreator($services->get('Omeka\ApiManager'))`, and your module's
+`new GetRandomItem($services->get('Omeka\ApiManager'))`, and your module's
 configuration registers the factory under the `mcp_server` key:
 
 ```php
 'mcp_server' => [
     'tools' => [
         'factories' => [
-            'mymodule_search_items_by_creator' => Service\SearchItemsByCreatorFactory::class,
+            'mymodule_get_random_item' => Service\GetRandomItemFactory::class,
         ],
     ],
 ],
