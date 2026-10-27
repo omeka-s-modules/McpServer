@@ -44,11 +44,17 @@ class CountValues implements ToolInterface
 
     protected $searchFilters;
 
+    protected $idResolver;
+
+    protected $emptyResultNotes;
+
     protected $counter;
 
-    public function __construct(SearchFilters $searchFilters, ResourceCounter $counter)
+    public function __construct(SearchFilters $searchFilters, IdResolver $idResolver, EmptyResultNotes $emptyResultNotes, ResourceCounter $counter)
     {
         $this->searchFilters = $searchFilters;
+        $this->idResolver = $idResolver;
+        $this->emptyResultNotes = $emptyResultNotes;
         $this->counter = $counter;
     }
 
@@ -133,14 +139,14 @@ class CountValues implements ToolInterface
         if (null === $term) {
             throw new ToolException('"property" is needed: a term such as "dcterms:subject".');
         }
-        $propertyId = $this->searchFilters->findProperty($term);
+        $propertyId = $this->idResolver->findProperty($term);
         $page = $reader->getInt('page', 1, 1, OutputLimits::PAGE_MAX);
         $perPage = $reader->getInt('per_page', self::PER_PAGE_DEFAULT, 1, self::PER_PAGE_MAX);
         $byValue = 'value' === $reader->getEnum('sort', self::SORTS, 'count');
         $prefixLength = $reader->getInt('prefix_length', null, 1, self::PREFIX_LENGTH_MAX);
         $resource = $reader->getEnum('resource_type', SearchFilters::RESOURCES, 'items');
         // What the resources are called in messages, such as "item sets".
-        $noun = $this->searchFilters->noun($resource);
+        $noun = SearchFilters::noun($resource);
         $filters = $this->searchFilters->buildFilters(
             $reader,
             $resource,
@@ -190,7 +196,7 @@ class CountValues implements ToolInterface
         ];
         $note = null;
         if (!$ids) {
-            $note = $this->searchFilters->explainEmpty($resource, $filters);
+            $note = $this->emptyResultNotes->explainEmpty($resource, $filters);
         } elseif (!$totals['resources']) {
             $annotated = $this->counter->getAnnotatedProperties($resource, $filters, $propertyId);
             if ($annotated) {

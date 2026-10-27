@@ -19,8 +19,8 @@ class SearchTest extends DbTestCase
      *   alternative title.
      * - beta: "Beta photo", a Still Image, by John Roe, dated 1850, on the
      *   harbor, on the site, with a media, linking to alpha.
-     * - gamma: "Gamma note", no class, by Jane Doe, undated, on Revolution,
-     *   whose description holds "zebrafish".
+     * - gamma: "Gamma note", no class, by Jane Doe, created 1790 but with no
+     *   dcterms:date, on Revolution, whose description holds "zebrafish".
      * - hidden: a private item.
      */
     public function setUp(): void
@@ -55,6 +55,7 @@ class SearchTest extends DbTestCase
         $this->ids['gamma'] = $create([
             'dcterms:title' => [$literal('dcterms:title', 'Gamma note')],
             'dcterms:creator' => [$literal('dcterms:creator', 'Jane Doe')],
+            'dcterms:created' => [$literal('dcterms:created', '1790')],
             'dcterms:subject' => [$literal('dcterms:subject', 'Revolution')],
             'dcterms:description' => [$literal('dcterms:description', 'About the zebrafish.')],
         ]);
@@ -101,6 +102,13 @@ class SearchTest extends DbTestCase
         $this->assertSame(['hidden'], $this->found(['is_public' => false], 'search_items', 'items', true));
         $this->assertSame(['set'], $this->found(['contains' => 'Letters'], 'search_item_sets', 'item_sets'));
         $this->assertCount(1, $this->found(['item' => $this->ids['beta']], 'search_media', 'media'));
+    }
+
+    public function testEmptyNoteNamesTheDatePropertyRecordsUse()
+    {
+        $note = $this->resultText($this->callTool('search_items', ['contains' => 'zebra', 'where' => [['property' => 'dcterms:date', 'op' => 'starts_with', 'value' => '17']]]));
+        $this->assertStringContainsString('none of the items that meet the rest of the query has a value for dcterms:date', $note);
+        $this->assertStringContainsString('They keep their dates in dcterms:created (1 of them)', $note);
     }
 
     public function testMediaOfAnItemSaysWhyNoneMatched()

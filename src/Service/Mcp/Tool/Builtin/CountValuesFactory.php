@@ -11,6 +11,8 @@ class CountValuesFactory implements FactoryInterface
     {
         return new CountValues(
             $services->get('McpServer\SearchFilters'),
+            $services->get('McpServer\IdResolver'),
+            $services->get('McpServer\EmptyResultNotes'),
             $services->get('McpServer\ResourceCounter')
         );
     }

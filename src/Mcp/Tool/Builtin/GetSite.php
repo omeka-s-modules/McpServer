@@ -28,16 +28,16 @@ class GetSite implements ToolInterface
 {
     protected $api;
 
-    protected $searchFilters;
+    protected $idResolver;
 
     protected $navigationLinks;
 
     protected $view;
 
-    public function __construct(ApiManager $api, SearchFilters $searchFilters, NavigationLinkManager $navigationLinks, PhpRenderer $view)
+    public function __construct(ApiManager $api, IdResolver $idResolver, NavigationLinkManager $navigationLinks, PhpRenderer $view)
     {
         $this->api = $api;
-        $this->searchFilters = $searchFilters;
+        $this->idResolver = $idResolver;
         $this->navigationLinks = $navigationLinks;
         $this->view = $view;
     }
@@ -82,7 +82,7 @@ class GetSite implements ToolInterface
         if (null === $slug) {
             throw new ToolException('The "site" argument is required.');
         }
-        $siteId = $this->searchFilters->findSite($slug);
+        $siteId = $this->idResolver->findSite($slug);
         $site = $this->api->read('sites', $siteId)->getContent();
         // The pages the caller may see, by ID.
         $pages = $site->pages();

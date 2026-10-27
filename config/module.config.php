@@ -62,6 +62,8 @@ return [
             'McpServer\ToolRequests' => Service\Mcp\Protocol\ToolRequestsFactory::class,
             'McpServer\ToolManager' => Service\Mcp\Tool\ManagerFactory::class,
             'McpServer\ToolRunner' => Service\Mcp\Tool\ToolRunnerFactory::class,
+            'McpServer\EmptyResultNotes' => Service\Mcp\Tool\Builtin\EmptyResultNotesFactory::class,
+            'McpServer\IdResolver' => Service\Mcp\Tool\Builtin\IdResolverFactory::class,
             'McpServer\NameLookup' => Service\Mcp\Query\NameLookupFactory::class,
             'McpServer\ResourceCounter' => Service\Mcp\Query\ResourceCounterFactory::class,
             'McpServer\ResourceFormatter' => Service\Mcp\Format\ResourceFormatterFactory::class,

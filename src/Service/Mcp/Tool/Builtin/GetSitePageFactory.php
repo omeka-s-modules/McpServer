@@ -12,7 +12,7 @@ class GetSitePageFactory implements FactoryInterface
         return new GetSitePage(
             $services->get('Omeka\ApiManager'),
             $services->get('McpServer\SitePageFormatter'),
-            $services->get('McpServer\SearchFilters')
+            $services->get('McpServer\IdResolver')
         );
     }
 }

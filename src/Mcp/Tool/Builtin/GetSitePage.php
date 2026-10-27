@@ -23,13 +23,13 @@ class GetSitePage implements ToolInterface
 
     protected $formatter;
 
-    protected $searchFilters;
+    protected $idResolver;
 
-    public function __construct(ApiManager $api, SitePageFormatter $formatter, SearchFilters $searchFilters)
+    public function __construct(ApiManager $api, SitePageFormatter $formatter, IdResolver $idResolver)
     {
         $this->api = $api;
         $this->formatter = $formatter;
-        $this->searchFilters = $searchFilters;
+        $this->idResolver = $idResolver;
     }
 
     public function getTitle(): string
@@ -123,7 +123,7 @@ class GetSitePage implements ToolInterface
         if (null === $site || null === $slug) {
             throw new ToolException('Give the page\'s "id", or both "site" and "slug".');
         }
-        $siteId = $this->searchFilters->findSite($site);
+        $siteId = $this->idResolver->findSite($site);
         try {
             return $this->api->read('site_pages', ['site' => $siteId, 'slug' => $slug])->getContent();
         } catch (NotFoundException $e) {

@@ -1,6 +1,7 @@
 <?php
 namespace McpServer\Mcp\Query;
 
+use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;
 use Omeka\Entity\Vocabulary;
 
@@ -10,7 +11,7 @@ use Omeka\Entity\Vocabulary;
  * see.
  *
  * It answers with plain data, a row or a list, or null when nothing matches,
- * and SearchFilters decides what to tell the model then. The checks that a
+ * and IdResolver decides what to tell the model then. The checks that a
  * class or property is in use come from ResourceCounter, and follow core's
  * "used" filter, so they can count a value on a private item. Everything
  * else comes from the API. Each lookup is made once per request.
@@ -32,7 +33,7 @@ class NameLookup
     /**
      * Get the classes resources use, by term, without counts.
      *
-     * For listing, as GetOverview does with item counts, and SearchFilters
+     * For listing, as GetOverview does with item counts, and IdResolver
      * does when a class name matches nothing. findUsedTerm() and
      * findUsedClassesByLabel() resolve one name with targeted queries instead.
      *
@@ -51,6 +52,23 @@ class NameLookup
     public function getUsedProperties(): array
     {
         return $this->getUsedTerms('properties');
+    }
+
+    /**
+     * Get a property's term by its ID, or null when there's no such property.
+     *
+     * For notes that name a condition's property, which a query holds by ID.
+     */
+    public function getPropertyTerm(int $id): ?string
+    {
+        if (!array_key_exists($id, $this->cache['property_terms'] ?? [])) {
+            try {
+                $this->cache['property_terms'][$id] = $this->api->read('properties', $id)->getContent()->term();
+            } catch (NotFoundException $e) {
+                $this->cache['property_terms'][$id] = null;
+            }
+        }
+        return $this->cache['property_terms'][$id];
     }
 
     /**

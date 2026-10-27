@@ -9,10 +9,6 @@ class SearchFiltersFactory implements FactoryInterface
 {
     public function __invoke(ContainerInterface $services, $requestedName, ?array $options = null)
     {
-        return new SearchFilters(
-            $services->get('McpServer\NameLookup'),
-            $services->get('McpServer\ResourceCounter'),
-            $services->get('Omeka\AuthenticationService')
-        );
+        return new SearchFilters($services->get('McpServer\IdResolver'));
     }
 }

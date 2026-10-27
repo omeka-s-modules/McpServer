@@ -29,11 +29,14 @@ class SearchSitePages implements ToolInterface
 
     protected $searchFilters;
 
-    public function __construct(ApiManager $api, SitePageFormatter $formatter, SearchFilters $searchFilters)
+    protected $idResolver;
+
+    public function __construct(ApiManager $api, SitePageFormatter $formatter, SearchFilters $searchFilters, IdResolver $idResolver)
     {
         $this->api = $api;
         $this->formatter = $formatter;
         $this->searchFilters = $searchFilters;
+        $this->idResolver = $idResolver;
     }
 
     public function getTitle(): string
@@ -114,10 +117,10 @@ class SearchSitePages implements ToolInterface
             $query['fulltext_search'] = $text;
         }
         if (null !== ($site = $reader->getText('site'))) {
-            $query['site_id'] = $this->searchFilters->findSite($site);
+            $query['site_id'] = $this->idResolver->findSite($site);
         }
         if (null !== ($itemId = $reader->getInt('item', null, 1))) {
-            $query['item_id'] = $this->searchFilters->findItem($itemId);
+            $query['item_id'] = $this->idResolver->findItem($itemId);
         }
         // Checked here, since buildSort() also takes property terms, which
         // pages don't have.

@@ -43,7 +43,7 @@ class SearchMedia extends AbstractSearchTool
     protected function getToolQuery(ArgumentReader $reader): array
     {
         $item = $reader->getInt('item', null, 1, ArgumentReader::SAFE_INT);
-        return null === $item ? [] : ['item_id' => $this->searchFilters->findItem($item)];
+        return null === $item ? [] : ['item_id' => $this->idResolver->findItem($item)];
     }
 
     protected function getDefaultSort(array $toolQuery): ?array

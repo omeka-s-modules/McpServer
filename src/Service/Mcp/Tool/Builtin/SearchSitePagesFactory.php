@@ -12,7 +12,8 @@ class SearchSitePagesFactory implements FactoryInterface
         return new SearchSitePages(
             $services->get('Omeka\ApiManager'),
             $services->get('McpServer\SitePageFormatter'),
-            $services->get('McpServer\SearchFilters')
+            $services->get('McpServer\SearchFilters'),
+            $services->get('McpServer\IdResolver')
         );
     }
 }

@@ -11,7 +11,7 @@ class GetSiteFactory implements FactoryInterface
     {
         return new GetSite(
             $services->get('Omeka\ApiManager'),
-            $services->get('McpServer\SearchFilters'),
+            $services->get('McpServer\IdResolver'),
             $services->get('Omeka\Site\NavigationLinkManager'),
             $services->get('ViewRenderer')
         );

@@ -25,13 +25,16 @@ class CountProperties implements ToolInterface
 {
     protected $searchFilters;
 
+    protected $emptyResultNotes;
+
     protected $counter;
 
     protected $names;
 
-    public function __construct(SearchFilters $searchFilters, ResourceCounter $counter, NameLookup $names)
+    public function __construct(SearchFilters $searchFilters, EmptyResultNotes $emptyResultNotes, ResourceCounter $counter, NameLookup $names)
     {
         $this->searchFilters = $searchFilters;
+        $this->emptyResultNotes = $emptyResultNotes;
         $this->counter = $counter;
         $this->names = $names;
     }
@@ -81,7 +84,7 @@ class CountProperties implements ToolInterface
         $reader = new ArgumentReader($arguments);
         $resource = $reader->getEnum('resource_type', SearchFilters::RESOURCES, 'items');
         // What the resources are called in messages, such as "item sets".
-        $noun = $this->searchFilters->noun($resource);
+        $noun = SearchFilters::noun($resource);
         $filters = $this->searchFilters->buildFilters(
             $reader,
             $resource,
@@ -116,7 +119,7 @@ class CountProperties implements ToolInterface
         ];
         $note = null;
         if (!$ids) {
-            $note = $this->searchFilters->explainEmpty($resource, $filters);
+            $note = $this->emptyResultNotes->explainEmpty($resource, $filters);
         } elseif (!$properties) {
             $note = sprintf('None of the matching %s has a value you can see.', $noun);
         }

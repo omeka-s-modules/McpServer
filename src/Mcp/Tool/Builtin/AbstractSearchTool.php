@@ -35,11 +35,17 @@ abstract class AbstractSearchTool implements ToolInterface
 
     protected $searchFilters;
 
-    public function __construct(ApiManager $api, ResourceFormatter $formatter, SearchFilters $searchFilters)
+    protected $idResolver;
+
+    protected $emptyResultNotes;
+
+    public function __construct(ApiManager $api, ResourceFormatter $formatter, SearchFilters $searchFilters, IdResolver $idResolver, EmptyResultNotes $emptyResultNotes)
     {
         $this->api = $api;
         $this->formatter = $formatter;
         $this->searchFilters = $searchFilters;
+        $this->idResolver = $idResolver;
+        $this->emptyResultNotes = $emptyResultNotes;
     }
 
     /**
@@ -74,7 +80,7 @@ abstract class AbstractSearchTool implements ToolInterface
      */
     protected function getNoun(): string
     {
-        return $this->searchFilters->noun($this->getResourceName());
+        return SearchFilters::noun($this->getResourceName());
     }
 
     /**
@@ -168,7 +174,7 @@ abstract class AbstractSearchTool implements ToolInterface
                 throw new ToolException('"properties" must list property terms, such as "dcterms:rights".');
             }
             $term = trim($term);
-            $this->searchFilters->findProperty($term);
+            $this->idResolver->findProperty($term);
             $terms[$term] = $term;
         }
         return array_values($terms);
@@ -226,7 +232,7 @@ abstract class AbstractSearchTool implements ToolInterface
      */
     protected function getEmptyNote(array $query): string
     {
-        return $this->searchFilters->explainEmpty($this->getResourceName(), $query);
+        return $this->emptyResultNotes->explainEmpty($this->getResourceName(), $query);
     }
 
     /**

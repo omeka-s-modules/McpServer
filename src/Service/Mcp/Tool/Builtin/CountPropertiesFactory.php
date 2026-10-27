@@ -11,6 +11,7 @@ class CountPropertiesFactory implements FactoryInterface
     {
         return new CountProperties(
             $services->get('McpServer\SearchFilters'),
+            $services->get('McpServer\EmptyResultNotes'),
             $services->get('McpServer\ResourceCounter'),
             $services->get('McpServer\NameLookup')
         );
