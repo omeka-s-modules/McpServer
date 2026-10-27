@@ -29,6 +29,7 @@ https://example.org/mcp
 - [Troubleshooting](#troubleshooting)
 - [Protocol support](#protocol-support)
 - [Adding tools from other modules](#adding-tools-from-other-modules)
+- [Running the tests](#running-the-tests)
 - [Why the protocol is built in](#why-the-protocol-is-built-in)
 - [License](#license)
 
@@ -579,6 +580,34 @@ These are the parts other modules can rely on; everything else may change betwee
   whether a property or class is in use. Give it the API resource and query you would
   search with: it fetches the matching records through the API itself, so it counts only
   what the caller may see.
+
+## Running the tests
+
+The module's tests use Omeka's own test framework and build their own records, so they
+run on any development copy of Omeka:
+
+- **Unit tests** check that only a key's hash is kept, how tools are run and their results
+  shaped, and the functions that read arguments and that cut, shorten, and convert text.
+  They need only Omeka's development dependencies (`composer install`).
+- **Database tests** install Omeka and the module in a fresh database, build public and
+  private records and users in each role, and check that every tool shows each user only
+  what Omeka lets them see, and marks what's private. They also check that searches and
+  counts give the right answers, how the tools cut long lists and texts and read the rest,
+  who may manage whose MCP keys in the admin, that no caller can write through the
+  endpoint, even with a tool that tries, the protocol, the endpoint and its keys, and
+  every registered tool against the rules for tools, so a module that adds tools can run
+  them to check its own. They need an empty MySQL database set in Omeka's
+  `application/test/config/database.ini`, the one Omeka's own tests use. The tests drop
+  every table in it.
+
+From Omeka's root, run all of them, or one suite:
+
+```sh
+vendor/bin/phpunit -c modules/McpServer/test/phpunit.xml
+vendor/bin/phpunit -c modules/McpServer/test/phpunit.xml --testsuite unit
+```
+
+The tests aren't included in the module's release packages.
 
 ## Why the protocol is built in
 
