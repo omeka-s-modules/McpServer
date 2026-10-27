@@ -2,7 +2,6 @@
 namespace McpServer\Mcp\Protocol;
 
 use Laminas\Log\LoggerInterface;
-use McpServer\Mcp\Exception\ProtocolException;
 use McpServer\Mcp\Tool\ToolResult;
 use Throwable;
 

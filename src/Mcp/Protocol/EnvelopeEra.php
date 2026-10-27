@@ -1,7 +1,6 @@
 <?php
 namespace McpServer\Mcp\Protocol;
 
-use McpServer\Mcp\Exception\ProtocolException;
 use McpServer\Mcp\Tool\Context;
 
 /**
