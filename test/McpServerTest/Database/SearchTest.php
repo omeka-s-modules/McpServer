@@ -103,6 +103,19 @@ class SearchTest extends DbTestCase
         $this->assertCount(1, $this->found(['item' => $this->ids['beta']], 'search_media', 'media'));
     }
 
+    public function testIdFilter()
+    {
+        $ids = $this->ids;
+        $this->assertSame(['alpha', 'gamma'], $this->found(['id' => [$ids['gamma'], $ids['alpha']], 'sort' => 'title']));
+        // A private record stays hidden, named or not.
+        $this->assertSame(['alpha'], $this->found(['id' => [$ids['hidden'], $ids['alpha']]]));
+        $data = $this->resultData($this->callTool('search_items', ['id' => [$ids['alpha'], $ids['beta']], 'sort' => 'title', 'properties' => ['dcterms:creator']]));
+        $this->assertSame([['Jane Doe'], ['John Roe']], array_column(array_column($data['items'], 'properties'), 'dcterms:creator'));
+        $data = $this->resultData($this->callTool('count_values', ['property' => 'dcterms:subject', 'id' => [$ids['alpha'], $ids['beta']], 'sort' => 'value']));
+        $this->assertSame([['value' => 'Harbor', 'items' => 1], ['value' => 'Revolution', 'items' => 1]], $data['values']);
+        $this->assertTrue($this->callTool('search_items', ['id' => [0]])->isError());
+    }
+
     public function testSorting()
     {
         $this->assertSame(['alpha', 'beta', 'gamma'], $this->found(['sort' => 'title']));

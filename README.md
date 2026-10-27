@@ -193,6 +193,7 @@ Finds items, a page at a time, as short summaries with a link to each item's pub
 |---|---|---|
 | `query` | string | Words to search for. Finds records with any of the words, most relevant first, and matches whole words only. |
 | `contains` | string | Text that must appear somewhere in an item's values, even inside a word. |
+| `id` | integer[] | Only these records, by ID, such as the IDs other results give. At most 100. With `properties`, reads the same properties of records found elsewhere in one call. |
 | `item_set` | integer[] | Only items in any of these item sets, by ID. At most 100. |
 | `class` | string | Only items of this class, by term (`dctype:Text`) or label (`Text`). |
 | `site` | string | Only items in this site, by slug. |
@@ -262,7 +263,7 @@ rights and credits recorded for each image, and `resource_type` counts theirs in
 | `per_page` | integer | Values per page, from 1 to 100. Default 20. |
 | `resource_type` | string | `items` (the default), `media`, or `item_sets`. |
 | `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
-| `query`, `contains`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
+| `query`, `contains`, `id`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
 
 ### count_properties
 
@@ -277,7 +278,7 @@ it in each language, to see how far translations go.
 |---|---|---|
 | `resource_type` | string | `items` (the default), `media`, or `item_sets`. |
 | `media_type` | string | When counting media, only media of this exact type, such as `image/jpeg`. |
-| `query`, `contains`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
+| `query`, `contains`, `id`, `item_set`, `class`, `site`, `is_public`, `has_media`, `where` | | The same filters as `search_items`. `item_set` and `has_media` apply only to items. |
 
 ### search_media
 
@@ -289,7 +290,7 @@ Results are short summaries with the item each media belongs to.
 |---|---|---|
 | `media_type` | string | Only media of this exact type, such as `application/pdf`. |
 | `item` | integer | Only media of this item, by ID, in the order they were added unless sorted otherwise. |
-| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `properties` | | The same as in `search_items`. |
+| `query`, `contains`, `id`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `properties` | | The same as in `search_items`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 20. |
 
@@ -321,7 +322,7 @@ item sets, so this is for searching them by what they're about.
 
 | Parameter | Type | Description |
 |---|---|---|
-| `query`, `contains`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `properties` | | The same as in `search_items`. |
+| `query`, `contains`, `id`, `class`, `site`, `is_public`, `where`, `sort`, `order`, `properties` | | The same as in `search_items`. |
 | `page` | integer | Page number, starting at 1. |
 | `per_page` | integer | Results per page, from 1 to 50. Default 20. |
 

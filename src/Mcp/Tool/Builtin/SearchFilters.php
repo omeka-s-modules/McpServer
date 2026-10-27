@@ -53,6 +53,8 @@ class SearchFilters
 
     const ITEM_SETS_MAX = 100;
 
+    const IDS_MAX = 100;
+
     // Most classes or sites an error lists, so a model can correct a name.
     const NAMES_IN_ERROR_MAX = 50;
 
@@ -92,6 +94,12 @@ class SearchFilters
             'contains' => [
                 'type' => 'string',
                 'description' => 'Text that must appear somewhere in the values, even inside a word. Unranked.',
+            ],
+            'id' => [
+                'type' => 'array',
+                'items' => ['type' => 'integer'],
+                'maxItems' => self::IDS_MAX,
+                'description' => 'Only these records, by id, such as the ids other results give. With "properties", reads the same properties of records found elsewhere in one call.',
             ],
             'item_set' => [
                 'type' => 'array',
@@ -179,6 +187,9 @@ class SearchFilters
         if (null !== ($contains = $reader->getText('contains'))) {
             // Matches any value, URI, or linked resource's title as a substring.
             $query['search'] = $this->refuseZero($contains);
+        }
+        if ($ids = $reader->getIntList('id', 1, self::IDS_MAX)) {
+            $query['id'] = $ids;
         }
         if ($itemSets = $reader->getIntList('item_set', 1, self::ITEM_SETS_MAX)) {
             $query['item_set_id'] = $itemSets;
