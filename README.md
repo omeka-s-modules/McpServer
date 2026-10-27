@@ -54,7 +54,7 @@ The module has one optional setting, **Require sign-in**, off by default. See
 ## Connecting an assistant
 
 Add the server to your assistant as a remote MCP server, using your endpoint's address,
-such as `https://example.org/mcp`. It uses Streamable HTTP, and needs no sign-in unless
+such as `https://example.org/mcp`. It uses Streamable HTTP, and needs no MCP key unless
 you've turned on **Require sign-in**. Each assistant explains where to add one:
 
 - [Claude](https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp),

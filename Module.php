@@ -35,8 +35,7 @@ class Module extends AbstractModule
 
     public function getConfigForm(PhpRenderer $renderer)
     {
-        $form = new ConfigForm;
-        $form->init();
+        $form = $this->getServiceLocator()->get('FormElementManager')->get(ConfigForm::class);
         $form->setData(['require_sign_in' => $this->getServiceLocator()->get('Omeka\Settings')->get(self::REQUIRE_SIGN_IN, false)]);
         return $renderer->formCollection($form, false);
     }

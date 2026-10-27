@@ -67,7 +67,7 @@ class CountValues implements ToolInterface
             . "\n\n"
             . 'Counts items by default. Media and item sets have metadata of their own, such as the rights and '
             . 'credits of each image: set "resource_type" to count theirs. Counting media also takes '
-            . '"media_type", such as "image/jpeg". Item sets and media presence filter only items.'
+            . '"media_type", such as "image/jpeg". "item_set" and "has_media" apply only to items.'
             . "\n\n"
             . 'Returns a page of values; distinct_values says how many there are, and "page" reaches the rest. '
             . 'Sort by "value" to list them alphabetically, which puts variant spellings of the same value '
@@ -87,7 +87,7 @@ class CountValues implements ToolInterface
                     'type' => 'integer',
                     'minimum' => 1,
                     'maximum' => self::PREFIX_LENGTH_MAX,
-                    'description' => 'Count values by their first this many characters, rather than whole. Dates are usually stored starting with the year, so 2 counts them by century ("17" for the 1700s) and 3 by decade. A group\'s text works as a "starts_with" condition in a search, to list its records.',
+                    'description' => 'Count values by their first this many characters, rather than whole. Dates are usually stored starting with the year, so 2 counts them by century ("17" for the 1700s) and 3 by decade. A group\'s text works as a "starts_with" condition in a search, to list its records. Years BC are stored with a leading "-", such as "-0509" for 509 BC, so they need one character more. Values are listed as stored.',
                 ],
                 'sort' => [
                     'type' => 'string',

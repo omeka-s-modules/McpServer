@@ -185,6 +185,24 @@ class ValueFormatter
     }
 
     /**
+     * Turn HTML into plain text, with a line break where a block ends, so
+     * paragraphs don't run together.
+     *
+     * @return string|null Null when there's no text
+     */
+    public static function htmlToText(string $html): ?string
+    {
+        // Core's HTML sanitizer removes these, but admins can turn it off.
+        // The pattern doesn't backtrack, so a large block can't exhaust PCRE,
+        // and if it fails anyway the text is kept.
+        $html = preg_replace('#<(script|style)\b[^>]*+>(?:[^<]++|<(?!/\1\s*>))*+</\1\s*>#i', '', $html) ?? $html;
+        $html = preg_replace('#<br\s*/?>|</(p|div|li|h[1-6]|tr|blockquote)>#i', "\n", $html);
+        $text = trim(preg_replace("/[ \t]+/", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $text = preg_replace("/\n\s*\n+/", "\n\n", $text);
+        return '' === $text ? null : $text;
+    }
+
+    /**
      * Render a value as its data type shows it on the site, as plain text.
      *
      * Renders through the data type rather than asHtml(), which also fires
@@ -196,9 +214,7 @@ class ValueFormatter
     protected function render(ValueRepresentation $value): ?string
     {
         try {
-            $html = (string) $this->dataTypes->get($value->type())->render($this->view, $value);
-            $text = trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            return '' === $text ? null : $text;
+            return self::htmlToText((string) $this->dataTypes->get($value->type())->render($this->view, $value));
         } catch (Throwable $e) {
             $this->logger->warn(sprintf(
                 'MCP Server: could not render a %s value of resource %s: %s',

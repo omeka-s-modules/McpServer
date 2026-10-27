@@ -39,7 +39,9 @@ class DispatcherFactory implements FactoryInterface
         return sprintf(
             'This server searches and reads %s: items with their metadata, media, and item sets. '
             . 'Results contain what the caller may see: public content, and private content too when the request '
-            . 'carries an MCP key.',
+            . 'carries an MCP key. Start with get_overview to see what\'s here and what can be filtered on. Records '
+            . 'keep dates in different properties, so before filtering by date, check which they use with '
+            . 'count_properties.',
             $installation
         );
     }

@@ -38,10 +38,14 @@ class HandshakeEra
         if ('initialize' === $method) {
             return $this->initialize($params);
         }
-        $version = $headers['mcp-protocol-version'] ?? ProtocolVersion::HANDSHAKE_DEFAULT;
+        $sent = $headers['mcp-protocol-version'] ?? null;
+        // Without the header, the spec says to assume its oldest version.
+        $version = $sent ?? ProtocolVersion::HANDSHAKE_DEFAULT;
         if (!ProtocolVersion::isHandshake($version)) {
             throw new ProtocolException(
-                sprintf('Unsupported protocol version "%s". Send a supported MCP-Protocol-Version header.', $version),
+                null === $sent
+                    ? sprintf('No MCP-Protocol-Version header was sent. Send one of: %s.', implode(', ', ProtocolVersion::HANDSHAKE))
+                    : sprintf('Unsupported protocol version "%s". Send a supported MCP-Protocol-Version header.', $version),
                 ProtocolException::INVALID_REQUEST, 400,
                 ['supported' => ProtocolVersion::supported(), 'requested' => $version]
             );

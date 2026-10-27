@@ -18,7 +18,8 @@ namespace McpServer\Mcp\Format;
  */
 final class OutputLimits
 {
-    // Longest description in a summary, and longest site summary.
+    // Longest text in a summary: a description, a value of a property a
+    // search named, or a site's summary.
     const DESCRIPTION_LIMIT = 300;
 
     // Longest text of a single value before it's cut.

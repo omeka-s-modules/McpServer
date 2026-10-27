@@ -20,8 +20,8 @@ class SearchMedia extends AbstractSearchTool
             . 'plus the total number of matches. Call get_media with an id to see one, or name the properties you need '
             . 'in "properties" to see them for every result, such as each image\'s rights and creator.'
             . "\n\n"
-            . 'Takes the same query, filters, and sorting as search_items, except item sets and media, which '
-            . 'only items have, plus "media_type" and "item". get_overview lists the media types in use, with '
+            . 'Takes the same query, filters, and sorting as search_items, except "item_set" and "has_media", '
+            . 'which apply only to items, plus "media_type" and "item". get_overview lists the media types in use, with '
             . 'counts. With no query or filters, lists the most recently added media.';
     }
 

@@ -179,6 +179,8 @@ class GetOverview implements ToolInterface
     protected function getItemSets(int $page): array
     {
         // Counts every set at once, rather than a query per set.
+        // Counts every group in one query, which the per-group counts below
+        // then read, rather than a query per group.
         $this->counter->getGroupedCounts();
         $response = $this->api->search('item_sets', [
             'sort_by' => 'title',
@@ -202,6 +204,8 @@ class GetOverview implements ToolInterface
      */
     protected function getClasses(): array
     {
+        // Counts every group in one query, which the per-group counts below
+        // then read, rather than a query per group.
         $this->counter->getGroupedCounts();
         $counts = $this->counter->countItemsByClass(array_column($this->names->getUsedClasses(), 'id'));
         $classes = [];

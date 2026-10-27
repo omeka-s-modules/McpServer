@@ -37,6 +37,12 @@ return [
             'McpServer\Controller\Admin\Key' => Service\Controller\Admin\KeyControllerFactory::class,
         ],
     ],
+    'form_elements' => [
+        'factories' => [
+            Form\ConfigForm::class => \Laminas\Form\ElementFactory::class,
+            Form\KeyForm::class => \Laminas\Form\ElementFactory::class,
+        ],
+    ],
     'view_manager' => [
         'template_path_stack' => [
             dirname(__DIR__) . '/view',

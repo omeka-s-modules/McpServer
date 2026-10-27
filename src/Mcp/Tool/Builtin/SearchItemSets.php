@@ -20,7 +20,7 @@ class SearchItemSets extends AbstractSearchTool
             . "\n\n"
             . sprintf('get_overview already lists up to %d item sets with their item counts. Use this to search them by ', GetOverview::PER_PAGE)
             . 'what they\'re about, or when there are more. Takes the same query, filters, and sorting as '
-            . 'search_items, except item sets and media, which only items have.';
+            . 'search_items, except "item_set" and "has_media", which apply only to items.';
     }
 
     protected function getFilterAdvice(): array

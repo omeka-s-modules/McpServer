@@ -342,16 +342,7 @@ class ResourceFormatter
         if ('html' !== $media->ingester()) {
             return null;
         }
-        $html = (string) ($media->mediaData()['html'] ?? '');
-        // Core's HTML sanitizer removes these, but admins can turn it off.
-        // The pattern doesn't backtrack, so a large block can't exhaust PCRE,
-        // and if it fails anyway the text is kept.
-        $html = preg_replace('#<(script|style)\b[^>]*+>(?:[^<]++|<(?!/\1\s*>))*+</\1\s*>#i', '', $html) ?? $html;
-        // Line breaks where blocks end, so paragraphs don't run together.
-        $html = preg_replace('#<br\s*/?>|</(p|div|li|h[1-6]|tr|blockquote)>#i', "\n", $html);
-        $text = trim(preg_replace("/[ \t]+/", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
-        $text = preg_replace("/\n\s*\n+/", "\n\n", $text);
-        return '' === $text ? null : $text;
+        return ValueFormatter::htmlToText((string) ($media->mediaData()['html'] ?? ''));
     }
 
     /**

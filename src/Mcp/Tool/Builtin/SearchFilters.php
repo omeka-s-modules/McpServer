@@ -1,6 +1,7 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
+use Laminas\Authentication\AuthenticationService;
 use McpServer\Mcp\Exception\ToolException;
 use McpServer\Mcp\Format\ResourceFormatter;
 use McpServer\Mcp\Query\NameLookup;
@@ -52,21 +53,24 @@ class SearchFilters
 
     const ITEM_SETS_MAX = 100;
 
-    // Most classes an error lists, so a model can correct a class name.
-    const CLASSES_IN_ERROR_MAX = 50;
+    // Most classes or sites an error lists, so a model can correct a name.
+    const NAMES_IN_ERROR_MAX = 50;
 
     protected $names;
 
     protected $counter;
 
+    protected $auth;
+
     // The terms findProperty() resolved, by property ID, so a note can name a
     // condition's property.
     protected $terms = [];
 
-    public function __construct(NameLookup $names, ResourceCounter $counter)
+    public function __construct(NameLookup $names, ResourceCounter $counter, AuthenticationService $auth)
     {
         $this->names = $names;
         $this->counter = $counter;
+        $this->auth = $auth;
     }
 
     /**
@@ -281,10 +285,11 @@ class SearchFilters
             );
         }
         if (isset($query['is_public']) && !$query['is_public']) {
-            return sprintf(
-                'No %1$s matched. "is_public" false finds only the private %1$s you may see, which is none without an MCP key, so there may be others.',
-                $noun
-            );
+            // Signed in, the caller sees what the key's user may; without a
+            // key, no private resources at all.
+            return $this->auth->hasIdentity()
+                ? sprintf('No private %s this key\'s user may see matched.', $noun)
+                : sprintf('No %1$s matched. Without an MCP key, no private %1$s are visible, so there may be some all the same.', $noun);
         }
         return sprintf('No %s matched. Loosen the filters, or check them against get_overview.', $noun);
     }
@@ -368,7 +373,7 @@ class SearchFilters
             // get_overview lists only the classes items use, so a class used
             // only by media or item sets is named here.
             $classes = $this->names->getUsedClasses();
-            if (count($classes) <= self::CLASSES_IN_ERROR_MAX) {
+            if (count($classes) <= self::NAMES_IN_ERROR_MAX) {
                 throw new ToolException(sprintf(
                     'Nothing uses the class "%s". The classes in use are: %s.',
                     $termOrLabel,
@@ -405,8 +410,15 @@ class SearchFilters
      */
     public function findSite(string $slug): int
     {
-        $siteId = array_search($slug, $this->names->getSiteSlugs(), true);
+        $slugs = $this->names->getSiteSlugs();
+        $siteId = array_search($slug, $slugs, true);
         if (false === $siteId) {
+            if (!$slugs) {
+                throw new ToolException(sprintf('There is no site "%s", and no site you can see.', $slug));
+            }
+            if (count($slugs) <= self::NAMES_IN_ERROR_MAX) {
+                throw new ToolException(sprintf('There is no site "%s". The sites, by slug, are: %s.', $slug, implode(', ', $slugs)));
+            }
             throw new ToolException(sprintf('There is no site "%s". Call get_overview to see the sites.', $slug));
         }
         return (int) $siteId;
@@ -433,6 +445,9 @@ class SearchFilters
         $unknown = array_diff(array_map('strval', array_keys($condition)), ['property', 'op', 'value']);
         if ($unknown) {
             throw new ToolException(sprintf('Unknown key "%s". Each condition takes "property", "op", and "value".', reset($unknown)));
+        }
+        if (is_array($condition['value'] ?? null)) {
+            throw new ToolException('"value" must be a single text or number. To match any of several, search once for each.');
         }
         $reader = new ArgumentReader($condition);
         $term = $reader->getText('property');
