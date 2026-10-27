@@ -151,18 +151,18 @@ its own.
 | Tool | What it does |
 |---|---|
 | `get_overview` | Describes the installation: counts, dates, and what search can filter on |
-| `search_items` | Finds items by words, filters, and conditions on properties |
-| `get_item` | Reads one item in full |
 | `count_values` | Counts a property's values, most common first or alphabetically, such as creators, subjects, or image rights |
 | `count_properties` | Counts which properties records have filled in, such as for a metadata audit |
+| `search_items` | Finds items by words, filters, and conditions on properties |
+| `get_item` | Reads one item in full |
 | `search_media` | Finds media by words, type, item, and conditions on properties |
 | `get_media` | Reads one media, with its image for the assistant to look at |
 | `search_item_sets` | Finds item sets by words and conditions on properties |
 | `get_item_set` | Reads one item set in full, with its item count |
+| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments the template gives them |
+| `get_site` | Describes one site: its summary, how much it holds, and its navigation |
 | `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
 | `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
-| `get_site` | Describes one site: its summary, how much it holds, and its navigation |
-| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments the template gives them |
 
 Assistants usually start with `get_overview`, then search or count, then read the items
 they need. Like Omeka, the tools call a record's fields properties, and name each one by

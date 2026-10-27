@@ -7,22 +7,23 @@ return [
         // modules add tools by adding to this key in their own config.
         // Listed in the order tools/list gives them: the overview first, which
         // several descriptions tell the model to call first, then the counts,
-        // the searches, and the reads.
+        // which span the kinds of record, then each kind's search and read,
+        // and a site before its pages.
         'tools' => [
             'factories' => [
                 'get_overview' => Service\Mcp\Tool\Builtin\GetOverviewFactory::class,
                 'count_values' => Service\Mcp\Tool\Builtin\CountValuesFactory::class,
                 'count_properties' => Service\Mcp\Tool\Builtin\CountPropertiesFactory::class,
                 'search_items' => Service\Mcp\Tool\Builtin\SearchItemsFactory::class,
-                'search_media' => Service\Mcp\Tool\Builtin\SearchMediaFactory::class,
-                'search_item_sets' => Service\Mcp\Tool\Builtin\SearchItemSetsFactory::class,
-                'search_site_pages' => Service\Mcp\Tool\Builtin\SearchSitePagesFactory::class,
                 'get_item' => Service\Mcp\Tool\Builtin\GetItemFactory::class,
+                'search_media' => Service\Mcp\Tool\Builtin\SearchMediaFactory::class,
                 'get_media' => Service\Mcp\Tool\Builtin\GetMediaFactory::class,
+                'search_item_sets' => Service\Mcp\Tool\Builtin\SearchItemSetsFactory::class,
                 'get_item_set' => Service\Mcp\Tool\Builtin\GetItemSetFactory::class,
-                'get_site_page' => Service\Mcp\Tool\Builtin\GetSitePageFactory::class,
-                'get_site' => Service\Mcp\Tool\Builtin\GetSiteFactory::class,
                 'get_resource_template' => Service\Mcp\Tool\Builtin\GetResourceTemplateFactory::class,
+                'get_site' => Service\Mcp\Tool\Builtin\GetSiteFactory::class,
+                'search_site_pages' => Service\Mcp\Tool\Builtin\SearchSitePagesFactory::class,
+                'get_site_page' => Service\Mcp\Tool\Builtin\GetSitePageFactory::class,
             ],
         ],
     ],
