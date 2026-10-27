@@ -129,6 +129,7 @@ class ResourceFormatter
             'api_url' => $resource->apiUrl(),
             'thumbnail_url' => $resource->thumbnailDisplayUrl('medium'),
             'resource_class' => $this->resourceClass($resource),
+            'resource_template' => $this->resourceTemplate($resource),
             ...$this->dates($resource),
         ];
     }
@@ -401,6 +402,16 @@ class ResourceFormatter
     {
         $class = $resource->resourceClass();
         return $class ? ['term' => $class->term(), 'label' => $class->label()] : null;
+    }
+
+    /**
+     * Get the resource template a record uses, by id and label, so a model
+     * can read it with get_resource_template.
+     */
+    protected function resourceTemplate(AbstractResourceEntityRepresentation $resource): ?array
+    {
+        $template = $resource->resourceTemplate();
+        return $template ? ['id' => $template->id(), 'label' => $template->label()] : null;
     }
 
     /**

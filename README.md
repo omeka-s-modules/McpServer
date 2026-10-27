@@ -95,6 +95,8 @@ Once an assistant is connected, ask in plain language. For example:
 - "What has been added or changed recently?"
 - "Which fields do the records in this item set leave empty?"
 - "Are there inconsistent spellings or rarely used fields in the metadata?"
+- "What does each field on the Person records mean, and which records leave out fields
+  their template expects?"
 
 ### MCP keys
 
@@ -160,6 +162,7 @@ its own.
 | `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
 | `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
 | `get_site` | Describes one site: its summary, how much it holds, and its navigation |
+| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments the template gives them |
 
 Assistants usually start with `get_overview`, then search or count, then read the items
 they need. Like Omeka, the tools call a record's fields properties, and name each one by

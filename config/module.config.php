@@ -22,6 +22,7 @@ return [
                 'get_item_set' => Service\Mcp\Tool\Builtin\GetItemSetFactory::class,
                 'get_site_page' => Service\Mcp\Tool\Builtin\GetSitePageFactory::class,
                 'get_site' => Service\Mcp\Tool\Builtin\GetSiteFactory::class,
+                'get_resource_template' => Service\Mcp\Tool\Builtin\GetResourceTemplateFactory::class,
             ],
         ],
     ],

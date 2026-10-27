@@ -14,8 +14,8 @@ use Omeka\Api\Manager as ApiManager;
 
 /**
  * Describes the whole installation, rather than one kind of resource: its
- * size, and the item sets, classes, properties, media types, and sites that
- * searches filter by.
+ * size, and the item sets, classes, resource templates, properties, media
+ * types, and sites that searches filter by.
  *
  * The counts come from ResourceCounter, and cover only resources the API
  * returned. The classes and properties in use come from NameLookup.
@@ -26,7 +26,7 @@ use Omeka\Api\Manager as ApiManager;
 class GetOverview implements ToolInterface
 {
     // The lists the overview shows.
-    const LISTS = ['item_sets', 'media_types', 'classes', 'properties', 'sites'];
+    const LISTS = ['item_sets', 'media_types', 'classes', 'templates', 'properties', 'sites'];
 
     // Most entries of a list shown at once: the overview cuts each list here,
     // and "list" reads one this many at a time.
@@ -55,9 +55,10 @@ class GetOverview implements ToolInterface
         return 'Get an overview of what is here: how many items there are, how many have media, how many media '
             . 'there are, and when an item was last added and last modified; the media types, with how many '
             . 'media and items have each; the item sets, with ids and item counts (get_item_set describes one); '
-            . 'the classes items use, with counts; the properties in use, for "where" conditions, sorting, and '
-            . 'count_values; and the sites, with their summaries (get_site describes one). Call this before filtering search_items by item '
-            . sprintf('set, class, property, or site. A list longer than %d entries is cut; "list" and "page" read all of it.', self::PER_PAGE);
+            . 'the classes items use, with counts; the resource templates items use, with counts (get_resource_template '
+            . 'describes one); the properties in use, for "where" conditions, sorting, and count_values; and the sites, '
+            . 'with their summaries (get_site describes one). Call this before filtering search_items by item set, '
+            . sprintf('class, template, property, or site. A list longer than %d entries is cut; "list" and "page" read all of it.', self::PER_PAGE);
     }
 
     public function getInputSchema(): array
@@ -159,6 +160,7 @@ class GetOverview implements ToolInterface
         $list = match ($name) {
             'media_types' => $this->getMediaTypes(),
             'classes' => array_map(fn ($class) => array_diff_key($class, ['id' => true]), $this->getClasses()),
+            'templates' => $this->getTemplates(),
             'properties' => array_map(fn ($property) => array_diff_key($property, ['id' => true]), $this->names->getUsedProperties()),
             'sites' => $this->getSites(),
         };
@@ -178,7 +180,6 @@ class GetOverview implements ToolInterface
      */
     protected function getItemSets(int $page): array
     {
-        // Counts every set at once, rather than a query per set.
         // Counts every group in one query, which the per-group counts below
         // then read, rather than a query per group.
         $this->counter->getGroupedCounts();
@@ -217,6 +218,36 @@ class GetOverview implements ToolInterface
         }
         usort($classes, fn ($a, $b) => [$b['items'], $a['term']] <=> [$a['items'], $b['term']]);
         return $classes;
+    }
+
+    /**
+     * Get the resource templates items use, most used first, with their item
+     * counts, and the class each gives its records.
+     *
+     * @return array List of ['id', 'label', 'class', 'items'], without empty
+     *   fields
+     */
+    protected function getTemplates(): array
+    {
+        // Counts every group in one query, which the per-group counts below
+        // then read, rather than a query per group.
+        $this->counter->getGroupedCounts();
+        $templates = $this->api->search('resource_templates', [])->getContent();
+        $counts = $this->counter->countItemsByTemplate(array_map(fn ($template) => $template->id(), $templates));
+        $entries = [];
+        foreach ($templates as $template) {
+            // Templates used only by media or item sets have no items.
+            if ($counts[$template->id()]) {
+                $entries[] = OutputLimits::withoutEmpty([
+                    'id' => $template->id(),
+                    'label' => $template->label(),
+                    'class' => $template->resourceClass() ? $template->resourceClass()->term() : null,
+                    'items' => $counts[$template->id()],
+                ]);
+            }
+        }
+        usort($entries, fn ($a, $b) => [$b['items'], $a['label']] <=> [$a['items'], $b['label']]);
+        return $entries;
     }
 
     /**

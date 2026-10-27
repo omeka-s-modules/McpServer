@@ -63,6 +63,17 @@ class NameLookup
     }
 
     /**
+     * Get the labels of the resource templates, by template ID.
+     *
+     * Core's template search can't find one by label, and an installation has
+     * few templates, so all their labels are read at once.
+     */
+    public function getTemplateLabels(): array
+    {
+        return $this->cache['template_labels'] ??= $this->api->search('resource_templates', [], ['returnScalar' => 'label'])->getContent();
+    }
+
+    /**
      * Find a class or property in use by its term, once per request.
      *
      * Looks the term up, then checks it's in use, rather than asking core's

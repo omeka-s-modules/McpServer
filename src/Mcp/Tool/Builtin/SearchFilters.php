@@ -55,7 +55,8 @@ class SearchFilters
 
     const IDS_MAX = 100;
 
-    // Most classes or sites an error lists, so a model can correct a name.
+    // Most classes, templates, or sites an error lists, so a model can
+    // correct a name.
     const NAMES_IN_ERROR_MAX = 50;
 
     protected $names;
@@ -110,6 +111,10 @@ class SearchFilters
             'class' => [
                 'type' => 'string',
                 'description' => 'Only those of this class, by term (e.g. "dctype:Text") or label (e.g. "Text").',
+            ],
+            'template' => [
+                'type' => 'string',
+                'description' => 'Only those using this resource template, by its label, as get_overview lists the templates.',
             ],
             'site' => [
                 'type' => 'string',
@@ -196,6 +201,9 @@ class SearchFilters
         }
         if (null !== ($class = $reader->getText('class'))) {
             $query['resource_class_id'] = $this->findClass($class);
+        }
+        if (null !== ($template = $reader->getText('template'))) {
+            $query['resource_template_id'] = $this->findTemplate($template);
         }
         if (null !== ($site = $reader->getText('site'))) {
             $query['site_id'] = $this->findSite($site);
@@ -412,6 +420,28 @@ class SearchFilters
         }
         $this->terms[$property['id']] = $term;
         return $property['id'];
+    }
+
+    /**
+     * Find the resource template a label names, exactly or else ignoring
+     * case.
+     *
+     * @throws ToolException When no template has the label
+     */
+    public function findTemplate(string $label): int
+    {
+        $labels = $this->names->getTemplateLabels();
+        $id = array_search($label, $labels, true);
+        if (false === $id) {
+            $id = array_search(mb_strtolower($label), array_map('mb_strtolower', $labels), true);
+        }
+        if (false === $id) {
+            if (count($labels) <= self::NAMES_IN_ERROR_MAX) {
+                throw new ToolException(sprintf('There is no resource template "%s". The templates are: %s.', $label, implode(', ', $labels)));
+            }
+            throw new ToolException(sprintf('There is no resource template "%s". Call get_overview to see the templates items use.', $label));
+        }
+        return (int) $id;
     }
 
     /**

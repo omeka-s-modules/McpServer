@@ -205,15 +205,15 @@ class ResourceCounter
     }
 
     /**
-     * Count the visible items by class and by item set, and their media by
-     * type, in three grouped queries, once per request.
+     * Count the visible items by class, item set, and resource template, and
+     * their media by type, in four grouped queries, once per request.
      *
      * Item sets the caller can't see may get counts here, so a caller should
      * read only the counts of sets the API listed.
      *
      * @return array|null ['classes' => [id => items], 'item_sets' => [id =>
-     *   items], 'media_types' => list of ['media_type', 'media', 'items']],
-     *   or null above COUNT_MAX items
+     *   items], 'templates' => [id => items], 'media_types' => list of
+     *   ['media_type', 'media', 'items']], or null above COUNT_MAX items
      */
     public function getGroupedCounts(): ?array
     {
@@ -223,10 +223,11 @@ class ResourceCounter
         $counts = null;
         $itemIds = $this->getResourceIds('items');
         if (null !== $itemIds) {
-            $counts = ['classes' => [], 'item_sets' => [], 'media_types' => []];
+            $counts = ['classes' => [], 'item_sets' => [], 'templates' => [], 'media_types' => []];
             if ($itemIds) {
                 $counts['classes'] = $this->countItemsBy('IDENTITY(i.resourceClass)', $itemIds);
                 $counts['item_sets'] = $this->countItemsBy('s.id', $itemIds, 'i.itemSets');
+                $counts['templates'] = $this->countItemsBy('IDENTITY(i.resourceTemplate)', $itemIds);
                 $counts['media_types'] = $this->countMediaTypes($itemIds);
             }
         }
@@ -261,6 +262,21 @@ class ResourceCounter
     public function countItemsByClass(array $classIds): array
     {
         return $this->countItemsPer('classes', 'resource_class_id', $classIds);
+    }
+
+    /**
+     * Count the visible items using each of the given resource templates.
+     *
+     * From the grouped counts when this request already has them, otherwise
+     * a query per template. Call getGroupedCounts() first to count many
+     * templates at once.
+     *
+     * @param int[] $templateIds
+     * @return array Item counts keyed by template ID
+     */
+    public function countItemsByTemplate(array $templateIds): array
+    {
+        return $this->countItemsPer('templates', 'resource_template_id', $templateIds);
     }
 
     /**
