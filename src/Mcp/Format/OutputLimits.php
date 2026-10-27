@@ -22,7 +22,8 @@ final class OutputLimits
     // search named, or a site's summary.
     const DESCRIPTION_LIMIT = 300;
 
-    // Longest text of a single value before it's cut.
+    // Longest text of a single value, or of a site page's block, before it's
+    // cut.
     const TEXT_LIMIT = 2000;
 
     // Most media an item lists; its media_total says when there are more.

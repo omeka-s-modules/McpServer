@@ -2,7 +2,7 @@
 
 A [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server for Omeka S. It
 lets AI assistants such as Claude search your items, read their metadata, look at images,
-and count what's there, all without leaving the conversation.
+read your sites' pages, and count what's there, all without leaving the conversation.
 
 The server runs inside Omeka as a module and adds one endpoint to your installation:
 
@@ -83,6 +83,7 @@ Once an assistant is connected, ask in plain language. For example:
 - "Which items are linked to the item about the town hall?"
 - "Which items have PDF files?"
 - "What is each of the item sets about, and which are the largest?"
+- "What do the site's exhibits say about the harbor, and which items do they show?"
 - "What has been added or changed recently?"
 - "Which fields do the records in this item set leave empty?"
 - "Are there inconsistent spellings or rarely used fields in the metadata?"
@@ -104,6 +105,9 @@ The assistant sees what the key's user may see:
 
 - **Reviewers, Editors, Supervisors, and Global Administrators** see all private content.
 - **Authors and Researchers** see public content and what they own.
+- **Private site pages,** and the pages of private sites, follow Omeka's rules for sites:
+  a user sees them on sites they own or have a role on, and a Global Administrator sees
+  them all.
 
 An MCP key works only at `/mcp`, whose tools only read, and never for Omeka's REST API.
 So it can't be used to change anything, whatever its user's role. Omeka API keys don't
@@ -145,13 +149,17 @@ its own.
 | `get_media` | Reads one media, with its image for the assistant to look at |
 | `search_item_sets` | Finds item sets by words and conditions on properties |
 | `get_item_set` | Reads one item set in full, with its item count |
+| `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
+| `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
+| `get_site` | Describes one site: its summary, how much it holds, and its navigation |
 
 Assistants usually start with `get_overview`, then search or count, then read the items
 they need. All tools are read-only. Like Omeka, the tools call a record's fields
 properties, and name each one by its term, such as `dcterms:title`.
 
 When an assistant may see private content, results mark it as Omeka's JSON-LD does:
-`"is_public": false` on a private item, media, item set, or value. Search results show
+`"is_public": false` on a private item, media, item set, or value, and on a site page
+that is private or on a private site. Search results show
 values as plain text, so there a private value is `{"text": "…", "is_public": false}`,
 a value with a language tag is `{"text": "…", "lang": "…"}`, and a value that links to
 another record gives its `id`, as `{"text": "…", "id": 123}`. To find only private
@@ -327,12 +335,63 @@ has, a link to its public page, and anything other modules add. To list its item
 | `response_format` | string | `concise` (the default), or `detailed` for Omeka's own JSON-LD. |
 | `property`, `page`, `offset`, `position` | | The same as in `get_item`. |
 
+### search_site_pages
+
+Finds the pages of your sites, such as exhibits and About pages, a page of results at a
+time. Each result gives the page's site, its public address, and the start of its text.
+Item searches don't search pages, so this is how an assistant finds what your sites say
+about a subject.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `query` | string | Words to search for in the pages' titles and text, as in `search_items`. |
+| `site` | string | Only pages of this site, by slug. |
+| `item` | integer | Only pages that show this item, among whatever else they show, by ID. |
+| `sort` | string | `relevance`, `added`, `modified`, or `title`. |
+| `order` | string | `asc` or `desc`. |
+| `page` | integer | Page number, starting at 1. |
+| `per_page` | integer | Results per page, from 1 to 50. Default 20. |
+
+`item` finds the pages that attach the item to a block, such as a media embed. It
+doesn't find pages that list items by a query, such as a browse preview.
+
+### get_site_page
+
+Reads one site page: its title, site, public address, and its blocks in order, each with
+its layout, its text, and the items it shows, with each item's caption. A block's text is
+what Omeka indexes for search, so HTML blocks give their text, and blocks that show only
+a map or a list give none. A block's text longer than 2,000 characters is cut, and `block`
+reads the rest. An item the assistant may not see isn't shown, caption and all, as on the
+site itself.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `id` | integer | The page's ID. Give this, or `site` and `slug`. |
+| `site` | string | The site's slug, as in the page's address: `/s/site/page/slug`. |
+| `slug` | string | The page's slug, with `site`. |
+| `block` | integer | Read only this block's text, by its position, starting at 1, 10,000 characters at a time. |
+| `offset` | integer | With `block`, read from this character, starting at 0. |
+
+### get_site
+
+Describes one site: its title, summary, and public address; the page visitors land on,
+which is its homepage or else the first page its navigation links to; how many items,
+item sets, and pages it has; and its navigation, in order, as visitors see it. Each
+navigation link gives its label, its type, and its address, and a link to a page gives
+the page's ID for `get_site_page`. The navigation is how an assistant learns the order of
+a site's pages and which belong together. A link to a page the assistant may not see is
+left out, and the links under it take its place. `get_overview` lists the sites.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `site` | string | The site's slug. Required. |
+
 ## Privacy and security
 
 - **Without a key, only public content is visible.** Every read goes through Omeka's own
-  API, so Omeka's visibility rules apply unchanged. Private items, private media, and
-  private values appear only to a request with an MCP key whose user may see them, and
-  so do links to them.
+  API, so Omeka's visibility rules apply unchanged. Private items, media, values, and
+  site pages appear only to a request with an MCP key whose user may see them, and so do
+  links to them.
 - **Nothing can be changed.** All tools are read-only.
 - **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
   never applies. Only an MCP key in the address signs a request in.
@@ -351,7 +410,7 @@ says so, and says how to read the rest, if there is a way.
 
 - Values longer than 2,000 characters, such as long transcriptions, are cut, and
   `property` with `offset` reads the rest. Text cut inside an annotation or in `module_data` can't be
-  read further.
+  read further. A site page's blocks are cut the same way, and `block` reads the rest.
 - An item, media, or item set shows at most 100 values of one property, and `property`
   reads the rest. Other lists longer than 100 entries, such as the links from other items in the
   `detailed` format, are cut too, with their full length given.

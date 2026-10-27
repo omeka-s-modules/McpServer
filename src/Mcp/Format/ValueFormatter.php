@@ -197,7 +197,18 @@ class ValueFormatter
         // and if it fails anyway the text is kept.
         $html = preg_replace('#<(script|style)\b[^>]*+>(?:[^<]++|<(?!/\1\s*>))*+</\1\s*>#i', '', $html) ?? $html;
         $html = preg_replace('#<br\s*/?>|</(p|div|li|h[1-6]|tr|blockquote)>#i', "\n", $html);
-        $text = trim(preg_replace("/[ \t]+/", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        return self::tidyText(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+
+    /**
+     * Collapse runs of spaces, and of blank lines, in plain text, and remove
+     * the spaces that start or end a line, such as an HTML source's indents.
+     *
+     * @return string|null Null when there's no text
+     */
+    public static function tidyText(string $text): ?string
+    {
+        $text = trim(preg_replace(["/[ \t]+/", "/ ?\n ?/"], [' ', "\n"], $text));
         $text = preg_replace("/\n\s*\n+/", "\n\n", $text);
         return '' === $text ? null : $text;
     }

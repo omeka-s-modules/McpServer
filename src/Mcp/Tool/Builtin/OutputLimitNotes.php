@@ -147,6 +147,47 @@ final class OutputLimitNotes
     }
 
     /**
+     * Say which blocks of a site page had their text cut, and how to read it.
+     *
+     * The data marks each block cut with a truncated flag.
+     */
+    public static function forSitePage(array $output): ?string
+    {
+        $cut = array_column(array_filter(
+            $output['blocks'] ?? [],
+            fn ($block) => !empty($block[OutputLimits::TRUNCATED])
+        ), 'position');
+        if (!$cut) {
+            return null;
+        }
+        return sprintf(
+            'The text of block%s %s was cut. Call again with "block" set to its position to read it, %s characters at a time.',
+            count($cut) > 1 ? 's' : '', implode(', ', $cut), number_format(OutputLimits::CHUNK_LIMIT)
+        );
+    }
+
+    /**
+     * Say where a part of a text read from an offset ends, and the next
+     * offset when there's more, or that the offset is past the end.
+     *
+     * @param array $chunk ['length', 'text']
+     */
+    public static function forChunk(array $chunk, int $offset): ?string
+    {
+        if ($offset && $offset >= $chunk['length']) {
+            return sprintf('This text has %s characters, so "offset" %s is past its end.', number_format($chunk['length']), number_format($offset));
+        }
+        $end = $offset + mb_strlen($chunk['text']);
+        if ($end >= $chunk['length']) {
+            return null;
+        }
+        return sprintf(
+            'These are characters %s to %s of %s. Call again with "offset" %d for the next.',
+            number_format($offset), number_format($end), number_format($chunk['length']), $end
+        );
+    }
+
+    /**
      * Say which lists the JSON-LD form cut, and how to reach the rest of each.
      *
      * @param array $cut The full length of each list cut, by name

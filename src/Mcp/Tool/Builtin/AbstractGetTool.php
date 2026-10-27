@@ -271,13 +271,7 @@ abstract class AbstractGetTool implements ToolInterface
     protected function getChunkResult(array $output, array $chunk, int $offset, ?string $lead = null): ToolResult
     {
         $output += ['offset' => $offset, 'length' => $chunk['length'], 'text' => $chunk['text']];
-        $end = $offset + mb_strlen($chunk['text']);
-        $notes = array_filter([$lead, $end < $chunk['length']
-            ? sprintf(
-                'These are characters %s to %s of %s. Call again with "offset" %d for the next.',
-                number_format($offset), number_format($end), number_format($chunk['length']), $end
-            )
-            : null]);
+        $notes = array_filter([$lead, OutputLimitNotes::forChunk($chunk, $offset)]);
         return ToolResult::json($output, $notes ? implode(' ', $notes) : null);
     }
 }
