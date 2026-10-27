@@ -40,8 +40,9 @@ class GetSitePage implements ToolInterface
     public function getDescription(): string
     {
         return 'Get one site page by its id, as search_site_pages gives it, or by its site and slug, as its address '
-            . 'gives them: its title, site, address, and its blocks in order, each with its layout, its text, and the '
-            . 'items it shows. Call get_item with an item\'s id to read it in full.';
+            . 'gives them: its title, site, address, and its blocks in order, each with its layout, its text, its '
+            . 'settings as Omeka stores them in "data", such as the search a browse preview runs, and the items it '
+            . 'shows. Call get_item with an item\'s id to read it in full.';
     }
 
     public function getInputSchema(): array

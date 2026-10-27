@@ -147,23 +147,35 @@ final class OutputLimitNotes
     }
 
     /**
-     * Say which blocks of a site page had their text cut, and how to read it.
+     * Say which blocks of a site page had their text or data cut, and how to
+     * read the text.
      *
-     * The data marks each block cut with a truncated flag.
+     * The data marks each block cut with a truncated flag, for its text, and
+     * a data_truncated flag, for its data.
      */
     public static function forSitePage(array $output): ?string
     {
-        $cut = array_column(array_filter(
+        $positions = fn (string $mark) => array_column(array_filter(
             $output['blocks'] ?? [],
-            fn ($block) => !empty($block[OutputLimits::TRUNCATED])
+            fn ($block) => !empty($block[$mark])
         ), 'position');
-        if (!$cut) {
-            return null;
+        $plural = fn (array $cut) => count($cut) > 1 ? 's' : '';
+        $notes = [];
+        $cut = $positions(OutputLimits::TRUNCATED);
+        if ($cut) {
+            $notes[] = sprintf(
+                'The text of block%s %s was cut. Call again with "block" set to its position to read it, %s characters at a time.',
+                $plural($cut), implode(', ', $cut), number_format(OutputLimits::CHUNK_LIMIT)
+            );
         }
-        return sprintf(
-            'The text of block%s %s was cut. Call again with "block" set to its position to read it, %s characters at a time.',
-            count($cut) > 1 ? 's' : '', implode(', ', $cut), number_format(OutputLimits::CHUNK_LIMIT)
-        );
+        $cut = $positions(OutputLimits::DATA_TRUNCATED);
+        if ($cut) {
+            $notes[] = sprintf(
+                'Long texts in the data of block%s %s were cut to %s characters, and lists to %d entries. The rest can\'t be read through these tools.',
+                $plural($cut), implode(', ', $cut), number_format(OutputLimits::TEXT_LIMIT), OutputLimits::LIST_LIMIT
+            );
+        }
+        return $notes ? implode(' ', $notes) : null;
     }
 
     /**

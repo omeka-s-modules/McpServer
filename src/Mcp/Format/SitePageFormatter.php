@@ -5,16 +5,18 @@ use Laminas\Log\LoggerInterface;
 use Laminas\View\Renderer\PhpRenderer;
 use Omeka\Api\Representation\SitePageBlockRepresentation;
 use Omeka\Api\Representation\SitePageRepresentation;
+use Omeka\Site\BlockLayout\Html;
 use Omeka\Site\BlockLayout\Manager as BlockLayoutManager;
 use Throwable;
 
 /**
  * Turns site pages into output for a model: each block's layout, its text,
- * and the items it shows.
+ * its settings, and the items it shows.
  *
  * A block's text is what its layout's getFulltextText() gives, which is how
- * core indexes a page for search, so this needs no code that knows block
- * types, and modules' blocks give whatever text they choose. Core's own index
+ * core indexes a page for search, so modules' blocks give whatever text they
+ * choose. Core's HTML block is the one exception: it's read as values are,
+ * since its own text runs paragraphs together. Core's own index
  * also holds the titles of attached items, private ones included, so the text
  * is read here, and the attachments from the blocks, which core's Doctrine
  * filters leave out when the caller may not see their item or media.
@@ -49,7 +51,7 @@ class SitePageFormatter
     /**
      * Get a page in full, in the form get_site_page returns: its blocks in
      * order, each with its text, cut at OutputLimits::TEXT_LIMIT like a long
-     * value, and the items it shows.
+     * value, its settings, and the items it shows.
      *
      * Every block is listed, since an editor adds each by hand.
      */
@@ -58,11 +60,15 @@ class SitePageFormatter
         $blocks = [];
         foreach ($page->blocks() as $index => $block) {
             $text = $this->blockText($block);
+            $dataCut = false;
+            $data = $this->blockData($block, $dataCut);
             $blocks[] = OutputLimits::withoutEmpty([
                 'position' => $index + 1,
                 'layout' => $this->layoutLabel($block),
                 'text' => null === $text ? null : OutputLimits::cut($text),
                 OutputLimits::TRUNCATED => null !== $text && mb_strlen($text) > OutputLimits::TEXT_LIMIT ?: null,
+                'data' => $data,
+                OutputLimits::DATA_TRUNCATED => $dataCut ?: null,
                 'items' => $this->attachedItems($block),
             ]);
         }
@@ -145,6 +151,26 @@ class SitePageFormatter
     }
 
     /**
+     * Get a block's settings as Omeka stores them, such as a browse preview's
+     * search or an asset's caption, without the empty ones.
+     *
+     * Every layout keeps what an editor enters in its data, so this reads any
+     * block, a module's too, without knowing its type. The HTML block's data
+     * is its markup, which its text gives. The data is what core's REST API
+     * shows anyone who may see the page, references to private resources
+     * included, so it reveals no more.
+     *
+     * @param bool $cut Set to true when a long text or list was cut
+     */
+    protected function blockData(SitePageBlockRepresentation $block, bool &$cut): array
+    {
+        if ($this->blockLayouts->get($block->layout()) instanceof Html) {
+            return [];
+        }
+        return OutputLimits::compactData((array) $block->data(), $cut);
+    }
+
+    /**
      * Get a block's text as its layout gives it for search, tidied.
      *
      * Returns null when the layout gives none, or fails here, for example one
@@ -152,8 +178,14 @@ class SitePageFormatter
      */
     protected function blockText(SitePageBlockRepresentation $block): ?string
     {
+        $layout = $this->blockLayouts->get($block->layout());
+        // Core's HTML block strips its tags without breaking lines, which runs
+        // paragraphs and list items together, so its HTML is read as values are.
+        if ($layout instanceof Html) {
+            return ValueFormatter::htmlToText((string) $block->dataValue('html', ''));
+        }
         try {
-            $text = $this->blockLayouts->get($block->layout())->getFulltextText($this->view, $block);
+            $text = $layout->getFulltextText($this->view, $block);
         } catch (Throwable $e) {
             $this->logger->warn(sprintf(
                 'MCP Server: could not read the text of a %s block on site page %s: %s',

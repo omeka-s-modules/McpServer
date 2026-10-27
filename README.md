@@ -358,11 +358,13 @@ doesn't find pages that list items by a query, such as a browse preview.
 ### get_site_page
 
 Reads one site page: its title, site, public address, and its blocks in order, each with
-its layout, its text, and the items it shows, with each item's caption. A block's text is
-what Omeka indexes for search, so HTML blocks give their text, and blocks that show only
-a map or a list give none. A block's text longer than 2,000 characters is cut, and `block`
-reads the rest. An item the assistant may not see isn't shown, caption and all, as on the
-site itself.
+its layout, its text, its settings, and the items it shows, with each item's caption. A
+block's text is what Omeka indexes for search, so HTML blocks give their text, and blocks
+that show only a map or a list give none. Its settings are what the editor entered, as
+Omeka stores them in `data`, such as the search a browse preview runs or an image's
+caption, so blocks from other modules come through too. A block's text longer than 2,000
+characters is cut, and `block` reads the rest. An item the assistant may not see isn't
+shown, caption and all, as on the site itself.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -410,7 +412,8 @@ says so, and says how to read the rest, if there is a way.
 
 - Values longer than 2,000 characters, such as long transcriptions, are cut, and
   `property` with `offset` reads the rest. Text cut inside an annotation or in `module_data` can't be
-  read further. A site page's blocks are cut the same way, and `block` reads the rest.
+  read further. A site page's blocks are cut the same way, and `block` reads the rest;
+  long texts and lists in a block's `data` can't be read further.
 - An item, media, or item set shows at most 100 values of one property, and `property`
   reads the rest. Other lists longer than 100 entries, such as the links from other items in the
   `detailed` format, are cut too, with their full length given.

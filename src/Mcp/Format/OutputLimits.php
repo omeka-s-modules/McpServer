@@ -71,6 +71,9 @@ final class OutputLimits
 
     const PROPERTIES_TRUNCATED = 'properties_truncated';
 
+    // That a text or list in a site page block's data was cut.
+    const DATA_TRUNCATED = 'data_truncated';
+
     /**
      * Cut text longer than TEXT_LIMIT, saying how long it was.
      */
@@ -117,5 +120,30 @@ final class OutputLimits
     public static function withoutEmpty(array $fields): array
     {
         return array_filter($fields, fn ($field) => null !== $field && '' !== $field && [] !== $field);
+    }
+
+    /**
+     * Leave out empty fields at every level of stored data, such as a
+     * block's settings, and cut its long texts and long lists.
+     *
+     * @param bool $cut Set to true when anything was cut
+     */
+    public static function compactData(array $data, bool &$cut): array
+    {
+        $isList = array_is_list($data);
+        if ($isList && count($data) > self::LIST_LIMIT) {
+            $data = array_slice($data, 0, self::LIST_LIMIT);
+            $cut = true;
+        }
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $data[$key] = self::compactData($value, $cut);
+            } elseif (is_string($value) && mb_strlen($value) > self::TEXT_LIMIT) {
+                $data[$key] = self::cut($value);
+                $cut = true;
+            }
+        }
+        $data = self::withoutEmpty($data);
+        return $isList ? array_values($data) : $data;
     }
 }
