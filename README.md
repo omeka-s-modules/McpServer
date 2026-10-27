@@ -117,8 +117,8 @@ may see:
 - **Where a connector is shared,** as on some assistants' team plans, everyone using it
   shares its key. Use an account that sees only what all of them should see.
 - **To revoke access, delete the key** under **MCP Server > Keys**, which also shows when
-  each key was last used. A request with a key that no longer works is refused, rather
-  than answered as if it had none.
+  each key was last used, to within five minutes. A request with a key that no longer
+  works is refused, rather than answered as if it had none.
 
 ### Requiring a key
 

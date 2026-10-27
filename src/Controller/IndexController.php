@@ -31,6 +31,9 @@ class IndexController extends AbstractActionController
     // Request headers the protocol reads, by lowercase name.
     const MCP_HEADERS = ['mcp-protocol-version', 'mcp-method', 'mcp-name'];
 
+    // How often a key's last use is recorded, at most, in seconds.
+    const LAST_USED_INTERVAL = 300;
+
     // API operations no caller may perform here.
     const WRITE_OPERATIONS = [
         ApiRequest::CREATE, ApiRequest::BATCH_CREATE,
@@ -208,9 +211,33 @@ class IndexController extends AbstractActionController
                 403
             );
         }
-        $mcpKey->setLastUsed(new DateTime);
-        $this->entityManager->flush();
+        $this->recordUse($mcpKey);
         $this->auth->getStorage()->write($mcpKey->getOwner());
+    }
+
+    /**
+     * Record when a key was used, at most every LAST_USED_INTERVAL seconds,
+     * since a conversation makes many calls, and never at the cost of the
+     * request: a failure is logged, not raised.
+     *
+     * Updates the row directly, since a failed flush would close the entity
+     * manager, and the tools need it for the rest of the request.
+     */
+    protected function recordUse(McpServerKey $mcpKey): void
+    {
+        $now = new DateTime;
+        $last = $mcpKey->getLastUsed();
+        if ($last && $now->getTimestamp() - $last->getTimestamp() < self::LAST_USED_INTERVAL) {
+            return;
+        }
+        try {
+            $this->entityManager->createQuery(sprintf('UPDATE %s k SET k.lastUsed = :now WHERE k.id = :id', McpServerKey::class))
+                ->setParameter('now', $now, 'datetime')
+                ->setParameter('id', $mcpKey->getId())
+                ->execute();
+        } catch (Throwable $e) {
+            $this->logger->warn(sprintf('MCP Server: could not record an MCP key\'s use: %s', $e->getMessage()));
+        }
     }
 
     /**
