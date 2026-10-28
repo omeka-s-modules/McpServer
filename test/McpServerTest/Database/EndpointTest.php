@@ -3,6 +3,10 @@ namespace McpServerTest\Database;
 
 use Laminas\Http\Response;
 use McpServer\Entity\McpServerKey;
+use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Tool\ToolAnnotations;
+use McpServer\Mcp\Tool\ToolInterface;
+use McpServer\Mcp\Tool\ToolResult;
 use McpServer\Module;
 use McpServerTest\DbTestCase;
 use Omeka\Entity\ApiKey;
@@ -135,6 +139,37 @@ class EndpointTest extends AbstractHttpControllerTestCase
         $this->assertNotNull($key->getLastUsed());
     }
 
+    public function testAnswersAreNeverCached()
+    {
+        // An answer to a request with a key may hold private content, so no
+        // answer is kept by a browser or a proxy: results and refusals alike.
+        foreach ([
+            'a result' => $this->call('tools/call', ['name' => 'get_overview', 'arguments' => (object) []], ['key' => self::$keys['reviewer']]),
+            'a refused key' => $this->call('tools/list', [], ['key' => 'not-a-key']),
+            'a wrong media type' => $this->send('POST', '{}', ['Content-Type' => 'text/plain']),
+        ] as $name => $response) {
+            $header = $response->getHeaders()->get('Cache-Control');
+            $this->assertSame('no-store', $header ? $header->getFieldValue() : null, $name);
+        }
+    }
+
+    public function testOutputPrintedDuringARequestStaysOutOfTheAnswer()
+    {
+        // As a PHP notice from another module would be printed. A test's
+        // response isn't sent, so printed text would reach the test's own
+        // output rather than the body: the endpoint must print nothing.
+        $this->expectOutputString('');
+        $this->reset();
+        DbTestCase::setRequestAddress('/mcp');
+        $this->getApplication()->getServiceManager()->get('McpServer\ToolManager')->setFactory('mcp_test_noisy', fn () => new NoisyTool);
+        $request = $this->getRequest();
+        $request->setContent(json_encode(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call', 'params' => ['name' => 'mcp_test_noisy', 'arguments' => new \stdClass]]));
+        $request->getHeaders()->addHeaders(['Content-Type' => 'application/json', 'MCP-Protocol-Version' => '2025-11-25']);
+        $this->dispatch('/mcp', 'POST');
+        $body = $this->body($this->getResponse());
+        $this->assertSame(['said' => 'quiet'], json_decode($body['result']['content'][0]['text'] ?? 'null', true), $this->getResponse()->getContent());
+    }
+
     public function testFailedKeysAreRefused()
     {
         foreach (['an unknown key' => ['key' => 'x'], 'an empty key' => ['key' => ''], 'a key sent as a list' => ['key' => ['x']],
@@ -161,5 +196,38 @@ class EndpointTest extends AbstractHttpControllerTestCase
             // Through the service that set it, so its cache forgets it too.
             $settings->delete(Module::REQUIRE_SIGN_IN);
         }
+    }
+}
+
+/**
+ * A tool that prints text while it runs, as code that emits a PHP notice
+ * does.
+ */
+class NoisyTool implements ToolInterface
+{
+    public function getTitle(): string
+    {
+        return 'Noisy';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Prints a notice, then answers.';
+    }
+
+    public function getInputSchema(): array
+    {
+        return ['type' => 'object'];
+    }
+
+    public function getAnnotations(): array
+    {
+        return ToolAnnotations::READ_ONLY;
+    }
+
+    public function call(array $arguments, Context $context): ToolResult
+    {
+        echo 'Deprecated: a module used something PHP no longer likes.';
+        return ToolResult::json(['said' => 'quiet']);
     }
 }

@@ -27,6 +27,18 @@ class OutputLimitNotesTest extends TestCase
         $this->assertNull(OutputLimitNotes::forSitePage(['blocks' => [['position' => 1]]]));
     }
 
+    public function testSearchPropertiesNoteSaysWhatWasCutAndHowToReadIt()
+    {
+        $this->assertNull(OutputLimitNotes::forSearchProperties([['id' => 1]], 'items'));
+        $note = OutputLimitNotes::forSearchProperties([['id' => 1, OutputLimits::PROPERTIES_TOTALS => ['dcterms:subject' => 12]], ['id' => 2]], 'media');
+        $this->assertStringContainsString(sprintf('a property lists its first %d values', OutputLimits::PROPERTY_VALUES_LIMIT), $note);
+        $this->assertStringNotContainsString('shortened', $note);
+        $this->assertStringContainsString('call get_media with "property"', $note);
+        $note = OutputLimitNotes::forSearchProperties([['id' => 1, OutputLimits::PROPERTIES_TRUNCATED => true]], 'item_sets');
+        $this->assertStringContainsString(sprintf('a value longer than %d characters is shortened', OutputLimits::DESCRIPTION_LIMIT), $note);
+        $this->assertStringContainsString('call get_item_set with "property"', $note);
+    }
+
     public function testConciseNoteSaysWhenDataWasCut()
     {
         $this->assertStringContainsString('Long texts in data were cut', OutputLimitNotes::forConcise([OutputLimits::DATA_TRUNCATED => true]));

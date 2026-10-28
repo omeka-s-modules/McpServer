@@ -400,7 +400,8 @@ The module's tests use Omeka's own test framework and build their own records, s
 run on any development copy of Omeka:
 
 - **Unit tests** check that only a key's hash is kept, how tools are run and their results
-  shaped, and the functions that read arguments and that cut, shorten, and convert text.
+  shaped, the protocol's error responses, and the functions that read arguments and that
+  cut, shorten, and convert text.
   They need only Omeka's development dependencies (`composer install`).
 - **Database tests** install Omeka and the module in a fresh database, and build public
   and private records and users in each role. They check that:

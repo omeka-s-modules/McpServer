@@ -90,6 +90,20 @@ class AddedToolsTest extends DbTestCase
         $this->assertStringContainsString('The tool failed', $this->resultText($result));
     }
 
+    public function testEmptySchemaMapsAreSentAsObjects()
+    {
+        // PHP encodes an empty array as [], which JSON Schema doesn't
+        // accept where it expects an object, so a client could refuse the
+        // whole tool list.
+        $this->addTools([
+            'mymodule_nested' => fn () => new SchemaTool(['type' => 'object', 'properties' => ['options' => ['type' => 'object', 'properties' => []]]]),
+            'mymodule_open' => fn () => new SchemaTool([]),
+        ]);
+        $schemas = array_column($this->services()->get('McpServer\ToolRequests')->listTools(), 'inputSchema', 'name');
+        $this->assertSame('{"type":"object","properties":{"options":{"type":"object","properties":{}}}}', json_encode($schemas['mymodule_nested']));
+        $this->assertSame('{}', json_encode($schemas['mymodule_open']));
+    }
+
     public function testANameClientsCantUseIsSkipped()
     {
         $this->addTools(['mymodule echo' => fn () => new EchoTool]);
@@ -150,5 +164,23 @@ class EchoTool implements ToolInterface
     public function call(array $arguments, Context $context): ToolResult
     {
         return ToolResult::json(['said' => (new ArgumentReader($arguments))->getText('text')]);
+    }
+}
+
+/**
+ * A tool with whatever input schema it's given.
+ */
+class SchemaTool extends EchoTool
+{
+    protected $schema;
+
+    public function __construct(array $schema)
+    {
+        $this->schema = $schema;
+    }
+
+    public function getInputSchema(): array
+    {
+        return $this->schema;
     }
 }
