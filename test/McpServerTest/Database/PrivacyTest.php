@@ -3,6 +3,7 @@ namespace McpServerTest\Database;
 
 use McpServerTest\DbTestCase;
 use McpServerTest\Fixtures;
+use Omeka\Entity\Media;
 
 /**
  * Checks that every tool shows each caller only what Omeka lets them see,
@@ -180,6 +181,21 @@ class PrivacyTest extends DbTestCase
         $counter = $this->services()->get('McpServer\ResourceCounter');
         $this->assertSame([$ids['public_set']], array_keys($counter->getGroupedCounts()['item_sets']));
         $this->assertSame([$ids['public_set']], array_keys($counter->countItemsInSets([$ids['hidden_set'], $ids['public_set']])));
+    }
+
+    public function testMediaTypeCountsLeaveOutPrivateMedia()
+    {
+        $ids = $this->fixtures->ids;
+        // The fixtures' media are HTML, which has no type, so give them one.
+        $em = $this->services()->get('Omeka\EntityManager');
+        foreach (['shown_media', 'public_media', 'hidden_media'] as $name) {
+            $em->find(Media::class, $ids[$name])->setMediaType('image/jpeg');
+        }
+        $em->flush();
+        $types = fn ($caller) => $this->resultData($this->callTool('get_overview', ['list' => 'media_types'], $caller))['entries'];
+        // A visitor counts only the public media of a public item.
+        $this->assertSame([['media_type' => 'image/jpeg', 'media' => 1, 'items' => 1]], $types(null));
+        $this->assertSame([['media_type' => 'image/jpeg', 'media' => 3, 'items' => 3]], $types($this->fixtures->users['reviewer']));
     }
 
     public function testPrivateRecordsAreRefusedAsMissing()

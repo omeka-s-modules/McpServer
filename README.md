@@ -408,7 +408,8 @@ run on any development copy of Omeka:
   - nobody can write through the endpoint, even with a tool that tries
   - in the admin, users can manage only the MCP keys they're allowed to
   - searches and counts give the right answers
-  - long lists and texts are cut, and the rest can be read
+  - long lists and texts are cut, and the rest can be read, and each result on a page
+    costs only a few database queries
   - the protocol, the endpoint, and MCP keys work as described
   - every built-in tool follows the rules for tools
   - a tool another module adds in its config is listed and runs, and a broken one hides
