@@ -56,14 +56,18 @@ class SitePrivacyTest extends DbTestCase
         $this->assertSame(false, $items[$ids['public_item']]['media']['is_public']);
     }
 
-    public function testPrivatePageNeedsARoleOnTheSite()
+    public function testPrivatePageNeedsARoleOnTheSiteUnlessASupervisorOrAdministrator()
     {
         $id = $this->fixtures->ids['private_page'];
-        foreach ([null, 'author', 'reviewer'] as $caller) {
+        // An Editor sees every private item, but not a page without a role
+        // on its site.
+        foreach ([null, 'author', 'reviewer', 'editor'] as $caller) {
             $result = $this->callTool('get_site_page', ['id' => $id], $caller ? $this->fixtures->users[$caller] : null);
             $this->assertTrue($result->isError(), $caller ?? 'visitor');
         }
-        foreach (['site_author', 'admin'] as $caller) {
+        // Core lets a Supervisor see every site page, as it does a Global
+        // Administrator.
+        foreach (['site_author', 'supervisor', 'admin'] as $caller) {
             $page = $this->resultData($this->callTool('get_site_page', ['site' => Fixtures::SITE, 'slug' => 'draft'], $this->fixtures->users[$caller]));
             $this->assertSame([$id, false], [$page['id'], $page['is_public']], $caller);
         }

@@ -32,9 +32,9 @@ class Fixtures
     const TEMPLATE = 'MCP test template';
 
     /**
-     * Users by name: admin (a Global Administrator), reviewer, author (who
-     * owns a private item), researcher, and site_author (an Author with a
-     * role on the test site).
+     * Users by name: admin (a Global Administrator), supervisor, editor,
+     * reviewer, author (who owns a private item), researcher, and
+     * site_author (an Author with a role on the test site).
      *
      * @var User[]
      */
@@ -58,7 +58,7 @@ class Fixtures
         $em = $services->get('Omeka\EntityManager');
         $this->users['admin'] = $em->getRepository(User::class)->findOneBy(['email' => 'admin@example.com']);
         DbTestCase::switchUser($services, $this->users['admin']);
-        foreach (['reviewer' => 'reviewer', 'author' => 'author', 'researcher' => 'researcher', 'site_author' => 'author'] as $name => $role) {
+        foreach (['supervisor' => 'site_admin', 'editor' => 'editor', 'reviewer' => 'reviewer', 'author' => 'author', 'researcher' => 'researcher', 'site_author' => 'author'] as $name => $role) {
             $this->users[$name] = DbTestCase::makeUser("mcp-test-$name@example.com", "MCP test $name", $role);
         }
         $this->buildResources();

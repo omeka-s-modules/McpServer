@@ -57,7 +57,8 @@ shows its full address and the tools assistants can use. Use that address exactl
 no slash at the end.
 
 The module has one optional setting, **Require sign-in**, off by default. See
-[Requiring a key](#requiring-a-key).
+[Requiring a key](#requiring-a-key). Uninstalling the module deletes its setting and every
+MCP key.
 
 ### Connecting an assistant
 
@@ -117,8 +118,8 @@ The assistant sees what the key's user may see:
   media, item sets, and values.
 - **Authors and Researchers** see public content and what they own.
 - **Private site pages,** and the pages of private sites, follow Omeka's rules for sites:
-  a user sees them on sites they own or have a role on, and a Global Administrator sees
-  them all.
+  a user sees them on sites they own or have a role on, and Supervisors and Global
+  Administrators see them all.
 
 An MCP key works only at `/mcp`, never for Omeka's REST API, so it can't be used to change
 anything, whatever its user's role. Omeka API keys don't work at `/mcp`.
@@ -231,7 +232,7 @@ save.
 **An assistant with a key still sees only public content.** The key's user may not see
 private content: an Author or a Researcher sees public content and only the private
 content they own. Check the user's role. Private site pages follow the site instead: the
-user needs a role on that site, whatever their role elsewhere.
+user needs a role on that site, unless they're a Supervisor or a Global Administrator.
 
 **Requests without a key are refused.** **Require sign-in** is on. Add a key to the
 address, or turn the setting off in the module's configuration.
