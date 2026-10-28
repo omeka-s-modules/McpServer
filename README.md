@@ -411,6 +411,8 @@ run on any development copy of Omeka:
   - long lists and texts are cut, and the rest can be read
   - the protocol, the endpoint, and MCP keys work as described
   - every built-in tool follows the rules for tools
+  - a tool another module adds in its config is listed and runs, and a broken one hides
+    no other
 
   They need an empty MySQL database set in Omeka's
   `application/test/config/database.ini`, the one Omeka's own tests use. The tests drop
