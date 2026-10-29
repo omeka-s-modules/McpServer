@@ -22,7 +22,8 @@ use Throwable;
  * Handles HTTP and Omeka policy only: the method, the media type, the MCP
  * headers, denying writes, signing in with an MCP key, and the response. The
  * Dispatcher does all of JSON-RPC. A response with a body has a single JSON
- * body. The server never opens an event stream, never issues a session ID,
+ * body, except the refusal of a method other than POST, which explains itself
+ * in plain text to a browser. The server never opens an event stream, never issues a session ID,
  * and never sets cookies. A request without an MCP key is anonymous and sees
  * public content only, or is refused when the installation requires sign-in.
  */
@@ -116,9 +117,16 @@ class McpController extends AbstractActionController
     protected function handle(Request $request): Response
     {
         if (!$request->isPost()) {
+            // A browser opening the address sends GET, so the refusal says
+            // what the address is, in the installation's language, for
+            // whoever opened it. HTTP asks for an explanation with an error,
+            // and MCP's spec leaves a 405's body open.
             $response = $this->getResponse();
             $response->setStatusCode(405);
-            $response->getHeaders()->addHeaderLine('Allow', 'POST');
+            $response->getHeaders()
+                ->addHeaderLine('Allow', 'POST')
+                ->addHeaderLine('Content-Type', 'text/plain; charset=UTF-8');
+            $response->setContent($this->translate("This address is for AI assistants. Add it to an assistant as an MCP server; it can't be opened in a browser.") . "\n");
             return $response;
         }
         if (!$this->isJson($request)) {

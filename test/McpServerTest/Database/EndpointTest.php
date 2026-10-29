@@ -110,6 +110,11 @@ class EndpointTest extends AbstractHttpControllerTestCase
             $this->assertSame(405, $response->getStatusCode(), $method);
         }
         $this->assertSame('POST', $response->getHeaders()->get('Allow')->getFieldValue());
+        // A browser opening the address is told what it is.
+        $response = $this->send('GET', null);
+        $header = $response->getHeaders()->get('Content-Type');
+        $this->assertSame('text/plain; charset=UTF-8', $header ? $header->getFieldValue() : null);
+        $this->assertStringContainsString('This address is for AI assistants', $response->getContent());
     }
 
     public function testJsonIsRequired()
