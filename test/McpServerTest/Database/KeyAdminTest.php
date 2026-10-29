@@ -10,7 +10,8 @@ use Omeka\Test\AbstractHttpControllerTestCase;
 
 /**
  * Checks who may manage whose MCP keys on the admin pages, and who may
- * change the module's configuration.
+ * change the module's configuration, and what the pages show: every tool on
+ * the Overview, and a new key's address once.
  *
  * The rule follows core's for API keys: everyone manages their own keys,
  * and administrators those of the users they may edit. A request that names
@@ -175,6 +176,40 @@ class KeyAdminTest extends AbstractHttpControllerTestCase
         $token = $this->csrf('supervisor', '/admin/mcp-server/key/add');
         $this->send('supervisor', 'POST', '/admin/mcp-server/key/add', $token + ['label' => 'For the admin', 'user_id' => self::$userIds['admin']]);
         $this->assertSame(0, $this->keyCount('For the admin'));
+    }
+
+    public function testOverviewGivesTheAddressAndEveryTool()
+    {
+        [$status, $page] = $this->send('admin', 'GET', '/admin/mcp-server');
+        $this->assertSame(200, $status);
+        $this->assertStringContainsString('aria-labelledby="mcp-server-address"', $page);
+        foreach (DbTestCase::getApplication()->getServiceManager()->get('McpServer\ToolManager')->getToolNames() as $name) {
+            // A name may break only after an underscore.
+            $this->assertStringContainsString('<code>' . str_replace('_', '_<wbr>', $name) . '</code>', $page, $name);
+        }
+    }
+
+    public function testANewKeysAddressIsShownOnce()
+    {
+        $token = $this->csrf('admin', '/admin/mcp-server/key/add');
+        $this->send('admin', 'POST', '/admin/mcp-server/key/add', $token + ['label' => '<b>New</b>', 'user_id' => self::$userIds['other']]);
+        [, $page] = $this->send('admin', 'GET', '/admin/mcp-server/key');
+        // The label is escaped wherever it shows.
+        $this->assertStringContainsString('MCP key “&lt;b&gt;New&lt;/b&gt;” created. Copy the address below.', $page);
+        $this->assertStringContainsString('Address for “&lt;b&gt;New&lt;/b&gt;”', $page);
+        $this->assertStringNotContainsString('<b>New</b>', $page);
+        $this->assertStringContainsString('read what MCP keys other can see', $page);
+        // The address carries the new key, which is stored by its hash.
+        $this->assertSame(1, preg_match('/aria-labelledby="mcp-server-new-key" value="([^"]+)"/', $page, $matches));
+        $address = html_entity_decode($matches[1], ENT_QUOTES | ENT_HTML5);
+        $this->assertSame(1, preg_match('#/mcp\?key=(omeka_mcp_[A-Za-z0-9_-]{43})$#', $address, $key), $address);
+        $em = self::entityManager();
+        $em->clear();
+        $this->assertNotNull($em->getRepository(McpServerKey::class)->findOneBy(['hash' => McpServerKey::hashKey($key[1])]));
+        // The next visit no longer shows it.
+        [, $again] = $this->send('admin', 'GET', '/admin/mcp-server/key');
+        $this->assertStringNotContainsString('mcp-server-new-key', $again);
+        $this->assertStringNotContainsString($key[1], $again);
     }
 
     public function testResearcherManagesOnlyTheirOwnKeys()
