@@ -85,6 +85,9 @@ return [
     'js_translate_strings' => [
         'Show more', // @translate
         'Show less', // @translate
+        'Copy address', // @translate
+        'Copied', // @translate
+        'Selected. Copy it with your keyboard.', // @translate
     ],
     'navigation' => [
         'AdminModule' => [

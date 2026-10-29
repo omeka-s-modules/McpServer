@@ -4,6 +4,7 @@ namespace McpServer\Controller\Admin;
 use DateTime;
 use Doctrine\ORM\EntityManager;
 use Laminas\Mvc\Controller\AbstractActionController;
+use Laminas\Session\Container;
 use Laminas\View\Model\ViewModel;
 use McpServer\Entity\McpServerKey;
 use McpServer\Form\KeyForm;
@@ -42,9 +43,14 @@ class KeyController extends AbstractActionController
         $identity = $this->identity();
         usort($keys, fn ($a, $b) => [$a->getOwner() !== $identity, $a->getOwner()->getName()]
             <=> [$b->getOwner() !== $identity, $b->getOwner()->getName()]);
+        // A key just created, whose address the page shows this once.
+        $session = new Container('McpServer');
+        $newKey = $session->newKey ?? null;
+        unset($session->newKey);
         $view = new ViewModel;
         $view->setVariable('keys', $keys);
         $view->setVariable('showOwners', count($users) > 1);
+        $view->setVariable('newKey', $newKey);
         return $view;
     }
 
@@ -75,23 +81,15 @@ class KeyController extends AbstractActionController
         $this->entityManager->persist($entity);
         $this->entityManager->flush();
 
-        // The address is shown once, in a read-only box to copy it from.
-        $url = $this->url()->fromRoute('mcp', [], ['force_canonical' => true, 'query' => ['key' => $key]]);
-        $box = sprintf(
-            '<br><input type="text" class="mcp-server-new-address" readonly size="%d" aria-label="%s" value="%s"><br>',
-            strlen($url) + 1, htmlspecialchars($this->translate('Address with key')), htmlspecialchars($url)
-        );
-        $message = $user === $this->identity()
-            ? new Message(
-                'MCP key created. Copy this address now; it can\'t be shown again.%1$sAnyone with the address can read what you can see. Keep it private, like a password, and delete the key if it\'s exposed.', // @translate
-                $box
-            )
-            : new Message(
-                'MCP key created for %1$s. Copy this address now; it can\'t be shown again.%2$sAnyone with the address can read what %1$s can see. Keep it private, like a password, and delete the key if it\'s exposed.', // @translate
-                htmlspecialchars($user->getName()), $box
-            );
-        $message->setEscapeHtml(false);
-        $this->messenger()->addSuccess($message);
+        // The address is shown once, in a panel on the keys page, kept in the
+        // session until then, as core's messenger keeps its messages.
+        $session = new Container('McpServer');
+        $session->newKey = [
+            'label' => $entity->getLabel(),
+            'owner' => $user === $this->identity() ? null : $user->getName(),
+            'address' => $this->url()->fromRoute('mcp', [], ['force_canonical' => true, 'query' => ['key' => $key]]),
+        ];
+        $this->messenger()->addSuccess(new Message('MCP key “%s” created. Copy the address below.', $entity->getLabel())); // @translate
         return $this->redirect()->toRoute('admin/mcp-server', ['controller' => 'key']);
     }
 

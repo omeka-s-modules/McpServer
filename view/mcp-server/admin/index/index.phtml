@@ -4,11 +4,12 @@ $escape = $this->plugin('escapeHtml');
 $this->htmlElement('body')->appendAttribute('class', 'mcp-server');
 $this->headLink()->appendStylesheet($this->assetUrl('css/admin.css', 'McpServer'));
 $this->headScript()->appendFile($this->assetUrl('js/description-toggle.js', 'McpServer'));
+$this->headScript()->appendFile($this->assetUrl('js/copy-address.js', 'McpServer'));
 ?>
 <?php echo $this->pageTitle($translate('Overview'), 1, $translate('MCP Server')); ?>
 
-<h3><?php echo $translate('Address'); ?></h3>
-<p><code><?php echo $escape($address); ?></code></p>
+<h3 id="mcp-server-address"><?php echo $translate('Address'); ?></h3>
+<div><input type="text" class="mcp-server-copy-source" readonly size="<?php echo strlen($address) + 1; ?>" aria-labelledby="mcp-server-address" value="<?php echo $this->escapeHtmlAttr($address); ?>"></div>
 <?php $keysLink = $this->hyperlink($translate('Keys'), $this->url('admin/mcp-server', ['controller' => 'key'])); ?>
 <?php if ($requireSignIn): ?>
 <p><?php echo sprintf(
@@ -26,6 +27,7 @@ $this->headScript()->appendFile($this->assetUrl('js/description-toggle.js', 'Mcp
 <table class="tablesaw mcp-server-tools" data-tablesaw-mode="stack">
     <thead>
         <tr>
+            <th><?php echo $translate('Name'); ?></th>
             <th><?php echo $translate('Title'); ?></th>
             <th><?php echo $translate('Description'); ?></th>
         </tr>
@@ -33,6 +35,7 @@ $this->headScript()->appendFile($this->assetUrl('js/description-toggle.js', 'Mcp
     <tbody>
         <?php foreach ($tools as $tool): ?>
         <tr>
+            <td><code><?php echo str_replace('_', '_<wbr>', $escape($tool['name'])); ?></code></td>
             <td><?php echo $escape($tool['title']); ?></td>
             <td><div class="mcp-server-description"><?php echo $escape($tool['description']); ?></div></td>
         </tr>

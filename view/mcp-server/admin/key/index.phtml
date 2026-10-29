@@ -4,12 +4,25 @@ $escape = $this->plugin('escapeHtml');
 $i18n = $this->plugin('i18n');
 $this->htmlElement('body')->appendAttribute('class', 'mcp-server browse');
 $this->headLink()->appendStylesheet($this->assetUrl('css/admin.css', 'McpServer'));
+// For the Copy address button beside a new key's address.
+$this->headScript()->appendFile($this->assetUrl('js/copy-address.js', 'McpServer'));
 ?>
 <?php echo $this->pageTitle($translate('Keys'), 1, $translate('MCP Server')); ?>
 
 <div id="page-actions">
     <?php echo $this->hyperlink($translate('Add new key'), $this->url('admin/mcp-server', ['controller' => 'key', 'action' => 'add']), ['class' => 'button']); ?>
 </div>
+
+<?php if ($newKey): ?>
+<div class="mcp-server-new-key">
+    <h3 id="mcp-server-new-key"><?php echo $escape(sprintf($translate('Address for “%s”'), $newKey['label'])); ?></h3>
+    <p><?php echo $translate('Copy it now: it can\'t be shown again.'); ?></p>
+    <input type="text" class="mcp-server-copy-source" readonly size="<?php echo strlen($newKey['address']) + 1; ?>" aria-labelledby="mcp-server-new-key" value="<?php echo $this->escapeHtmlAttr($newKey['address']); ?>">
+    <p><?php echo $escape(null === $newKey['owner']
+        ? $translate('Anyone with the address can read what you can see. Keep it private, like a password, and delete the key if it\'s exposed.')
+        : sprintf($translate('Anyone with the address can read what %s can see. Keep it private, like a password, and delete the key if it\'s exposed.'), $newKey['owner'])); ?></p>
+</div>
+<?php endif; ?>
 
 <p><?php echo $translate('An MCP key lets an AI assistant read Omeka as the key\'s user: it sees what that user may see and can\'t change anything. Lost an address? Delete its key and add a new one.'); ?></p>
 

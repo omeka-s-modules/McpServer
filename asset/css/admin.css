@@ -27,16 +27,74 @@ button.mcp-server-description-toggle:hover {
 }
 
 /* The tools table gives most of its width to descriptions; Omeka's admin
-   tables otherwise split it evenly. */
-.mcp-server-tools th:first-child {
-    width: 25%;
+   tables otherwise split it evenly. A long name breaks only after an
+   underscore, where the view marks it, not anywhere, as Omeka's tables
+   otherwise break long words. */
+.mcp-server-tools th:nth-child(-n+2) {
+    width: 20%;
 }
 
-/* A new key's address box, no wider than the message it's in. Monospace, so
-   its size in characters fits the address exactly, and so characters such as
-   l, I, and 1 in the key are easy to tell apart. */
-.mcp-server-new-address {
+.mcp-server-tools td:first-child code {
+    word-break: normal;
+}
+
+/* An address box, the server's or a new key's, no wider than the page or
+   the message it's in. Monospace, so its size in characters fits the address
+   exactly, and so characters such as l, I, and 1 in a key are easy to tell
+   apart. */
+.mcp-server-copy-source {
     max-width: 100%;
     box-sizing: border-box;
     font-family: monospace;
+}
+
+/* An address box with its Copy address button joined to its right, as one
+   control. Where the line is too short for both, the box gives up width, so
+   a long key may be cut off in it, but it still copies whole. */
+.mcp-server-copy-group {
+    display: flex;
+    max-width: 100%;
+    margin: 4px 0;
+}
+
+.mcp-server-copy-group .mcp-server-copy-source {
+    flex: 0 1 auto;
+    min-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* The button never shrinks; core's minimum width for buttons would let it
+   shrink below its text. */
+.mcp-server-copy {
+    flex: none;
+    margin: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    white-space: nowrap;
+}
+
+/* The copy icon, which screen readers skip, as core marks its own. */
+.mcp-server-copy:before {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 400;
+    content: "\f0c5" / "";
+    margin-right: 6px;
+}
+
+/* The panel that shows a new key's address, once, on the keys page, in
+   normal text rather than a message's color. */
+.mcp-server-new-key {
+    background-color: rgba(0, 0, 0, 0.04);
+    border-radius: 3px;
+    padding: 12px;
+    margin: 0 0 18px;
+}
+
+.mcp-server-new-key h3 {
+    margin-top: 0;
+}
+
+.mcp-server-new-key p {
+    margin: 6px 0;
 }

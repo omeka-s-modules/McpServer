@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-26 20:43-0400\n"
+"POT-Creation-Date: 2026-10-28 20:35-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,25 +17,21 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/Controller/Admin/KeyController.php:82
-msgid "Address with key"
-msgstr ""
-
-#: view/mcp-server/admin/index/index.phtml:8
+#: view/mcp-server/admin/index/index.phtml:9
 msgid "Overview"
 msgstr ""
 
-#: view/mcp-server/admin/index/index.phtml:8
+#: view/mcp-server/admin/index/index.phtml:9
 #: view/mcp-server/admin/key/add.phtml:8
-#: view/mcp-server/admin/key/index.phtml:8
+#: view/mcp-server/admin/key/index.phtml:10
 msgid "MCP Server"
 msgstr ""
 
-#: view/mcp-server/admin/index/index.phtml:10
+#: view/mcp-server/admin/index/index.phtml:11
 msgid "Address"
 msgstr ""
 
-#: view/mcp-server/admin/index/index.phtml:15
+#: view/mcp-server/admin/index/index.phtml:16
 #, php-format
 msgid ""
 "This server requires sign-in. Create an MCP key under %s, and add the "
@@ -43,7 +39,7 @@ msgid ""
 "then sees what the key's user may see."
 msgstr ""
 
-#: view/mcp-server/admin/index/index.phtml:20
+#: view/mcp-server/admin/index/index.phtml:21
 #, php-format
 msgid ""
 "Add this address to an AI assistant as a remote MCP server, and it can read "
@@ -52,12 +48,12 @@ msgid ""
 "the key's user may see."
 msgstr ""
 
-#: view/mcp-server/admin/index/index.phtml:25
+#: view/mcp-server/admin/index/index.phtml:26
 msgid "Tools"
 msgstr ""
 
 #: view/mcp-server/admin/key/add.phtml:8
-#: view/mcp-server/admin/key/index.phtml:11
+#: view/mcp-server/admin/key/index.phtml:13
 msgid "Add new key"
 msgstr ""
 
@@ -89,43 +85,54 @@ msgstr ""
 msgid "Assistants using it will stop connecting."
 msgstr ""
 
-#: view/mcp-server/admin/key/index.phtml:14
+#: view/mcp-server/admin/key/index.phtml:18
+#, php-format
+msgid "Address for “%s”"
+msgstr ""
+
+#: view/mcp-server/admin/key/index.phtml:19
+msgid "Copy it now: it can't be shown again."
+msgstr ""
+
+#: view/mcp-server/admin/key/index.phtml:22
+msgid ""
+"Anyone with the address can read what you can see. Keep it private, like a "
+"password, and delete the key if it's exposed."
+msgstr ""
+
+#: view/mcp-server/admin/key/index.phtml:23
+#, php-format
+msgid ""
+"Anyone with the address can read what %s can see. Keep it private, like a "
+"password, and delete the key if it's exposed."
+msgstr ""
+
+#: view/mcp-server/admin/key/index.phtml:27
 msgid ""
 "An MCP key lets an AI assistant read Omeka as the key's user: it sees what "
 "that user may see and can't change anything. Lost an address? Delete its key "
 "and add a new one."
 msgstr ""
 
-#: view/mcp-server/admin/key/index.phtml:25
+#: view/mcp-server/admin/key/index.phtml:38
 msgid "Last used"
 msgstr ""
 
-#: view/mcp-server/admin/key/index.phtml:38
+#: view/mcp-server/admin/key/index.phtml:51
 #, php-format
 msgid "Delete key “%s”"
 msgstr ""
 
-#: view/mcp-server/admin/key/index.phtml:59
+#: view/mcp-server/admin/key/index.phtml:72
 msgid "No MCP keys yet."
 msgstr ""
 
-#: src/Controller/Admin/KeyController.php:86
+#: src/Controller/Admin/KeyController.php:92
 #, php-format
-msgid ""
-"MCP key created. Copy this address now; it can't be shown again.%1$sAnyone "
-"with the address can read what you can see. Keep it private, like a "
-"password, and delete the key if it's exposed."
+msgid "MCP key “%s” created. Copy the address below."
 msgstr ""
 
-#: src/Controller/Admin/KeyController.php:90
-#, php-format
-msgid ""
-"MCP key created for %1$s. Copy this address now; it can't be shown again."
-"%2$sAnyone with the address can read what %1$s can see. Keep it private, "
-"like a password, and delete the key if it's exposed."
-msgstr ""
-
-#: src/Controller/Admin/KeyController.php:121
+#: src/Controller/Admin/KeyController.php:119
 msgid "MCP key deleted."
 msgstr ""
 
@@ -139,10 +146,22 @@ msgid ""
 "may read public content."
 msgstr ""
 
-#: config/module.config.php:72
+#: config/module.config.php:86
 msgid "Show more"
 msgstr ""
 
-#: config/module.config.php:73
+#: config/module.config.php:87
 msgid "Show less"
+msgstr ""
+
+#: config/module.config.php:88
+msgid "Copy address"
+msgstr ""
+
+#: config/module.config.php:89
+msgid "Copied"
+msgstr ""
+
+#: config/module.config.php:90
+msgid "Selected. Copy it with your keyboard."
 msgstr ""
