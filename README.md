@@ -199,7 +199,7 @@ npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport ht
 ```
 
 In the code, each tool's `getInputSchema()` in `src/Mcp/Tool/Builtin/` defines its
-parameters, and `src/Mcp/Format/OutputLimits.php` sets how much a tool shows, and says
+parameters, and `src/Mcp/Output/OutputLimits.php` sets how much a tool shows, and says
 where the other limits are.
 
 Results mark private records and values with `"is_public": false`, as Omeka's JSON-LD

@@ -1,9 +1,9 @@
 <?php
-namespace McpServer\Service\Mcp\Tool\Builtin;
+namespace McpServer\Service\Mcp\Query;
 
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
-use McpServer\Mcp\Tool\Builtin\ResourceCounter;
+use McpServer\Mcp\Query\ResourceCounter;
 
 class ResourceCounterFactory implements FactoryInterface
 {

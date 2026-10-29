@@ -1,9 +1,9 @@
 <?php
-namespace McpServer\Service\Mcp\Tool\Builtin;
+namespace McpServer\Service\Mcp\Query;
 
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
-use McpServer\Mcp\Tool\Builtin\SearchFilters;
+use McpServer\Mcp\Query\SearchFilters;
 
 class SearchFiltersFactory implements FactoryInterface
 {

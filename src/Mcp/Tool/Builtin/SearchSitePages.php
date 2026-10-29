@@ -1,8 +1,10 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
-use McpServer\Mcp\Format\OutputLimits;
-use McpServer\Mcp\Format\SitePageFormatter;
+use McpServer\Mcp\Output\OutputLimits;
+use McpServer\Mcp\Output\SitePageFormatter;
+use McpServer\Mcp\Query\IdResolver;
+use McpServer\Mcp\Query\SearchFilters;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;

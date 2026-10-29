@@ -1,7 +1,6 @@
 <?php
-namespace McpServer\Mcp\Tool\Builtin;
+namespace McpServer\Mcp\Output;
 
-use McpServer\Mcp\Format\OutputLimits;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 use Omeka\Api\Representation\MediaRepresentation;
 

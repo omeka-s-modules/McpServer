@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Format;
+namespace McpServer\Mcp\Output;
 
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 use Omeka\Api\Representation\MediaRepresentation;

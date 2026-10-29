@@ -37,7 +37,7 @@ return [
     ],
     'controllers' => [
         'factories' => [
-            'McpServer\Controller\Index' => Service\Controller\IndexControllerFactory::class,
+            'McpServer\Controller\Mcp' => Service\Controller\McpControllerFactory::class,
             'McpServer\Controller\Admin\Index' => Service\Controller\Admin\IndexControllerFactory::class,
             'McpServer\Controller\Admin\Key' => Service\Controller\Admin\KeyControllerFactory::class,
         ],
@@ -55,21 +55,21 @@ return [
     ],
     'service_manager' => [
         'invokables' => [
-            'McpServer\JsonLdFormatter' => Mcp\Format\JsonLdFormatter::class,
+            'McpServer\JsonLdFormatter' => Mcp\Output\JsonLdFormatter::class,
         ],
         'factories' => [
             'McpServer\Dispatcher' => Service\Mcp\Protocol\DispatcherFactory::class,
             'McpServer\ToolRequests' => Service\Mcp\Protocol\ToolRequestsFactory::class,
             'McpServer\ToolManager' => Service\Mcp\Tool\ManagerFactory::class,
             'McpServer\ToolRunner' => Service\Mcp\Tool\ToolRunnerFactory::class,
-            'McpServer\EmptyResultNotes' => Service\Mcp\Tool\Builtin\EmptyResultNotesFactory::class,
-            'McpServer\IdResolver' => Service\Mcp\Tool\Builtin\IdResolverFactory::class,
-            'McpServer\NameLookup' => Service\Mcp\Tool\Builtin\NameLookupFactory::class,
-            'McpServer\ResourceCounter' => Service\Mcp\Tool\Builtin\ResourceCounterFactory::class,
-            'McpServer\ResourceFormatter' => Service\Mcp\Format\ResourceFormatterFactory::class,
-            'McpServer\SearchFilters' => Service\Mcp\Tool\Builtin\SearchFiltersFactory::class,
-            'McpServer\SitePageFormatter' => Service\Mcp\Format\SitePageFormatterFactory::class,
-            'McpServer\ValueFormatter' => Service\Mcp\Format\ValueFormatterFactory::class,
+            'McpServer\EmptyResultNotes' => Service\Mcp\Output\EmptyResultNotesFactory::class,
+            'McpServer\IdResolver' => Service\Mcp\Query\IdResolverFactory::class,
+            'McpServer\NameLookup' => Service\Mcp\Query\NameLookupFactory::class,
+            'McpServer\ResourceCounter' => Service\Mcp\Query\ResourceCounterFactory::class,
+            'McpServer\ResourceFormatter' => Service\Mcp\Output\ResourceFormatterFactory::class,
+            'McpServer\SearchFilters' => Service\Mcp\Query\SearchFiltersFactory::class,
+            'McpServer\SitePageFormatter' => Service\Mcp\Output\SitePageFormatterFactory::class,
+            'McpServer\ValueFormatter' => Service\Mcp\Output\ValueFormatterFactory::class,
         ],
     ],
     'translator' => [
@@ -123,7 +123,7 @@ return [
                         // so requests start no session and browser cookies
                         // never identify the caller.
                         '__KEYAUTH__' => true,
-                        'controller' => 'McpServer\Controller\Index',
+                        'controller' => 'McpServer\Controller\Mcp',
                         'action' => 'index',
                     ],
                 ],

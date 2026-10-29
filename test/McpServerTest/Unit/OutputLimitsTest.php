@@ -1,7 +1,7 @@
 <?php
 namespace McpServerTest\Unit;
 
-use McpServer\Mcp\Format\OutputLimits;
+use McpServer\Mcp\Output\OutputLimits;
 use PHPUnit\Framework\TestCase;
 
 class OutputLimitsTest extends TestCase

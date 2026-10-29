@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Tool\Builtin;
+namespace McpServer\Mcp\Query;
 
 use McpServer\Mcp\Tool\ToolException;
 

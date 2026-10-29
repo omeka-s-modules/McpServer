@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Format;
+namespace McpServer\Mcp\Output;
 
 use Laminas\Log\LoggerInterface;
 use Laminas\View\Renderer\PhpRenderer;

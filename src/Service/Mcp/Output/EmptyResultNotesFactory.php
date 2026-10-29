@@ -1,9 +1,9 @@
 <?php
-namespace McpServer\Service\Mcp\Tool\Builtin;
+namespace McpServer\Service\Mcp\Output;
 
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
-use McpServer\Mcp\Tool\Builtin\EmptyResultNotes;
+use McpServer\Mcp\Output\EmptyResultNotes;
 
 class EmptyResultNotesFactory implements FactoryInterface
 {

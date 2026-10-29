@@ -1,8 +1,8 @@
 <?php
 namespace McpServerTest\Database;
 
-use McpServer\Mcp\Tool\Builtin\ResourceCounter;
-use McpServer\Service\Mcp\Tool\Builtin\ResourceCounterFactory;
+use McpServer\Mcp\Query\ResourceCounter;
+use McpServer\Service\Mcp\Query\ResourceCounterFactory;
 use McpServerTest\DbTestCase;
 use OverflowException;
 

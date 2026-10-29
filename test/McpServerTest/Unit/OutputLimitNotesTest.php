@@ -1,8 +1,8 @@
 <?php
 namespace McpServerTest\Unit;
 
-use McpServer\Mcp\Format\OutputLimits;
-use McpServer\Mcp\Tool\Builtin\OutputLimitNotes;
+use McpServer\Mcp\Output\OutputLimitNotes;
+use McpServer\Mcp\Output\OutputLimits;
 use PHPUnit\Framework\TestCase;
 
 class OutputLimitNotesTest extends TestCase

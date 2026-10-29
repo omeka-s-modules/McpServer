@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Format;
+namespace McpServer\Mcp\Output;
 
 /**
  * The limits on how much a tool returns, and the functions that keep output

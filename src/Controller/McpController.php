@@ -26,7 +26,7 @@ use Throwable;
  * and never sets cookies. A request without an MCP key is anonymous and sees
  * public content only, or is refused when the installation requires sign-in.
  */
-class IndexController extends AbstractActionController
+class McpController extends AbstractActionController
 {
     // Request headers the protocol reads, by lowercase name.
     const MCP_HEADERS = ['mcp-protocol-version', 'mcp-method', 'mcp-name'];

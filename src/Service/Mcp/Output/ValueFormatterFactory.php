@@ -1,9 +1,9 @@
 <?php
-namespace McpServer\Service\Mcp\Format;
+namespace McpServer\Service\Mcp\Output;
 
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
-use McpServer\Mcp\Format\ValueFormatter;
+use McpServer\Mcp\Output\ValueFormatter;
 
 class ValueFormatterFactory implements FactoryInterface
 {

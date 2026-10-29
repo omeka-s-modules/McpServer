@@ -1,8 +1,10 @@
 <?php
-namespace McpServer\Mcp\Tool\Builtin;
+namespace McpServer\Mcp\Output;
 
 use Laminas\Authentication\AuthenticationService;
-use McpServer\Mcp\Format\ResourceFormatter;
+use McpServer\Mcp\Query\NameLookup;
+use McpServer\Mcp\Query\ResourceCounter;
+use McpServer\Mcp\Query\SearchFilters;
 
 /**
  * Says why a search or count of items, media, or item sets matched nothing,

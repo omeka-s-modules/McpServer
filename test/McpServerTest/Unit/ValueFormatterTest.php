@@ -1,7 +1,7 @@
 <?php
 namespace McpServerTest\Unit;
 
-use McpServer\Mcp\Format\ValueFormatter;
+use McpServer\Mcp\Output\ValueFormatter;
 use PHPUnit\Framework\TestCase;
 
 class ValueFormatterTest extends TestCase

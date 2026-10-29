@@ -26,7 +26,7 @@ class Module extends AbstractModule
         // carries an MCP key, and the API applies the caller's permissions.
         // When the installation requires sign-in, the controller refuses a
         // request without a key.
-        $acl->allow(null, 'McpServer\Controller\Index');
+        $acl->allow(null, 'McpServer\Controller\Mcp');
         // Every signed-in user may open the MCP Server pages, since anyone may
         // have keys; admin pages already require signing in. The key
         // controller checks that the user may manage the keys in question.

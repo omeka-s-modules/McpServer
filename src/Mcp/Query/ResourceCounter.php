@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Tool\Builtin;
+namespace McpServer\Mcp\Query;
 
 use Doctrine\ORM\EntityManager;
 use Omeka\Api\Manager as ApiManager;
