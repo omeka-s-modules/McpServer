@@ -11,7 +11,7 @@ class ResourceFormatterFactory implements FactoryInterface
     {
         return new ResourceFormatter(
             $services->get('Omeka\Settings'),
-            $services->get('McpServer\NameLookup'),
+            $services->get('Omeka\ApiManager'),
             $services->get('McpServer\JsonLdFormatter'),
             $services->get('McpServer\ValueFormatter')
         );

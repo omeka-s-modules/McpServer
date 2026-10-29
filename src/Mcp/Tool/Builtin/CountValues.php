@@ -2,7 +2,6 @@
 namespace McpServer\Mcp\Tool\Builtin;
 
 use McpServer\Mcp\Format\OutputLimits;
-use McpServer\Mcp\Query\ResourceCounter;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;

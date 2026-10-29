@@ -1,7 +1,7 @@
 <?php
 namespace McpServer\Mcp\Format;
 
-use McpServer\Mcp\Query\NameLookup;
+use Omeka\Api\Manager as ApiManager;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 use Omeka\Api\Representation\ItemRepresentation;
 use Omeka\Api\Representation\ItemSetRepresentation;
@@ -26,16 +26,19 @@ class ResourceFormatter
 
     protected $settings;
 
-    protected $names;
+    protected $api;
 
     protected $jsonLdFormatter;
 
     protected $valueFormatter;
 
-    public function __construct(Settings $settings, NameLookup $names, JsonLdFormatter $jsonLdFormatter, ValueFormatter $valueFormatter)
+    // The slugs of the sites the caller can see, by site ID, read once.
+    protected $siteSlugs;
+
+    public function __construct(Settings $settings, ApiManager $api, JsonLdFormatter $jsonLdFormatter, ValueFormatter $valueFormatter)
     {
         $this->settings = $settings;
-        $this->names = $names;
+        $this->api = $api;
         $this->jsonLdFormatter = $jsonLdFormatter;
         $this->valueFormatter = $valueFormatter;
     }
@@ -245,7 +248,7 @@ class ResourceFormatter
     {
         // The caller's sites, by ID. The resource's own sites aren't filtered
         // by visibility, so they only say which of these it's on.
-        $slugs = $this->names->getSiteSlugs();
+        $slugs = $this->siteSlugs ??= $this->api->search('sites', [], ['returnScalar' => 'slug'])->getContent();
         // A media is on the sites its item is on.
         $placed = $resource instanceof MediaRepresentation ? $resource->item() : $resource;
         $onSites = array_keys(array_intersect_key($slugs, $placed->sites()));

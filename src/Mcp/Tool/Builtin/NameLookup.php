@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Query;
+namespace McpServer\Mcp\Tool\Builtin;
 
 use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Manager as ApiManager;

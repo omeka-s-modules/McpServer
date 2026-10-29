@@ -1,5 +1,5 @@
 <?php
-namespace McpServer\Mcp\Query;
+namespace McpServer\Mcp\Tool\Builtin;
 
 use Doctrine\ORM\EntityManager;
 use Omeka\Api\Manager as ApiManager;
@@ -33,9 +33,8 @@ use OverflowException;
  * Doctrine filters, so it gives the same answer. isUsedOnlyInAnnotations()
  * works the same way, reading a row or two.
  *
- * Tools in other modules that need counts should use this service, rather than
- * querying Doctrine themselves. Above COUNT_MAX matching resources, the
- * counts throw, so check getResourceIds() for null first.
+ * Above COUNT_MAX matching resources, the counts throw, so check
+ * getResourceIds() for null first.
  */
 class ResourceCounter
 {
@@ -415,13 +414,6 @@ class ResourceCounter
     }
 
     /**
-     * Count items per group, from the grouped counts when this request
-     * already has them, otherwise a query per group.
-     *
-     * @param string $group A key of getGroupedCounts()
-     * @param string $filter The item query parameter that selects one group
-     */
-    /**
      * Get the IDs of the item sets the caller may see, from the API, once per
      * request.
      *
@@ -435,6 +427,13 @@ class ResourceCounter
         );
     }
 
+    /**
+     * Count items per group, from the grouped counts when this request
+     * already has them, otherwise a query per group.
+     *
+     * @param string $group A key of getGroupedCounts()
+     * @param string $filter The item query parameter that selects one group
+     */
     protected function countItemsPer(string $group, string $filter, array $ids): array
     {
         $grouped = $this->cache['grouped_counts'] ?? null;

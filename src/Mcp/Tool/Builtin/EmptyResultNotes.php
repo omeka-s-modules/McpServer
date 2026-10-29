@@ -3,8 +3,6 @@ namespace McpServer\Mcp\Tool\Builtin;
 
 use Laminas\Authentication\AuthenticationService;
 use McpServer\Mcp\Format\ResourceFormatter;
-use McpServer\Mcp\Query\NameLookup;
-use McpServer\Mcp\Query\ResourceCounter;
 
 /**
  * Says why a search or count of items, media, or item sets matched nothing,

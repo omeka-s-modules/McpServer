@@ -1,9 +1,9 @@
 <?php
-namespace McpServer\Service\Mcp\Query;
+namespace McpServer\Service\Mcp\Tool\Builtin;
 
 use Interop\Container\ContainerInterface;
 use Laminas\ServiceManager\Factory\FactoryInterface;
-use McpServer\Mcp\Query\NameLookup;
+use McpServer\Mcp\Tool\Builtin\NameLookup;
 
 class NameLookupFactory implements FactoryInterface
 {

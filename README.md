@@ -191,7 +191,7 @@ content isn't on the public site. It can also look for private content alone.
   rate-limit it at the web server, as you would any public endpoint.
 
 Signing in through an assistant's own sign-in screen, so that each person uses their own
-Omeka account without handling a key, is planned for a later version.
+Omeka account without handling a key, isn't available yet.
 
 ### Limits
 
@@ -389,11 +389,12 @@ These are the parts other modules can rely on; everything else may change betwee
   with a message the assistant can act on. When a tool's input schema sets
   `additionalProperties` to `false`, as above, an argument it doesn't name is refused, so a
   misspelled filter can't pass for one applied.
-- **The `McpServer\ResourceCounter` service**, for counts the API can't make, and to check
-  whether a property or class is in use. Give it the API resource and query you would
-  search with: it fetches the matching records through the API itself, so it counts only
-  what the caller may see. Above 200,000 matching records the counts throw, so check
-  `getResourceIds()` for `null` first.
+
+To count what the API can't, such as values grouped by property, follow the rules for
+reading data in `ToolInterface`: get the records' IDs from the API, then query only rows
+tied to those IDs. This module's own counting code is internal. If your tool needs it, ask
+on the [Omeka forum](https://forum.omeka.org/c/omeka-s/modules), so a supported version
+can be designed around real use.
 
 ### Running the tests
 
@@ -439,7 +440,7 @@ still experimental, and needs about ten packages that would load ahead of Omeka'
 copies. The others need a newer `psr/log` than Omeka's logging uses, or a framework of
 their own. And their sign-in assumes an outside identity provider, with no way to let
 anonymous requests through while signed-in ones see more, which this server needs now,
-and will need when it adds OAuth sign-in with Omeka as the identity provider.
+and would need if OAuth sign-in with Omeka as the identity provider were added.
 
 WordPress made the same choice for its MCP adapter. The protocol code is kept apart from
 the tools, in `src/Mcp/Protocol/`, so a library could replace it later without changing
