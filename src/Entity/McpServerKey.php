@@ -112,11 +112,6 @@ class McpServerKey extends AbstractEntity
         return $this->created;
     }
 
-    public function setLastUsed(DateTime $lastUsed): void
-    {
-        $this->lastUsed = $lastUsed;
-    }
-
     public function getLastUsed(): ?DateTime
     {
         return $this->lastUsed;

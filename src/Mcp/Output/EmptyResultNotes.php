@@ -79,7 +79,6 @@ class EmptyResultNotes
      */
     protected function explainMissingProperties(string $resource, array $query): ?string
     {
-        $query = array_diff_key($query, ['page' => true, 'per_page' => true]);
         $conditions = $query['property'] ?? [];
         foreach ($conditions as $index => $condition) {
             $term = 'nex' === $condition['type'] ? null : $this->names->getPropertyTerm($condition['property']);
@@ -118,7 +117,6 @@ class EmptyResultNotes
      */
     protected function countHaving(string $resource, array $query, int $propertyId): int
     {
-        $query['property'][] = ['joiner' => 'and', 'property' => $propertyId, 'type' => 'ex'];
-        return $this->counter->countResources($resource, $query);
+        return $this->counter->countResources($resource, SearchFilters::havingProperty($query, $propertyId));
     }
 }

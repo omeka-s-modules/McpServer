@@ -95,8 +95,6 @@ abstract class AbstractSearchTool implements ToolInterface
     protected function getFilterAdvice(): array
     {
         return [
-            'item_set' => 'Find the items with search_items.',
-            'has_media' => 'Find the items with search_items.',
             'media_type' => 'To filter by media type, call search_media.',
         ];
     }
@@ -254,8 +252,7 @@ abstract class AbstractSearchTool implements ToolInterface
             return null;
         }
         $noun = $this->getNoun();
-        $countQuery = array_diff_key($query, ['page' => true, 'per_page' => true]) + ['limit' => 0];
-        $countQuery['property'][] = ['joiner' => 'and', 'property' => $term, 'type' => 'ex'];
+        $countQuery = SearchFilters::havingProperty($query, $term) + ['limit' => 0];
         $withProperty = $this->api->search($this->getResourceName(), $countQuery)->getTotalResults();
         if (0 === $withProperty) {
             return sprintf(

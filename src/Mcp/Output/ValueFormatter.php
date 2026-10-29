@@ -119,14 +119,8 @@ class ValueFormatter
     protected function value(ValueRepresentation $value): array
     {
         $output = $this->valueText($value);
-        if (mb_strlen($output['text']) > OutputLimits::TEXT_LIMIT) {
-            $output['text'] = OutputLimits::cut($output['text']);
-            $output[OutputLimits::TRUNCATED] = true;
-        }
-        // Marks a private value, or one linking to a private record, which
-        // visitors don't see either: only a signed-in caller may see them.
-        $linked = $value->valueResource();
-        $output['is_public'] = $value->isPublic() && (!$linked || $linked->isPublic()) ? null : false;
+        $output = array_merge($output, OutputLimits::cutAndMark($output['text']));
+        $output['is_public'] = $this->privateMark($value);
         // Values about the value, such as how certain a date is. Null when
         // there are none, or the caller can't see them.
         $annotation = $value->valueAnnotation();
@@ -134,6 +128,19 @@ class ValueFormatter
             $output['annotations'] = $this->values($annotation);
         }
         return OutputLimits::withoutEmpty($output);
+    }
+
+    /**
+     * Mark a private value, or one linking to a private record, which visitors
+     * don't see either: only a caller signed in with an MCP key may see them.
+     *
+     * @return false|null False for a private value, or null for a public one,
+     *   which leaves the field out
+     */
+    public function privateMark(ValueRepresentation $value): ?bool
+    {
+        $linked = $value->valueResource();
+        return $value->isPublic() && (!$linked || $linked->isPublic()) ? null : false;
     }
 
     /**

@@ -329,8 +329,7 @@ final class OutputLimitNotes
             );
             $notes[] = $names
                 ? sprintf(
-                    'To read the rest of one, call again with %s "offset" %d, such as %s.',
-                    array_filter(array_column($readable, 1)) ? 'its "property", its "position", and' : 'its "property" and',
+                    'To read the rest of one, call again with its "property", its "position", and "offset" %d, such as %s.',
                     OutputLimits::TEXT_LIMIT, $example
                 )
                 : sprintf('To read the rest, call again with %s.', $example);

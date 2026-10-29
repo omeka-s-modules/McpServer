@@ -65,8 +65,7 @@ class SitePageFormatter
             $blocks[] = OutputLimits::withoutEmpty([
                 'position' => $index + 1,
                 'layout' => $this->layoutLabel($block),
-                'text' => null === $text ? null : OutputLimits::cut($text),
-                OutputLimits::TRUNCATED => null !== $text && mb_strlen($text) > OutputLimits::TEXT_LIMIT ?: null,
+                ...(null === $text ? [] : OutputLimits::cutAndMark($text)),
                 'data' => $data,
                 OutputLimits::DATA_TRUNCATED => $dataCut ?: null,
                 'items' => $this->attachedItems($block),

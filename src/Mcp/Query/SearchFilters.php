@@ -257,6 +257,20 @@ class SearchFilters
     }
 
     /**
+     * Narrow a query to the resources that have a value of a property, for
+     * counting them.
+     *
+     * @param int|string $property A property's ID or term, which core's
+     *   property query takes either way
+     */
+    public static function havingProperty(array $query, int|string $property): array
+    {
+        $query = array_diff_key($query, ['page' => true, 'per_page' => true]);
+        $query['property'][] = ['joiner' => 'and', 'property' => $property, 'type' => 'ex'];
+        return $query;
+    }
+
+    /**
      * Get what a resource is called in messages, such as "item sets".
      */
     public static function noun(string $resource): string

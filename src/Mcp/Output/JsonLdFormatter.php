@@ -31,7 +31,8 @@ class JsonLdFormatter
     const ROUND_TRIP_FLAGS = JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR;
 
     /**
-     * Get Omeka's JSON-LD for an item or item set, as the API returns it.
+     * Get Omeka's JSON-LD for an item, item set, or media, as the API returns
+     * it.
      *
      * Long values and long lists are cut, so that extracted text, a book's
      * pages, or the thousands of items linking to a person can't exceed a

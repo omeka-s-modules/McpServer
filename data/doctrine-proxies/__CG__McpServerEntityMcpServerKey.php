@@ -272,17 +272,6 @@ class McpServerKey extends \McpServer\Entity\McpServerKey implements \Doctrine\O
     /**
      * {@inheritDoc}
      */
-    public function setLastUsed(\DateTime $lastUsed): void
-    {
-
-        $this->__initializer__ && $this->__initializer__->__invoke($this, 'setLastUsed', [$lastUsed]);
-
-        parent::setLastUsed($lastUsed);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     public function getLastUsed(): ?\DateTime
     {
 

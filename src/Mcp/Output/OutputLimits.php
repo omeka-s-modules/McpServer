@@ -87,6 +87,17 @@ final class OutputLimits
     }
 
     /**
+     * Cut text as cut() does, and mark it when it was cut.
+     *
+     * @return array ['text', TRUNCATED => true, or null when it wasn't cut]
+     */
+    public static function cutAndMark(string $text): array
+    {
+        $cut = mb_strlen($text) > self::TEXT_LIMIT;
+        return ['text' => self::cut($text), self::TRUNCATED => $cut ?: null];
+    }
+
+    /**
      * Shorten text for a summary, at a word boundary.
      */
     public static function shorten(string $text, int $limit): string

@@ -8,9 +8,7 @@ use McpServer\Mcp\Query\ResourceCounter;
 use McpServer\Mcp\Query\SearchFilters;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
-use McpServer\Mcp\Tool\ToolAnnotations;
 use McpServer\Mcp\Tool\ToolException;
-use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 
 /**
@@ -31,7 +29,7 @@ use McpServer\Mcp\Tool\ToolResult;
  * first max_sort_length bytes (1,024 by default) of long text, so very long
  * values that start alike may count as one.
  */
-class CountValues implements ToolInterface
+class CountValues extends AbstractCountTool
 {
     const PER_PAGE_DEFAULT = 20;
 
@@ -45,20 +43,12 @@ class CountValues implements ToolInterface
     // Most characters "prefix_length" counts values by.
     const PREFIX_LENGTH_MAX = 50;
 
-    protected $counter;
-
-    protected $searchFilters;
-
     protected $idResolver;
-
-    protected $emptyResultNotes;
 
     public function __construct(ResourceCounter $counter, SearchFilters $searchFilters, IdResolver $idResolver, EmptyResultNotes $emptyResultNotes)
     {
-        $this->counter = $counter;
-        $this->searchFilters = $searchFilters;
+        parent::__construct($counter, $searchFilters, $emptyResultNotes);
         $this->idResolver = $idResolver;
-        $this->emptyResultNotes = $emptyResultNotes;
     }
 
     public function getTitle(): string
@@ -118,21 +108,10 @@ class CountValues implements ToolInterface
                     'default' => self::PER_PAGE_DEFAULT,
                     'description' => sprintf('Values per page, from 1 to %d.', self::PER_PAGE_MAX),
                 ],
-                'resource_type' => [
-                    'type' => 'string',
-                    'enum' => SearchFilters::RESOURCES,
-                    'default' => 'items',
-                    'description' => 'Whose values to count: items, media, or item sets.',
-                ],
-            ] + $this->searchFilters->getFilterSchema(null),
+            ] + $this->getResourceTypeSchema('values') + $this->searchFilters->getFilterSchema(null),
             'required' => ['property'],
             'additionalProperties' => false,
         ];
-    }
-
-    public function getAnnotations(): array
-    {
-        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult
@@ -147,21 +126,9 @@ class CountValues implements ToolInterface
         $perPage = $reader->getInt('per_page', self::PER_PAGE_DEFAULT, 1, self::PER_PAGE_MAX);
         $byValue = 'value' === $reader->getEnum('sort', self::SORTS, 'count');
         $prefixLength = $reader->getInt('prefix_length', null, 1, self::PREFIX_LENGTH_MAX);
-        $resource = $reader->getEnum('resource_type', SearchFilters::RESOURCES, 'items');
+        [$resource, $filters, $ids] = $this->getMatches($reader);
         // What the resources are called in messages, such as "item sets".
         $noun = SearchFilters::noun($resource);
-        $filters = $this->searchFilters->buildFilters(
-            $reader,
-            $resource,
-            array_fill_keys(array_keys(SearchFilters::FILTER_RESOURCES), '"resource_type" chooses what to count.')
-        );
-        $ids = $this->counter->getResourceIds($resource, $filters);
-        if (null === $ids) {
-            throw new ToolException(sprintf(
-                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a property.',
-                number_format(ResourceCounter::COUNT_MAX), $noun
-            ));
-        }
         $values = [];
         $shortened = false;
         $totals = ['resources' => 0, 'values' => 0];
@@ -201,18 +168,7 @@ class CountValues implements ToolInterface
         if (!$ids) {
             $note = $this->emptyResultNotes->explainEmpty($resource, $filters);
         } elseif (!$totals['resources']) {
-            $annotated = $this->counter->getAnnotatedProperties($resource, $filters, $propertyId);
-            if ($annotated) {
-                $note = sprintf(
-                    'None of the matching %s has a value for %s, but it\'s used in annotations on their %s values. Annotations can\'t be searched or counted with these tools. get_item with "property" set to %s shows each value with its annotations.',
-                    $noun, $term, implode(' and ', $annotated), 1 === count($annotated) ? $annotated[0] : 'one of those'
-                );
-            } else {
-                $note = sprintf('None of the matching %s has a value for %s.', $noun, $term);
-                if ('items' === $resource) {
-                    $note .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
-                }
-            }
+            $note = $this->getNoValuesNote($resource, $filters, $propertyId, $term);
         } elseif ($shortened) {
             $note = sprintf(
                 'Values longer than %d characters are shortened, ending in "…", and marked truncated. To find the %s with one, use search_%s with a "starts_with" condition on %s, giving its text without the "…".',
@@ -220,5 +176,27 @@ class CountValues implements ToolInterface
             );
         }
         return ToolResult::json($output, $note);
+    }
+
+    /**
+     * Say why the matching resources have no values of the property: it's
+     * used only in annotations, or not at all, perhaps only by other kinds
+     * of resources.
+     */
+    protected function getNoValuesNote(string $resource, array $filters, int $propertyId, string $term): string
+    {
+        $noun = SearchFilters::noun($resource);
+        $annotated = $this->counter->getAnnotatedProperties($resource, $filters, $propertyId);
+        if ($annotated) {
+            return sprintf(
+                'None of the matching %s has a value for %s, but it\'s used in annotations on their %s values. Annotations can\'t be searched or counted with these tools. get_item with "property" set to %s shows each value with its annotations.',
+                $noun, $term, implode(' and ', $annotated), 1 === count($annotated) ? $annotated[0] : 'one of those'
+            );
+        }
+        $note = sprintf('None of the matching %s has a value for %s.', $noun, $term);
+        if ('items' === $resource) {
+            $note .= ' Media and item sets have values of their own: set "resource_type" to count theirs.';
+        }
+        return $note;
     }
 }

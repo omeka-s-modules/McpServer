@@ -7,9 +7,6 @@ use McpServer\Mcp\Query\ResourceCounter;
 use McpServer\Mcp\Query\SearchFilters;
 use McpServer\Mcp\Tool\ArgumentReader;
 use McpServer\Mcp\Tool\Context;
-use McpServer\Mcp\Tool\ToolAnnotations;
-use McpServer\Mcp\Tool\ToolException;
-use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 
 /**
@@ -23,21 +20,13 @@ use McpServer\Mcp\Tool\ToolResult;
  * reads only their values. Core's Doctrine filters then hide private values,
  * and a link to a resource the caller can't see doesn't count.
  */
-class CountProperties implements ToolInterface
+class CountProperties extends AbstractCountTool
 {
-    protected $counter;
-
-    protected $searchFilters;
-
-    protected $emptyResultNotes;
-
     protected $names;
 
     public function __construct(ResourceCounter $counter, SearchFilters $searchFilters, EmptyResultNotes $emptyResultNotes, NameLookup $names)
     {
-        $this->counter = $counter;
-        $this->searchFilters = $searchFilters;
-        $this->emptyResultNotes = $emptyResultNotes;
+        parent::__construct($counter, $searchFilters, $emptyResultNotes);
         $this->names = $names;
     }
 
@@ -64,41 +53,17 @@ class CountProperties implements ToolInterface
     {
         return [
             'type' => 'object',
-            'properties' => [
-                'resource_type' => [
-                    'type' => 'string',
-                    'enum' => SearchFilters::RESOURCES,
-                    'default' => 'items',
-                    'description' => 'Whose properties to count: items, media, or item sets.',
-                ],
-            ] + $this->searchFilters->getFilterSchema(null),
+            'properties' => $this->getResourceTypeSchema('properties') + $this->searchFilters->getFilterSchema(null),
             'additionalProperties' => false,
         ];
-    }
-
-    public function getAnnotations(): array
-    {
-        return ToolAnnotations::READ_ONLY;
     }
 
     public function call(array $arguments, Context $context): ToolResult
     {
         $reader = new ArgumentReader($arguments);
-        $resource = $reader->getEnum('resource_type', SearchFilters::RESOURCES, 'items');
+        [$resource, $filters, $ids] = $this->getMatches($reader);
         // What the resources are called in messages, such as "item sets".
         $noun = SearchFilters::noun($resource);
-        $filters = $this->searchFilters->buildFilters(
-            $reader,
-            $resource,
-            array_fill_keys(array_keys(SearchFilters::FILTER_RESOURCES), '"resource_type" chooses what to count.')
-        );
-        $ids = $this->counter->getResourceIds($resource, $filters);
-        if (null === $ids) {
-            throw new ToolException(sprintf(
-                'More than %s %s match, too many to count at once. Narrow them with filters, such as a class or a condition on a property.',
-                number_format(ResourceCounter::COUNT_MAX), $noun
-            ));
-        }
         $used = array_column($this->names->getUsedProperties(), null, 'id');
         // How many have each property in each language, most first.
         $languages = [];

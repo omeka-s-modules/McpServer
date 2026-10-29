@@ -1,7 +1,7 @@
 <?php
 namespace McpServer\Mcp\Output;
 
-use Omeka\Api\Manager as ApiManager;
+use McpServer\Mcp\Query\NameLookup;
 use Omeka\Api\Representation\AbstractResourceEntityRepresentation;
 use Omeka\Api\Representation\ItemRepresentation;
 use Omeka\Api\Representation\ItemSetRepresentation;
@@ -24,22 +24,19 @@ class ResourceFormatter
     // Where a summary looks for an item's date, in order.
     const DATE_TERMS = ['dcterms:date', 'dcterms:created', 'dcterms:issued'];
 
-    protected $api;
-
     protected $valueFormatter;
 
     protected $jsonLdFormatter;
 
+    protected $names;
+
     protected $settings;
 
-    // The slugs of the sites the caller can see, by site ID, read once.
-    protected $siteSlugs;
-
-    public function __construct(ApiManager $api, ValueFormatter $valueFormatter, JsonLdFormatter $jsonLdFormatter, Settings $settings)
+    public function __construct(ValueFormatter $valueFormatter, JsonLdFormatter $jsonLdFormatter, NameLookup $names, Settings $settings)
     {
-        $this->api = $api;
         $this->valueFormatter = $valueFormatter;
         $this->jsonLdFormatter = $jsonLdFormatter;
+        $this->names = $names;
         $this->settings = $settings;
     }
 
@@ -248,7 +245,7 @@ class ResourceFormatter
     {
         // The caller's sites, by ID. The resource's own sites aren't filtered
         // by visibility, so they only say which of these it's on.
-        $slugs = $this->siteSlugs ??= $this->api->search('sites', [], ['returnScalar' => 'slug'])->getContent();
+        $slugs = $this->names->getSiteSlugs();
         // A media is on the sites its item is on.
         $placed = $resource instanceof MediaRepresentation ? $resource->item() : $resource;
         $onSites = array_keys(array_intersect_key($slugs, $placed->sites()));
@@ -333,7 +330,7 @@ class ResourceFormatter
         if (null === $text) {
             return null;
         }
-        return OutputLimits::withoutEmpty(['text' => OutputLimits::cut($text), OutputLimits::TRUNCATED => mb_strlen($text) > OutputLimits::TEXT_LIMIT ?: null]);
+        return OutputLimits::withoutEmpty(OutputLimits::cutAndMark($text));
     }
 
     /**
@@ -409,7 +406,7 @@ class ResourceFormatter
         $marks = OutputLimits::withoutEmpty([
             'id' => $linked ? $linked->id() : null,
             'lang' => $value->lang(),
-            'is_public' => $value->isPublic() && (!$linked || $linked->isPublic()) ? null : false,
+            'is_public' => $this->valueFormatter->privateMark($value),
         ]);
         return $marks ? ['text' => $text] + $marks : $text;
     }
