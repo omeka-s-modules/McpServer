@@ -11,30 +11,9 @@ https://example.org/mcp
 ```
 
 - **Read-only.** Assistants can't create, change, or delete anything.
-- **Public content, unless you add a key.** Assistants see what a visitor to your public
-  site sees. With an MCP key in the address, they see what that key's user may see, and
-  you can require one.
+- **Public content, unless you add a key.** Assistants see your public content. With an
+  MCP key in the address, they see what that key's user may see, and you can require one.
 - **Nothing for users to install.** Add the address to an assistant and start asking.
-
-## Contents
-
-- [For site administrators](#for-site-administrators)
-  - [Requirements](#requirements)
-  - [Installation](#installation)
-  - [Connecting an assistant](#connecting-an-assistant)
-  - [Example prompts](#example-prompts)
-  - [MCP keys](#mcp-keys)
-  - [Tools](#tools)
-  - [Privacy and security](#privacy-and-security)
-  - [Limits](#limits)
-  - [Troubleshooting](#troubleshooting)
-- [For developers](#for-developers)
-  - [Protocol support](#protocol-support)
-  - [Tool details](#tool-details)
-  - [Adding tools from other modules](#adding-tools-from-other-modules)
-  - [Running the tests](#running-the-tests)
-  - [Why the protocol is built in](#why-the-protocol-is-built-in)
-- [License](#license)
 
 ## For site administrators
 
@@ -64,7 +43,7 @@ MCP key.
 
 Add the server to your assistant as a remote MCP server, using your endpoint's address,
 such as `https://example.org/mcp`. It uses Streamable HTTP, and needs no MCP key unless
-you've turned on **Require sign-in**. Each assistant explains where to add one:
+you've turned on **Require sign-in**. Each assistant explains where to add a server:
 
 - [Claude](https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp),
   on the web or desktop, as a custom connector
@@ -72,30 +51,15 @@ you've turned on **Require sign-in**. Each assistant explains where to add one:
 - [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
 - [Cursor](https://cursor.com/docs/context/mcp)
 
-To check that the server responds, list its tools with the
-[MCP Inspector](https://github.com/modelcontextprotocol/inspector):
-
-```sh
-npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport http --method tools/list
-```
-
 ### Example prompts
 
 Once an assistant is connected, ask in plain language. For example:
 
 - "Give me an overview: what kinds of items are here, and how many?"
 - "Find letters written in the 1700s and summarize what they're about."
-- "I'm teaching a unit on the American Revolution. What primary sources are here, and in
-  what order would you use them?"
 - "Who are the most frequent creators, and what are the most common subjects?"
 - "Look at the photographs of the harbor and describe what they show."
-- "Which items are linked to the item about the town hall?"
-- "What is each of the item sets about, and which are the largest?"
-- "What do the site's exhibits say about the harbor, and which items do they show?"
 - "Walk me through this site's exhibits in the order a visitor would see them."
-- "What has been added or changed recently?"
-- "Which fields do the records in this item set leave empty?"
-- "Are there inconsistent spellings or rarely used fields in the metadata?"
 - "What does each field on the Person records mean, and which records leave out fields
   their template expects?"
 
@@ -132,8 +96,8 @@ may see:
 - **Where a connector is shared,** as on some assistants' team plans, everyone using it
   shares its key. Use an account that sees only what all of them should see.
 - **To revoke access, delete the key** under **MCP Server > Keys**, which also shows when
-  each key was last used, to within five minutes. A request with a key that no longer
-  works is refused, rather than answered as if it had none.
+  each key was last used. A request with a key that no longer works is refused, rather
+  than answered as if it had none.
 
 #### Requiring a key
 
@@ -165,62 +129,24 @@ its own.
 | `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
 | `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
 
-Assistants usually start with `get_overview`, then search or count, then read the items
-they need. Like Omeka, the tools call a record's fields properties, and name each one by
-its term, such as `dcterms:title`.
+Like Omeka, the tools call a record's fields properties, and name each one by its term,
+such as `dcterms:title`.
 
-When an assistant may see private content, results mark what's private, so it knows that
-content isn't on the public site. It can also look for private content alone.
+With a key, assistants can tell private content from public, and can look for private
+content alone.
 
 ### Privacy and security
 
-- **Without a key, only public content is visible.** The tools find records through
-  Omeka's own API, so Omeka's visibility rules apply unchanged, and counts include only
-  the records the API returns. Private items, media, values, and site pages appear only to
-  a request with an MCP key whose user may see them, and so do links to them. Two things
-  follow Omeka's own behavior, as on your public site: a title marked private still shows
-  as the record's title, and word search can find a public item or page by words visitors
-  can't see, in its private media or in the titles of private items a page shows.
+- **Without a key, an assistant sees only public content,** the same as Omeka's REST API
+  shows a visitor. With a key, it sees what the key's user may see.
 - **Nothing can be changed.** All tools are read-only, and the endpoint refuses writes
   through Omeka's API, even from another module's tool.
-- **No sessions or cookies.** Requests don't start a session, and a browser's Omeka login
-  never applies. Only an MCP key in the address signs a request in.
 - **The endpoint is public by default,** like your public site and Omeka's REST API.
   Anyone who knows the address can read your public content. To limit it to people
   you've given keys, [require a key](#requiring-a-key). To limit how often it's used,
   rate-limit it at the web server, as you would any public endpoint.
 
-Signing in through an assistant's own sign-in screen, so that each person uses their own
-Omeka account without handling a key, isn't available yet.
-
-### Limits
-
-These keep each answer to a size assistants accept. Anything cut is marked, so the
-assistant knows there's more.
-
-- Long texts, such as transcriptions, show their first 2,000 characters, and long lists
-  their first 100 entries, with their full length. An assistant can read the rest of most
-  of them, a part at a time.
-- An item lists at most 50 of its media, and an assistant can list the rest.
-- Images are sent as their large thumbnail, 800 pixels by default, never as the original
-  file.
-- Counts cover at most 200,000 matching items, media, or item sets, so larger sets need
-  narrowing first. Media can reach this much sooner than items, as when each page of a
-  scanned book is its own media.
-- Word search finds records with any of the words, and matches whole words only, so
-  "letter" doesn't find "letters". It ignores very common words. Assistants can also
-  search for text inside a word.
-- Value annotations, such as a date's "approximate", are shown with their values but
-  can't be searched or counted.
-
 ### Troubleshooting
-
-**Claude can't connect.** Claude, on the web and in the desktop app, connects from
-Anthropic's servers, so your installation must be reachable from the internet. A
-`localhost` address won't work.
-
-**The connection fails at an address ending in a slash.** Use `/mcp`, not `/mcp/`.
-Omeka redirects `/mcp/` to `/mcp`, and not every client follows the redirect.
 
 **Results have no links to public pages.** Assistants link only to pages on sites a
 visitor can see. Assign the items and item sets to a public site, and their links appear.
@@ -261,28 +187,24 @@ How the module works, adding tools to it, and testing it.
   session.
 - **Protocol versions:** 2025-06-18, 2025-11-25, and 2026-07-28.
 - **Capabilities:** tools.
-- **Testing:** the implementation is checked with the official MCP conformance tool,
-  `@modelcontextprotocol/conformance`, and by the module's own tests. See
-  [Running the tests](#running-the-tests).
 
 ### Tool details
 
 The server's tool list gives each tool's full description and parameters, as assistants
-read them. The MCP Inspector command under
-[Connecting an assistant](#connecting-an-assistant) lists them. In the code, each tool's
-`getInputSchema()` in `src/Mcp/Tool/Builtin/` defines its parameters, and
-`src/Mcp/Format/OutputLimits.php` sets how much a tool shows, and says where the other
-limits are.
+read them. The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) lists
+them:
 
-When an assistant may see private content, results mark it as Omeka's JSON-LD does:
-`"is_public": false` on a private item, media, item set, value, site, or site page,
-wherever it appears, such as among an item's item sets or a page's attached items. A
-media of a private item, a value that links to a private record, and a page of a private
-site are marked too, since visitors can't see them either. Search results show values as plain text, so
-there a private value is `{"text": "…", "is_public": false}`, a value with a language
-tag is `{"text": "…", "lang": "…"}`, and a value that links to another record gives its
-`id`, as `{"text": "…", "id": 123}`. To find only private items, media, or item sets,
-search or count with `is_public` set to `false`.
+```sh
+npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport http --method tools/list
+```
+
+In the code, each tool's `getInputSchema()` in `src/Mcp/Tool/Builtin/` defines its
+parameters, and `src/Mcp/Format/OutputLimits.php` sets how much a tool shows, and says
+where the other limits are.
+
+Results mark private records and values with `"is_public": false`, as Omeka's JSON-LD
+does; to find only private items, media, or item sets, search or count with `is_public`
+set to `false`.
 
 ### Adding tools from other modules
 
@@ -375,10 +297,10 @@ configuration registers the factory under the `mcp_server` key:
 ```
 
 Names from other modules start with the module's name, as above. A tool's name should
-never change once released, because clients remember permissions by name. A tool's title,
-description, and schema should be the same for every caller, since the tool list is shared.
-This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples, and the
-module's tests check each of them against these rules.
+never change once released, because clients remember approvals by name. A tool's title,
+description, schema, and annotations should be the same for every caller, since the tool
+list is shared. This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples,
+and the module's tests check each of them against these rules.
 
 These are the parts other modules can rely on; everything else may change between versions:
 
@@ -398,29 +320,12 @@ can be designed around real use.
 
 ### Running the tests
 
-The module's tests use Omeka's own test framework and build their own records, so they
-run on any development copy of Omeka:
-
-- **Unit tests** check that only a key's hash is kept, how tools are run and their results
-  shaped, the protocol's error responses, and the functions that read arguments and that
-  cut, shorten, and convert text.
-  They need only Omeka's development dependencies (`composer install`).
-- **Database tests** install Omeka and the module in a fresh database, and build public
-  and private records and users in each role. They check that:
-  - every tool shows each user only what Omeka lets them see, and marks what's private
-  - nobody can write through the endpoint, even with a tool that tries
-  - in the admin, users can manage only the MCP keys they're allowed to
-  - searches and counts give the right answers
-  - long lists and texts are cut, and the rest can be read, and each result on a page
-    costs only a few database queries
-  - the protocol, the endpoint, and MCP keys work as described
-  - every built-in tool follows the rules for tools
-  - a tool another module adds in its config is listed and runs, and a broken one hides
-    no other
-
-  They need an empty MySQL database set in Omeka's
-  `application/test/config/database.ini`, the one Omeka's own tests use. The tests drop
-  every table in it.
+The tests use Omeka's own test framework and build their own records, so they run on any
+development copy of Omeka. **Unit tests** need only Omeka's development dependencies
+(`composer install`). **Database tests** check what each role may see, that nothing can
+be written, and that the tools, the endpoint, and the admin pages work as described. They
+need an empty MySQL database set in Omeka's `application/test/config/database.ini`, the
+one Omeka's own tests use, and they drop every table in it.
 
 From Omeka's root, run all of them, or only the unit tests:
 
@@ -430,21 +335,6 @@ vendor/bin/phpunit -c modules/McpServer/test/phpunit.xml --testsuite unit
 ```
 
 The tests aren't included in the module's release packages.
-
-### Why the protocol is built in
-
-The server speaks MCP with its own small implementation rather than a PHP MCP library.
-For a server like this one, MCP over HTTP comes down to a handful of JSON-RPC methods, and
-as of October 2026 none of the PHP libraries fit Omeka. The official SDK, `mcp/sdk`, is
-still experimental, and needs about ten packages that would load ahead of Omeka's own
-copies. The others need a newer `psr/log` than Omeka's logging uses, or a framework of
-their own. And their sign-in assumes an outside identity provider, with no way to let
-anonymous requests through while signed-in ones see more, which this server needs now,
-and would need if OAuth sign-in with Omeka as the identity provider were added.
-
-WordPress made the same choice for its MCP adapter. The protocol code is kept apart from
-the tools, in `src/Mcp/Protocol/`, so a library could replace it later without changing
-any tool.
 
 ## License
 
