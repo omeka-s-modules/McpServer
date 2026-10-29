@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-29 13:41-0400\n"
+"POT-Creation-Date: 2026-10-29 14:59-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/Controller/McpController.php:114
+#: src/Controller/McpController.php:107
 msgid ""
 "This address is for AI assistants. Add it to an assistant as an MCP server; "
 "it can't be opened in a browser."
@@ -152,22 +152,22 @@ msgid ""
 "may read public content."
 msgstr ""
 
-#: config/module.config.php:86
+#: config/module.config.php:80
 msgid "Show more"
 msgstr ""
 
-#: config/module.config.php:87
+#: config/module.config.php:81
 msgid "Show less"
 msgstr ""
 
-#: config/module.config.php:88
+#: config/module.config.php:82
 msgid "Copy address"
 msgstr ""
 
-#: config/module.config.php:89
+#: config/module.config.php:83
 msgid "Copied"
 msgstr ""
 
-#: config/module.config.php:90
+#: config/module.config.php:84
 msgid "Selected. Copy it with your keyboard."
 msgstr ""
