@@ -77,7 +77,8 @@ class Dispatcher
      * Build the internal error response for a request the server failed to
      * answer, with the message's id when the body has one.
      *
-     * For the controller, when the dispatcher itself can't be built.
+     * For the controller, when a request fails outside the dispatcher, such as
+     * while signing in.
      */
     public static function failureResponse(string $body): array
     {

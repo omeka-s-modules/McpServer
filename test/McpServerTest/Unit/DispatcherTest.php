@@ -7,9 +7,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Checks the error responses the endpoint builds outside the dispatcher, as
- * when a key is refused or the dispatcher can't be built: each answers the
- * message's id when the body has a valid one, and null otherwise, as JSON-RPC
- * requires.
+ * when a key is refused or signing in fails: each answers the message's id
+ * when the body has a valid one, and null otherwise, as JSON-RPC requires.
  */
 class DispatcherTest extends TestCase
 {

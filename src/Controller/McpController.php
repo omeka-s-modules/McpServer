@@ -52,9 +52,6 @@ class McpController extends AbstractActionController
 
     protected $entityManager;
 
-    // Builds the dispatcher, which isn't built until it's needed.
-    protected $dispatcherFactory;
-
     protected $dispatcher;
 
     protected $logger;
@@ -62,19 +59,13 @@ class McpController extends AbstractActionController
     // Whether a request without an MCP key is refused.
     protected $requireSignIn;
 
-    /**
-     * @param callable $dispatcherFactory Returns the Dispatcher. It's called
-     *   inside the action's error handling, so a failure to build it, such as
-     *   invalid tool configuration from another module, is still answered as
-     *   JSON.
-     */
-    public function __construct(AuthenticationService $auth, Acl $acl, array $apiAdapters, EntityManager $entityManager, callable $dispatcherFactory, LoggerInterface $logger, bool $requireSignIn)
+    public function __construct(AuthenticationService $auth, Acl $acl, array $apiAdapters, EntityManager $entityManager, Dispatcher $dispatcher, LoggerInterface $logger, bool $requireSignIn)
     {
         $this->auth = $auth;
         $this->acl = $acl;
         $this->apiAdapters = $apiAdapters;
         $this->entityManager = $entityManager;
-        $this->dispatcherFactory = $dispatcherFactory;
+        $this->dispatcher = $dispatcher;
         $this->logger = $logger;
         $this->requireSignIn = $requireSignIn;
     }
@@ -93,8 +84,7 @@ class McpController extends AbstractActionController
             // An exception that reaches Omeka renders an HTML error page and
             // starts a session, so it's answered here as JSON. The dispatcher
             // answers its own failures, so this catches only those outside
-            // it, such as a database error while looking up a key, or failing
-            // to build the dispatcher.
+            // it, such as a database error while looking up a key.
             $this->logger->err(sprintf('MCP Server: %s', $e));
             $response = $this->jsonResponse(200, Dispatcher::failureResponse((string) $this->getRequest()->getContent()));
         } finally {
@@ -107,11 +97,6 @@ class McpController extends AbstractActionController
             ));
         }
         return $response;
-    }
-
-    protected function getDispatcher(): Dispatcher
-    {
-        return $this->dispatcher ??= ($this->dispatcherFactory)();
     }
 
     protected function handle(Request $request): Response
@@ -140,7 +125,7 @@ class McpController extends AbstractActionController
         } catch (ProtocolException $e) {
             return $this->jsonResponse($e->getHttpStatus(), Dispatcher::exceptionResponse($request->getContent(), $e));
         }
-        [$status, $body] = $this->getDispatcher()->handle($request->getContent(), $this->getMcpHeaders($request));
+        [$status, $body] = $this->dispatcher->handle($request->getContent(), $this->getMcpHeaders($request));
         if (null === $body) {
             $response = $this->getResponse();
             $response->setStatusCode($status);
