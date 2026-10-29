@@ -7,11 +7,11 @@ use Doctrine\ORM\EntityManager;
 use Laminas\Authentication\AuthenticationService;
 use Laminas\Http\PhpEnvironment\Request;
 use Laminas\Http\Response;
-use Laminas\Log\LoggerInterface;
 use Laminas\Mvc\Controller\AbstractActionController;
 use McpServer\Entity\McpServerKey;
 use McpServer\Mcp\Protocol\Dispatcher;
 use McpServer\Mcp\Protocol\ProtocolException;
+use McpServer\Module;
 use Omeka\Api\Request as ApiRequest;
 use Omeka\Permissions\Acl;
 use Throwable;
@@ -42,8 +42,6 @@ class McpController extends AbstractActionController
         ApiRequest::DELETE, ApiRequest::BATCH_DELETE,
     ];
 
-    protected $auth;
-
     protected $acl;
 
     // API adapter classes, which the API manager checks in the ACL before
@@ -52,22 +50,17 @@ class McpController extends AbstractActionController
 
     protected $entityManager;
 
+    protected $auth;
+
     protected $dispatcher;
 
-    protected $logger;
-
-    // Whether a request without an MCP key is refused.
-    protected $requireSignIn;
-
-    public function __construct(AuthenticationService $auth, Acl $acl, array $apiAdapters, EntityManager $entityManager, Dispatcher $dispatcher, LoggerInterface $logger, bool $requireSignIn)
+    public function __construct(Acl $acl, array $apiAdapters, EntityManager $entityManager, AuthenticationService $auth, Dispatcher $dispatcher)
     {
-        $this->auth = $auth;
         $this->acl = $acl;
         $this->apiAdapters = $apiAdapters;
         $this->entityManager = $entityManager;
+        $this->auth = $auth;
         $this->dispatcher = $dispatcher;
-        $this->logger = $logger;
-        $this->requireSignIn = $requireSignIn;
     }
 
     /**
@@ -85,13 +78,13 @@ class McpController extends AbstractActionController
             // starts a session, so it's answered here as JSON. The dispatcher
             // answers its own failures, so this catches only those outside
             // it, such as a database error while looking up a key.
-            $this->logger->err(sprintf('MCP Server: %s', $e));
+            $this->logger()->err(sprintf('MCP Server: %s', $e));
             $response = $this->jsonResponse(200, Dispatcher::failureResponse((string) $this->getRequest()->getContent()));
         } finally {
             $output = ob_get_clean();
         }
         if (is_string($output) && '' !== trim($output)) {
-            $this->logger->warn(sprintf(
+            $this->logger()->warn(sprintf(
                 'MCP Server: left this output out of the response: %s',
                 mb_substr(trim(strip_tags($output)), 0, 1000)
             ));
@@ -185,7 +178,7 @@ class McpController extends AbstractActionController
         }
         $key = $request->getQuery('key');
         if (null === $key) {
-            if ($this->requireSignIn) {
+            if ($this->settings()->get(Module::REQUIRE_SIGN_IN, false)) {
                 throw new ProtocolException(
                     'This server requires an MCP key. Create one in the Omeka admin, under MCP Server > Keys, and use the address it gives.',
                     ProtocolException::INVALID_REQUEST,
@@ -229,7 +222,7 @@ class McpController extends AbstractActionController
                 ->setParameter('id', $mcpKey->getId())
                 ->execute();
         } catch (Throwable $e) {
-            $this->logger->warn(sprintf('MCP Server: could not record an MCP key\'s use: %s', $e->getMessage()));
+            $this->logger()->warn(sprintf('MCP Server: could not record an MCP key\'s use: %s', $e->getMessage()));
         }
     }
 

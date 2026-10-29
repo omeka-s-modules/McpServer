@@ -10,9 +10,9 @@ class CountPropertiesFactory implements FactoryInterface
     public function __invoke(ContainerInterface $services, $requestedName, ?array $options = null)
     {
         return new CountProperties(
+            $services->get('McpServer\ResourceCounter'),
             $services->get('McpServer\SearchFilters'),
             $services->get('McpServer\EmptyResultNotes'),
-            $services->get('McpServer\ResourceCounter'),
             $services->get('McpServer\NameLookup')
         );
     }

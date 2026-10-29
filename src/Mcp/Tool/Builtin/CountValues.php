@@ -45,20 +45,20 @@ class CountValues implements ToolInterface
     // Most characters "prefix_length" counts values by.
     const PREFIX_LENGTH_MAX = 50;
 
+    protected $counter;
+
     protected $searchFilters;
 
     protected $idResolver;
 
     protected $emptyResultNotes;
 
-    protected $counter;
-
-    public function __construct(SearchFilters $searchFilters, IdResolver $idResolver, EmptyResultNotes $emptyResultNotes, ResourceCounter $counter)
+    public function __construct(ResourceCounter $counter, SearchFilters $searchFilters, IdResolver $idResolver, EmptyResultNotes $emptyResultNotes)
     {
+        $this->counter = $counter;
         $this->searchFilters = $searchFilters;
         $this->idResolver = $idResolver;
         $this->emptyResultNotes = $emptyResultNotes;
-        $this->counter = $counter;
     }
 
     public function getTitle(): string

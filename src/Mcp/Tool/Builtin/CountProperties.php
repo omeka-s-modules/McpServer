@@ -25,19 +25,19 @@ use McpServer\Mcp\Tool\ToolResult;
  */
 class CountProperties implements ToolInterface
 {
+    protected $counter;
+
     protected $searchFilters;
 
     protected $emptyResultNotes;
 
-    protected $counter;
-
     protected $names;
 
-    public function __construct(SearchFilters $searchFilters, EmptyResultNotes $emptyResultNotes, ResourceCounter $counter, NameLookup $names)
+    public function __construct(ResourceCounter $counter, SearchFilters $searchFilters, EmptyResultNotes $emptyResultNotes, NameLookup $names)
     {
+        $this->counter = $counter;
         $this->searchFilters = $searchFilters;
         $this->emptyResultNotes = $emptyResultNotes;
-        $this->counter = $counter;
         $this->names = $names;
     }
 

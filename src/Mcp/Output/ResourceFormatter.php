@@ -24,23 +24,23 @@ class ResourceFormatter
     // Where a summary looks for an item's date, in order.
     const DATE_TERMS = ['dcterms:date', 'dcterms:created', 'dcterms:issued'];
 
-    protected $settings;
-
     protected $api;
+
+    protected $valueFormatter;
 
     protected $jsonLdFormatter;
 
-    protected $valueFormatter;
+    protected $settings;
 
     // The slugs of the sites the caller can see, by site ID, read once.
     protected $siteSlugs;
 
-    public function __construct(Settings $settings, ApiManager $api, JsonLdFormatter $jsonLdFormatter, ValueFormatter $valueFormatter)
+    public function __construct(ApiManager $api, ValueFormatter $valueFormatter, JsonLdFormatter $jsonLdFormatter, Settings $settings)
     {
-        $this->settings = $settings;
         $this->api = $api;
-        $this->jsonLdFormatter = $jsonLdFormatter;
         $this->valueFormatter = $valueFormatter;
+        $this->jsonLdFormatter = $jsonLdFormatter;
+        $this->settings = $settings;
     }
 
     /**
