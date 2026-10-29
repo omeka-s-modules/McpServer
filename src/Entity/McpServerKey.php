@@ -8,6 +8,10 @@ use Omeka\Entity\User;
 /**
  * An MCP key: a random string that signs an MCP request in as its owner.
  *
+ * It starts with PREFIX, so a key found on its own, in a log, a screenshot,
+ * or a pasted message, says what it is, and could be told apart from other
+ * bearer tokens if keys were ever sent in a header.
+ *
  * Only its SHA-256 hash is stored, so the key itself is shown once, when it's
  * created, and the stored keys can't be used. Until that page shows it, the
  * new key waits in the session, as a new Omeka API key does. A key works only
@@ -17,6 +21,8 @@ use Omeka\Entity\User;
  */
 class McpServerKey extends AbstractEntity
 {
+    const PREFIX = 'omeka_mcp_';
+
     /**
      * @Id
      * @Column(type="integer")
@@ -51,11 +57,11 @@ class McpServerKey extends AbstractEntity
     protected $lastUsed;
 
     /**
-     * Make a new key: 32 random bytes, as a URL-safe string.
+     * Make a new key: the prefix, then 32 random bytes as a URL-safe string.
      */
     public static function generate(): string
     {
-        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        return self::PREFIX . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
     }
 
     /**

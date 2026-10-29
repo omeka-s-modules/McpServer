@@ -6,12 +6,13 @@ use PHPUnit\Framework\TestCase;
 
 class McpServerKeyTest extends TestCase
 {
-    public function testGeneratedKeysAreLongRandomAndSafeInAUrl()
+    public function testGeneratedKeysAreRecognizableRandomAndSafeInAUrl()
     {
         $keys = array_map(fn () => McpServerKey::generate(), range(1, 100));
         foreach ($keys as $key) {
-            // 32 random bytes, in base64 for URLs, without padding.
-            $this->assertMatchesRegularExpression('/^[A-Za-z0-9_-]{43}$/', $key);
+            // The prefix, then 32 random bytes, in base64 for URLs, without
+            // padding.
+            $this->assertMatchesRegularExpression('/^omeka_mcp_[A-Za-z0-9_-]{43}$/', $key);
         }
         $this->assertCount(100, array_unique($keys));
     }
