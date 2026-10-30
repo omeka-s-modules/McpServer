@@ -1,14 +1,14 @@
 <?php
 namespace McpServer\Mcp\Protocol;
 
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 
 /**
  * Answers requests in the envelope era, 2026-07-28 and later.
  *
  * There is no handshake. Each request carries its protocol version and the
  * client's capabilities in its _meta envelope, and headers repeat the version,
- * the method, and the tool name, which must match the body.
+ * the method, and the tool or prompt name, which must match the body.
  */
 class EnvelopeEra
 {
@@ -16,19 +16,22 @@ class EnvelopeEra
     const META_CLIENT_CAPABILITIES = 'io.modelcontextprotocol/clientCapabilities';
     const META_SERVER_INFO = 'io.modelcontextprotocol/serverInfo';
 
-    // How long clients may cache the tool list and discovery results, so that
-    // tools added by an upgrade appear without reconnecting.
+    // How long clients may cache the tool and prompt lists and discovery
+    // results, so that what an upgrade adds appears without reconnecting.
     const TTL_MS = 300000;
 
     protected $toolRequests;
+
+    protected $promptRequests;
 
     protected $serverInfo;
 
     protected $instructions;
 
-    public function __construct(ToolRequests $toolRequests, array $serverInfo, string $instructions)
+    public function __construct(ToolRequests $toolRequests, PromptRequests $promptRequests, array $serverInfo, string $instructions)
     {
         $this->toolRequests = $toolRequests;
+        $this->promptRequests = $promptRequests;
         $this->serverInfo = $serverInfo;
         $this->instructions = $instructions;
     }
@@ -60,7 +63,7 @@ class EnvelopeEra
             );
         }
         $this->checkHeader($headers, 'mcp-method', 'Mcp-Method', $method);
-        if ('tools/call' === $method && is_string($params['name'] ?? null)) {
+        if (in_array($method, ['tools/call', 'prompts/get'], true) && is_string($params['name'] ?? null)) {
             $this->checkHeader($headers, 'mcp-name', 'Mcp-Name', $params['name'], true);
         }
 
@@ -68,7 +71,7 @@ class EnvelopeEra
             case 'server/discover':
                 $result = [
                     'supportedVersions' => ProtocolVersion::supported(),
-                    'capabilities' => $this->toolRequests->getCapabilities(),
+                    'capabilities' => $this->toolRequests->getCapabilities() + $this->promptRequests->getCapabilities(),
                     'instructions' => $this->instructions,
                     'ttlMs' => self::TTL_MS,
                     'cacheScope' => 'public',
@@ -83,6 +86,16 @@ class EnvelopeEra
                 break;
             case 'tools/call':
                 $result = $this->toolRequests->callTool($params, new Context($version));
+                break;
+            case 'prompts/list':
+                $result = [
+                    'prompts' => $this->promptRequests->listPrompts(),
+                    'ttlMs' => self::TTL_MS,
+                    'cacheScope' => 'public',
+                ];
+                break;
+            case 'prompts/get':
+                $result = $this->promptRequests->getPrompt($params, new Context($version));
                 break;
             default:
                 throw new ProtocolException(sprintf('Method not found: %s', $method), ProtocolException::METHOD_NOT_FOUND, 404);

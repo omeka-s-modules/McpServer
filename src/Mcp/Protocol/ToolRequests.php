@@ -2,15 +2,15 @@
 namespace McpServer\Mcp\Protocol;
 
 use Laminas\Log\LoggerInterface;
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Tool\Manager as ToolManager;
 use McpServer\Mcp\Tool\ToolRunner;
 use stdClass;
 use Throwable;
 
 /**
- * Answers what every era asks of the server: its capabilities, its tools, and
- * running one.
+ * Answers what every era asks about tools: the capability, the tool list, and
+ * running a tool.
  *
  * Nothing here depends on the era. A feature that starts in a particular
  * protocol version goes here too, behind a check of the version.

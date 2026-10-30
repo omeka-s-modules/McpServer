@@ -23,8 +23,30 @@ $this->headScript()->appendFile($this->assetUrl('js/copy-address.js', 'McpServer
 ); ?></p>
 <?php endif; ?>
 
+<h3><?php echo $translate('Prompts'); ?></h3>
+<p><?php echo $escape($translate('Requests users can pick in their assistant to get started.')); ?></p>
+<table class="tablesaw mcp-server-definitions" data-tablesaw-mode="stack">
+    <thead>
+        <tr>
+            <th><?php echo $translate('Name'); ?></th>
+            <th><?php echo $translate('Title'); ?></th>
+            <th><?php echo $translate('Description'); ?></th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php foreach ($prompts as $prompt): ?>
+        <tr>
+            <td><code><?php echo str_replace('_', '_<wbr>', $escape($prompt['name'])); ?></code></td>
+            <td><?php echo $escape($prompt['title']); ?></td>
+            <td><div class="mcp-server-description"><?php echo $escape($prompt['description']); ?></div></td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
+
 <h3><?php echo $translate('Tools'); ?></h3>
-<table class="tablesaw mcp-server-tools" data-tablesaw-mode="stack">
+<p><?php echo $escape($translate('What assistants use to search and read your content.')); ?></p>
+<table class="tablesaw mcp-server-definitions" data-tablesaw-mode="stack">
     <thead>
         <tr>
             <th><?php echo $translate('Name'); ?></th>

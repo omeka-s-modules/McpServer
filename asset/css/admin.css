@@ -1,5 +1,6 @@
-/* A tool's description, cut to two lines by description-toggle.js until its
-   Show more button is pressed. Without the script, it shows in full. */
+/* A tool's or prompt's description, cut to two lines by description-toggle.js
+   until its Show more button is pressed. Without the script, it shows in
+   full. */
 .mcp-server-description.is-cut {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -26,15 +27,15 @@ button.mcp-server-description-toggle:hover {
     box-shadow: none;
 }
 
-/* The tools table gives most of its width to descriptions; Omeka's admin
-   tables otherwise split it evenly. A long name breaks only after an
-   underscore, where the view marks it, not anywhere, as Omeka's tables
-   otherwise break long words. */
-.mcp-server-tools th:nth-child(-n+2) {
+/* The tool and prompt tables give most of their width to descriptions;
+   Omeka's admin tables otherwise split it evenly. A long name breaks only
+   after an underscore, where the view marks it, not anywhere, as Omeka's
+   tables otherwise break long words. */
+.mcp-server-definitions th:nth-child(-n+2) {
     width: 20%;
 }
 
-.mcp-server-tools td:first-child code {
+.mcp-server-definitions td:first-child code {
     word-break: normal;
 }
 

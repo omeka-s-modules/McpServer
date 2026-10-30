@@ -3,7 +3,7 @@ namespace McpServerTest\Database;
 
 use Laminas\Http\Response;
 use McpServer\Entity\McpServerKey;
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;

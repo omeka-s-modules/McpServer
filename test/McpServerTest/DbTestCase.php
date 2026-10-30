@@ -5,7 +5,7 @@ use DateTime;
 use Laminas\Config\Reader\Ini;
 use Laminas\Uri\Http as HttpUri;
 use McpServer\Entity\McpServerKey;
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Tool\ToolResult;
 use Omeka\Entity\User;
 use Omeka\Mvc\Application;

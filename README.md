@@ -52,7 +52,7 @@ you've turned on **Require sign-in**. Each assistant explains where to add a ser
 - [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
 - [Cursor](https://cursor.com/docs/context/mcp)
 
-### Example prompts
+### Example questions
 
 Once an assistant is connected, ask in plain language. For example:
 
@@ -84,6 +84,22 @@ Once an assistant is connected, ask in plain language. For example:
 
 Like Omeka, the tools call a record's fields properties, and name each one by its term,
 such as `dcterms:title`.
+
+### Prompts
+
+In assistants that offer prompts, users can pick one to start a task, which the
+assistant then carries out with the tools. These work on any installation, and are meant
+to be used in order:
+
+| Prompt | What it does |
+|---|---|
+| `overview` | Summarizes what's here and how it's organized, and suggests topics to research next |
+| `research` | Takes a topic, and finds what the installation has about it: where it's concentrated, the most relevant records, and what its sites say about it |
+
+How users pick a prompt depends on the assistant;
+[Claude Code](https://code.claude.com/docs/en/mcp#use-mcp-prompts-as-commands), for
+example, offers them as commands. In any assistant, users can also ask for the same
+things in plain words.
 
 ### MCP keys
 
@@ -186,7 +202,7 @@ How the module works, adding tools to it, and testing it.
   each request is answered with a single JSON body. The server never opens an event stream
   and keeps no session.
 - **Protocol versions:** 2025-06-18, 2025-11-25, and 2026-07-28.
-- **Capabilities:** tools.
+- **Capabilities:** tools and prompts.
 
 ### Tool details
 
@@ -202,9 +218,9 @@ In the code, each tool's `getInputSchema()` in `src/Mcp/Tool/Builtin/` defines i
 parameters, and `src/Mcp/Output/OutputLimits.php` sets how much a tool shows, and says
 where the other limits are.
 
-### Adding tools from other modules
+### Adding tools and prompts from other modules
 
-Other Omeka modules can add their own tools. A tool implements
+Other Omeka modules can add their own tools and prompts. A tool implements
 `McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
 tools and how to read data so that visibility stays correct. Here is a complete one, which
 picks an item at random, from all of them or from one item set, for exploring by chance,
@@ -213,8 +229,8 @@ something the built-in tools can't do:
 ```php
 namespace MyModule\Mcp;
 
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Tool\ArgumentReader;
-use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
@@ -300,16 +316,79 @@ an argument it doesn't name is refused, so a misspelled filter can't pass for on
 This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples, and the module's
 tests check each of them against these rules.
 
-These are the parts other modules can rely on, all in `McpServer\Mcp\Tool`. They change in
-incompatible ways only between major versions, and everything else may change in any
-version:
+A prompt works the same way. It implements `McpServer\Mcp\Prompt\PromptInterface`, whose
+docblocks give the rules, and returns a `PromptResult`. This one asks the assistant to
+compare two items:
 
-- **`ToolInterface`:** what a tool implements. Its docblocks give the rules.
-- **`ToolResult`:** what a tool returns.
-- **`Context`:** what a tool knows about the call, apart from its arguments.
-- **`ToolAnnotations`:** hints for clients, such as that a tool only reads.
-- **`ArgumentReader`:** reads a tool's arguments.
-- **`ToolException`:** refuses a bad call, with a message the assistant can act on.
+```php
+namespace MyModule\Mcp;
+
+use McpServer\Mcp\Context;
+use McpServer\Mcp\Prompt\PromptInterface;
+use McpServer\Mcp\Prompt\PromptResult;
+
+class Compare implements PromptInterface
+{
+    public function getTitle(): string
+    {
+        return 'Compare two items';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Compare two items: what they share, and how they differ.';
+    }
+
+    public function getArguments(): array
+    {
+        return [
+            ['name' => 'first', 'description' => 'The first item, by id.', 'required' => true],
+            ['name' => 'second', 'description' => 'The second item, by id.', 'required' => true],
+        ];
+    }
+
+    public function getMessages(array $arguments, Context $context): PromptResult
+    {
+        return PromptResult::text(sprintf(
+            'Read items %s and %s with get_item, and compare them: what they share, and how they differ.',
+            $arguments['first'], $arguments['second']
+        ));
+    }
+}
+```
+
+Your module's configuration registers it under `prompts`:
+
+```php
+'mcp_server' => [
+    'prompts' => [
+        'factories' => [
+            'mymodule_compare' => Service\CompareFactory::class,
+        ],
+    ],
+],
+```
+
+Before calling a prompt, the server checks the arguments against its list: a missing
+required argument, or one the list doesn't name, is refused. This module's own prompts are
+in `src/Mcp/Prompt/Builtin/`.
+
+These are the parts other modules can rely on. They change in incompatible ways only
+between major versions, and everything else may change in any version:
+
+- **`Context`,** in `McpServer\Mcp`: what a tool or prompt knows about the call, apart from
+  its arguments.
+- In `McpServer\Mcp\Tool`:
+  - **`ToolInterface`:** what a tool implements. Its docblocks give the rules.
+  - **`ToolResult`:** what a tool returns.
+  - **`ToolAnnotations`:** hints for clients, such as that a tool only reads.
+  - **`ArgumentReader`:** reads a tool's arguments.
+  - **`ToolException`:** refuses a bad call, with a message the assistant can act on.
+- In `McpServer\Mcp\Prompt`:
+  - **`PromptInterface`:** what a prompt implements. Its docblocks give the rules.
+  - **`PromptResult`:** what a prompt returns.
+  - **`PromptException`:** refuses an argument the prompt can't use, with a message the
+    user can act on.
 
 ### Running the tests
 

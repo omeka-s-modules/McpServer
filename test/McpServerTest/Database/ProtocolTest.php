@@ -45,7 +45,7 @@ class ProtocolTest extends DbTestCase
     {
         $params['_meta'] = (object) ($meta ?? [self::META_VERSION => self::ENVELOPE, self::META_CAPABILITIES => (object) []]);
         $all = ['mcp-protocol-version' => self::ENVELOPE, 'mcp-method' => $method];
-        if ('tools/call' === $method) {
+        if (in_array($method, ['tools/call', 'prompts/get'], true)) {
             $all['mcp-name'] = $params['name'];
         }
         $all = array_filter(array_merge($all, $headers), fn ($value) => null !== $value);
@@ -70,6 +70,7 @@ class ProtocolTest extends DbTestCase
         }
         $result = $body['result'];
         $this->assertArrayHasKey('tools', $result['capabilities']);
+        $this->assertArrayHasKey('prompts', $result['capabilities']);
         $this->assertSame('omeka-mcp-server', $result['serverInfo']['name']);
         $this->assertNotEmpty($result['instructions']);
     }
@@ -134,6 +135,37 @@ class ProtocolTest extends DbTestCase
         $this->assertError(404, -32601, $this->envelope('ping'));
         $this->assertError(404, -32601, $this->envelope('initialize', ['protocolVersion' => self::HANDSHAKE, 'capabilities' => (object) []]));
         $this->assertError(400, -32602, $this->handle(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list'], ['mcp-protocol-version' => self::ENVELOPE, 'mcp-method' => 'tools/list']));
+    }
+
+    public function testPromptsInBothEras()
+    {
+        [, $body] = $this->handshake('prompts/list');
+        $prompts = $body['result']['prompts'];
+        $this->assertSame(['overview', 'research'], array_column($prompts, 'name'));
+        $this->assertArrayNotHasKey('arguments', $prompts[0]);
+        $this->assertSame(['topic', true], [$prompts[1]['arguments'][0]['name'], $prompts[1]['arguments'][0]['required']]);
+        [, $body] = $this->handshake('prompts/get', ['name' => 'research', 'arguments' => ['topic' => ' harbors ']]);
+        $message = $body['result']['messages'][0];
+        $this->assertSame(['user', 'text'], [$message['role'], $message['content']['type']]);
+        $this->assertStringStartsWith('Research harbors in this Omeka installation.', $message['content']['text']);
+        [, $body] = $this->handshake('prompts/get', ['name' => 'overview']);
+        $this->assertStringContainsString('Start with get_overview', $body['result']['messages'][0]['content']['text']);
+        // A missing or blank topic, and an unknown prompt, are invalid params,
+        // as the spec says.
+        $this->assertError(200, -32602, $this->handshake('prompts/get', ['name' => 'research', 'arguments' => (object) []]));
+        $this->assertError(200, -32602, $this->handshake('prompts/get', ['name' => 'research', 'arguments' => ['topic' => '  ']]));
+        $this->assertError(200, -32602, $this->handshake('prompts/get', ['name' => 'no_such_prompt']));
+        $this->assertError(200, -32602, $this->handshake('prompts/get', ['name' => 'research', 'arguments' => ['topic' => 'maps', 'subject' => 'maps']]));
+
+        // The envelope era lists the capability, caches the list like the
+        // tool list, and checks the prompt's name in its header.
+        [, $body] = $this->envelope('server/discover');
+        $this->assertArrayHasKey('prompts', $body['result']['capabilities']);
+        [, $body] = $this->envelope('prompts/list');
+        $this->assertSame(['complete', 'public'], [$body['result']['resultType'], $body['result']['cacheScope']]);
+        [$status, $body] = $this->envelope('prompts/get', ['name' => 'overview']);
+        $this->assertSame([200, 'complete'], [$status, $body['result']['resultType']]);
+        $this->assertError(400, -32020, $this->envelope('prompts/get', ['name' => 'overview'], ['mcp-name' => 'research']));
     }
 
     public function testToolListIsTheSameForEveryCaller()

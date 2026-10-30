@@ -26,6 +26,17 @@ return [
                 'get_site_page' => Service\Mcp\Tool\Builtin\GetSitePageFactory::class,
             ],
         ],
+        // MCP prompts. The registered name is the prompt name clients show.
+        // Other modules add prompts by adding to this key in their own
+        // config. Factories, as for tools, since Omeka lists factories before
+        // invokables. The overview first, since it ends by suggesting topics
+        // to research.
+        'prompts' => [
+            'factories' => [
+                'overview' => Service\Mcp\Prompt\Builtin\OverviewFactory::class,
+                'research' => Service\Mcp\Prompt\Builtin\ResearchFactory::class,
+            ],
+        ],
     ],
     'entity_manager' => [
         'mapping_classes_paths' => [
@@ -54,7 +65,9 @@ return [
         'factories' => [
             'McpServer\Dispatcher' => Service\Mcp\Protocol\DispatcherFactory::class,
             'McpServer\ToolRequests' => Service\Mcp\Protocol\ToolRequestsFactory::class,
+            'McpServer\PromptRequests' => Service\Mcp\Protocol\PromptRequestsFactory::class,
             'McpServer\ToolManager' => Service\Mcp\Tool\ManagerFactory::class,
+            'McpServer\PromptManager' => Service\Mcp\Prompt\ManagerFactory::class,
             'McpServer\ToolRunner' => Service\Mcp\Tool\ToolRunnerFactory::class,
             'McpServer\EmptyResultNotes' => Service\Mcp\Output\EmptyResultNotesFactory::class,
             'McpServer\IdResolver' => Service\Mcp\Query\IdResolverFactory::class,

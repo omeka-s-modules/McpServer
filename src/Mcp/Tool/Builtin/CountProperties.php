@@ -1,12 +1,12 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Output\EmptyResultNotes;
 use McpServer\Mcp\Query\NameLookup;
 use McpServer\Mcp\Query\ResourceCounter;
 use McpServer\Mcp\Query\SearchFilters;
 use McpServer\Mcp\Tool\ArgumentReader;
-use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolResult;
 
 /**

@@ -1,9 +1,9 @@
 <?php
 namespace McpServer\Mcp\Tool\Builtin;
 
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Output\OutputLimits;
 use McpServer\Mcp\Tool\ArgumentReader;
-use McpServer\Mcp\Tool\Context;
 use McpServer\Mcp\Tool\ToolAnnotations;
 use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolInterface;

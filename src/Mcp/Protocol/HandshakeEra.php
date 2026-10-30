@@ -1,7 +1,7 @@
 <?php
 namespace McpServer\Mcp\Protocol;
 
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use stdClass;
 
 /**
@@ -15,13 +15,16 @@ class HandshakeEra
 {
     protected $toolRequests;
 
+    protected $promptRequests;
+
     protected $serverInfo;
 
     protected $instructions;
 
-    public function __construct(ToolRequests $toolRequests, array $serverInfo, string $instructions)
+    public function __construct(ToolRequests $toolRequests, PromptRequests $promptRequests, array $serverInfo, string $instructions)
     {
         $this->toolRequests = $toolRequests;
+        $this->promptRequests = $promptRequests;
         $this->serverInfo = $serverInfo;
         $this->instructions = $instructions;
     }
@@ -56,6 +59,10 @@ class HandshakeEra
                 return ['tools' => $this->toolRequests->listTools()];
             case 'tools/call':
                 return $this->toolRequests->callTool($params, new Context($version));
+            case 'prompts/list':
+                return ['prompts' => $this->promptRequests->listPrompts()];
+            case 'prompts/get':
+                return $this->promptRequests->getPrompt($params, new Context($version));
             default:
                 throw new ProtocolException(sprintf('Method not found: %s', $method), ProtocolException::METHOD_NOT_FOUND);
         }
@@ -77,7 +84,7 @@ class HandshakeEra
         // no initialize.
         return [
             'protocolVersion' => ProtocolVersion::isHandshake($requested) ? $requested : ProtocolVersion::latestHandshake(),
-            'capabilities' => $this->toolRequests->getCapabilities(),
+            'capabilities' => $this->toolRequests->getCapabilities() + $this->promptRequests->getCapabilities(),
             'serverInfo' => $this->serverInfo,
             'instructions' => $this->instructions,
         ];

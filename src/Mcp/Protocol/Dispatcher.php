@@ -14,8 +14,8 @@ use Throwable;
  *
  * Each era answers its own requests. EnvelopeEra serves 2026-07-28, where each
  * request carries its version in _meta, and HandshakeEra serves the earlier
- * versions, which open with initialize. What both eras ask of the tools is in
- * ToolRequests.
+ * versions, which open with initialize. What both eras ask about the tools is
+ * in ToolRequests, and about the prompts, in PromptRequests.
  */
 class Dispatcher
 {

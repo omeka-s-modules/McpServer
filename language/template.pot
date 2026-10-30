@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-29 14:59-0400\n"
+"POT-Creation-Date: 2026-10-30 12:39-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -55,7 +55,19 @@ msgid ""
 msgstr ""
 
 #: view/mcp-server/admin/index/index.phtml:26
+msgid "Prompts"
+msgstr ""
+
+#: view/mcp-server/admin/index/index.phtml:27
+msgid "Requests users can pick in their assistant to get started."
+msgstr ""
+
+#: view/mcp-server/admin/index/index.phtml:47
 msgid "Tools"
+msgstr ""
+
+#: view/mcp-server/admin/index/index.phtml:48
+msgid "What assistants use to search and read your content."
 msgstr ""
 
 #: view/mcp-server/admin/key/add.phtml:8
@@ -152,22 +164,22 @@ msgid ""
 "may read public content."
 msgstr ""
 
-#: config/module.config.php:80
+#: config/module.config.php:93
 msgid "Show more"
 msgstr ""
 
-#: config/module.config.php:81
+#: config/module.config.php:94
 msgid "Show less"
 msgstr ""
 
-#: config/module.config.php:82
+#: config/module.config.php:95
 msgid "Copy address"
 msgstr ""
 
-#: config/module.config.php:83
+#: config/module.config.php:96
 msgid "Copied"
 msgstr ""
 
-#: config/module.config.php:84
+#: config/module.config.php:97
 msgid "Selected. Copy it with your keyboard."
 msgstr ""

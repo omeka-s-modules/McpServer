@@ -2,6 +2,7 @@
 namespace McpServer\Mcp\Tool;
 
 use Laminas\Log\LoggerInterface;
+use McpServer\Mcp\Context;
 use Omeka\Api\Exception\NotFoundException;
 use Omeka\Api\Exception\PermissionDeniedException;
 use Omeka\Api\Exception\ValidationException;

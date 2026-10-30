@@ -1,7 +1,7 @@
 <?php
 namespace McpServerTest\Database;
 
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Tool\ToolInterface;
 use McpServer\Mcp\Tool\ToolResult;
 use McpServerTest\DbTestCase;

@@ -2,7 +2,7 @@
 namespace McpServerTest\Database;
 
 use Doctrine\DBAL\Logging\DebugStack;
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use McpServerTest\DbTestCase;
 
 /**

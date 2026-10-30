@@ -1,6 +1,8 @@
 <?php
 namespace McpServer\Mcp\Tool;
 
+use McpServer\Mcp\Context;
+
 /**
  * An MCP tool.
  *

@@ -178,7 +178,7 @@ class KeyAdminTest extends AbstractHttpControllerTestCase
         $this->assertSame(0, $this->keyCount('For the admin'));
     }
 
-    public function testOverviewGivesTheAddressAndEveryTool()
+    public function testOverviewGivesTheAddressEveryToolAndEveryPrompt()
     {
         [$status, $page] = $this->send('admin', 'GET', '/admin/mcp-server');
         $this->assertSame(200, $status);
@@ -186,6 +186,10 @@ class KeyAdminTest extends AbstractHttpControllerTestCase
         foreach (DbTestCase::getApplication()->getServiceManager()->get('McpServer\ToolManager')->getToolNames() as $name) {
             // A name may break only after an underscore.
             $this->assertStringContainsString('<code>' . str_replace('_', '_<wbr>', $name) . '</code>', $page, $name);
+        }
+        foreach (DbTestCase::getApplication()->getServiceManager()->get('McpServer\PromptRequests')->listPrompts() as $prompt) {
+            $this->assertStringContainsString('<code>' . str_replace('_', '_<wbr>', $prompt['name']) . '</code>', $page, $prompt['name']);
+            $this->assertStringContainsString($prompt['title'], $page, $prompt['name']);
         }
     }
 

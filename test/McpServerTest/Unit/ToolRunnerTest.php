@@ -6,7 +6,7 @@ use Laminas\Log\Logger;
 use Laminas\Log\Writer\Mock;
 use Laminas\Mvc\I18n\DummyTranslator;
 use Laminas\ServiceManager\ServiceManager;
-use McpServer\Mcp\Tool\Context;
+use McpServer\Mcp\Context;
 use McpServer\Mcp\Tool\Manager;
 use McpServer\Mcp\Tool\ToolException;
 use McpServer\Mcp\Tool\ToolInterface;
