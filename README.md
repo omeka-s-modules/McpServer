@@ -28,7 +28,8 @@ Setting the module up, connecting assistants, and what they can see and do.
 
 ### Installation
 
-1. Copy the module into Omeka's `modules` directory, in a folder named `McpServer`.
+1. Download the zip from the module's [latest release](https://github.com/omeka-s-modules/McpServer/releases/latest),
+   and unzip it into Omeka's `modules` directory. It contains the `McpServer` folder.
 2. In the Omeka admin, go to **Modules** and click **Install** next to MCP Server.
 
 The endpoint is `/mcp` under your Omeka base URL. **MCP Server > Overview** in the admin
@@ -63,6 +64,27 @@ Once an assistant is connected, ask in plain language. For example:
 - "What does each field on the Person records mean, and which records leave out fields
   their template expects?"
 
+### Tools
+
+| Tool | What it does |
+|---|---|
+| `get_overview` | Describes the installation: counts, dates, and what search can filter on |
+| `count_values` | Counts a property's values, most common first or alphabetically, such as creators, subjects, or image rights |
+| `count_properties` | Counts which properties records have filled in, such as for a metadata audit |
+| `search_items` | Finds items by words, filters, and conditions on properties |
+| `get_item` | Reads one item in full |
+| `search_media` | Finds media by words, type, item, and conditions on properties |
+| `get_media` | Reads one media, with its image for the assistant to look at |
+| `search_item_sets` | Finds item sets by words and conditions on properties |
+| `get_item_set` | Reads one item set in full, with its item count |
+| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments that say what each one means |
+| `get_site` | Describes one site: its summary, how much it holds, and its navigation |
+| `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
+| `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
+
+Like Omeka, the tools call a record's fields properties, and name each one by its term,
+such as `dcterms:title`.
+
 ### MCP keys
 
 Without a key, assistants see public content only. To let an assistant see private
@@ -73,8 +95,9 @@ https://example.org/mcp?key=KEY
 ```
 
 Create the key in the Omeka admin, under **MCP Server > Keys**, which shows the address
-with the key once, when the key is created. Anyone who may manage a user's API keys, such
-as a Global Administrator, may manage their MCP keys there too.
+with the key once, when the key is created. Every user can create keys for their own
+account there, and anyone who may manage another user's API keys, such as a Global
+Administrator, can manage that user's MCP keys too.
 
 The assistant sees what the key's user may see:
 
@@ -84,6 +107,9 @@ The assistant sees what the key's user may see:
 - **Private site pages,** and the pages of private sites, follow Omeka's rules for sites:
   a user sees them on sites they own or have a role on, and Supervisors and Global
   Administrators see them all.
+
+The assistant can also tell private content from public, and look for private content
+alone.
 
 An MCP key works only at `/mcp`, never for Omeka's REST API, so it can't be used to change
 anything, whatever its user's role. Omeka API keys don't work at `/mcp`.
@@ -111,34 +137,11 @@ To give public-only access while sign-in is required, create keys for a Research
 account that owns nothing; it sees only public content. Each key can then be revoked on
 its own.
 
-### Tools
-
-| Tool | What it does |
-|---|---|
-| `get_overview` | Describes the installation: counts, dates, and what search can filter on |
-| `count_values` | Counts a property's values, most common first or alphabetically, such as creators, subjects, or image rights |
-| `count_properties` | Counts which properties records have filled in, such as for a metadata audit |
-| `search_items` | Finds items by words, filters, and conditions on properties |
-| `get_item` | Reads one item in full |
-| `search_media` | Finds media by words, type, item, and conditions on properties |
-| `get_media` | Reads one media, with its image for the assistant to look at |
-| `search_item_sets` | Finds item sets by words and conditions on properties |
-| `get_item_set` | Reads one item set in full, with its item count |
-| `get_resource_template` | Describes one resource template: the properties a kind of record should have, with the labels and comments that say what each one means |
-| `get_site` | Describes one site: its summary, how much it holds, and its navigation |
-| `search_site_pages` | Finds site pages, such as exhibits, by their text, their site, or an item they show |
-| `get_site_page` | Reads one site page: its text, block by block, and the items it shows |
-
-Like Omeka, the tools call a record's fields properties, and name each one by its term,
-such as `dcterms:title`.
-
-With a key, assistants can tell private content from public, and can look for private
-content alone.
-
 ### Privacy and security
 
 - **Without a key, an assistant sees only public content,** the same as Omeka's REST API
-  shows a visitor. With a key, it sees what the key's user may see.
+  shows a visitor. With a key, it sees what the key's user may see, so treat the address
+  like a password; see [MCP keys](#mcp-keys).
 - **Nothing can be changed.** All tools are read-only, and the endpoint refuses writes
   through Omeka's API, even from another module's tool.
 - **The endpoint is public by default,** like your public site and Omeka's REST API.
@@ -156,17 +159,14 @@ the full-text index: on the admin **Settings** page, check **Index full-text sea
 save.
 
 **An assistant with a key still sees only public content.** The key's user may not see
-private content: an Author or a Researcher sees public content and only the private
-content they own. Check the user's role. Private site pages follow the site instead: the
-user needs a role on that site, unless they're a Supervisor or a Global Administrator.
+private content. Check their role, and for private site pages their role on the site,
+against [what each role sees](#mcp-keys).
 
-**Requests without a key are refused.** **Require sign-in** is on. Add a key to the
-address, or turn the setting off in the module's configuration.
-
-**Requests with a key are refused.** The key was mistyped, deleted, or belongs to a
-deactivated user. Create a new key and update the address. Some assistants show a
-refused key as a sign-in or registration error, since they can't tell it apart from a
-server that needs signing in.
+**Requests are refused.** Some assistants show this as a sign-in or registration error,
+since they can't tell it apart from a server that needs signing in. Without a key,
+**Require sign-in** is on: add a key to the address, or turn the setting off in the
+module's configuration. With a key, the key was mistyped, deleted, or belongs to a
+deactivated user: create a new key and update the address.
 
 **Assistants get links but no images.** `get_media` reads thumbnails from Omeka's
 default local file storage. With other file storage, assistants get links to the files
@@ -182,9 +182,9 @@ How the module works, adding tools to it, and testing it.
 
 ### Protocol support
 
-- **Transport:** Streamable HTTP. Requests are `POST /mcp` with a JSON body, and every
-  response is a single JSON body. The server never opens an event stream and keeps no
-  session.
+- **Transport:** Streamable HTTP. Each message is a `POST /mcp` with a JSON body, and
+  each request is answered with a single JSON body. The server never opens an event stream
+  and keeps no session.
 - **Protocol versions:** 2025-06-18, 2025-11-25, and 2026-07-28.
 - **Capabilities:** tools.
 
@@ -201,10 +201,6 @@ npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport ht
 In the code, each tool's `getInputSchema()` in `src/Mcp/Tool/Builtin/` defines its
 parameters, and `src/Mcp/Output/OutputLimits.php` sets how much a tool shows, and says
 where the other limits are.
-
-Results mark private records and values with `"is_public": false`, as Omeka's JSON-LD
-does; to find only private items, media, or item sets, search or count with `is_public`
-set to `false`.
 
 ### Adding tools from other modules
 
@@ -299,33 +295,31 @@ configuration registers the factory under the `mcp_server` key:
 Names from other modules start with the module's name, as above. A tool's name should
 never change once released, because clients remember approvals by name. A tool's title,
 description, schema, and annotations should be the same for every caller, since the tool
-list is shared. This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples,
-and the module's tests check each of them against these rules.
+list is shared. When a tool's input schema sets `additionalProperties` to `false`, as above,
+an argument it doesn't name is refused, so a misspelled filter can't pass for one applied.
+This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples, and the module's
+tests check each of them against these rules.
 
-These are the parts other modules can rely on; everything else may change between versions:
+These are the parts other modules can rely on, all in `McpServer\Mcp\Tool`. They change in
+incompatible ways only between major versions, and everything else may change in any
+version:
 
-- **`ToolInterface`**, with **`Context`**, **`ToolAnnotations`**, and **`ToolResult`**, in
-  `McpServer\Mcp\Tool`. Return results with `ToolResult::json()`, and put guidance for the
-  assistant, such as why nothing matched, in its note rather than in the data.
-- **`ArgumentReader`**, to read arguments, and **`ToolException`**, to refuse a bad call
-  with a message the assistant can act on. When a tool's input schema sets
-  `additionalProperties` to `false`, as above, an argument it doesn't name is refused, so a
-  misspelled filter can't pass for one applied.
-
-To count what the API can't, such as values grouped by property, follow the rules for
-reading data in `ToolInterface`: get the records' IDs from the API, then query only rows
-tied to those IDs. This module's own counting code is internal. If your tool needs it, ask
-on the [Omeka forum](https://forum.omeka.org/c/omeka-s/modules), so a supported version
-can be designed around real use.
+- **`ToolInterface`:** what a tool implements. Its docblocks give the rules.
+- **`ToolResult`:** what a tool returns.
+- **`Context`:** what a tool knows about the call, apart from its arguments.
+- **`ToolAnnotations`:** hints for clients, such as that a tool only reads.
+- **`ArgumentReader`:** reads a tool's arguments.
+- **`ToolException`:** refuses a bad call, with a message the assistant can act on.
 
 ### Running the tests
 
-The tests use Omeka's own test framework and build their own records, so they run on any
-development copy of Omeka. **Unit tests** need only Omeka's development dependencies
-(`composer install`). **Database tests** check what each role may see, that nothing can
-be written, and that the tools, the endpoint, and the admin pages work as described. They
-need an empty MySQL database set in Omeka's `application/test/config/database.ini`, the
-one Omeka's own tests use, and they drop every table in it.
+The tests are in the repository, not the release packages. They use Omeka's own test
+framework and build their own records, so they run on any development copy of Omeka.
+**Unit tests** need only Omeka's development dependencies (`composer install`).
+**Database tests** check what each role may see, that nothing can be written, and that
+the tools, the endpoint, and the admin pages work as described. They need an empty MySQL
+database set in Omeka's `application/test/config/database.ini`, the one Omeka's own tests
+use, and they drop every table in it.
 
 From Omeka's root, run all of them, or only the unit tests:
 
@@ -333,8 +327,6 @@ From Omeka's root, run all of them, or only the unit tests:
 vendor/bin/phpunit -c modules/McpServer/test/phpunit.xml
 vendor/bin/phpunit -c modules/McpServer/test/phpunit.xml --testsuite unit
 ```
-
-The tests aren't included in the module's release packages.
 
 ## License
 
