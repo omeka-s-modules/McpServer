@@ -62,7 +62,8 @@ final class ToolResult
     }
 
     /**
-     * Return an error the model should see, e.g. that an item wasn't found.
+     * Return an error the model should see, such as that an item wasn't
+     * found.
      */
     public static function error(string $message): self
     {

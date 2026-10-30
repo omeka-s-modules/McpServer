@@ -22,7 +22,7 @@ final class Context
     }
 
     /**
-     * Get the MCP protocol version of this request, e.g. "2026-07-28".
+     * Get the MCP protocol version of this request, such as "2026-07-28".
      */
     public function getProtocolVersion(): string
     {

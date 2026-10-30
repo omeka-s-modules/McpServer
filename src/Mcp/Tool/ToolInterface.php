@@ -6,7 +6,8 @@ namespace McpServer\Mcp\Tool;
  *
  * Register a tool under the "mcp_server" => "tools" key of a module's config,
  * like any Omeka plugin. The registered name is the name clients see, so it
- * must match ^[a-zA-Z0-9_-]{1,64}$ and should never change once released:
+ * must match ^[a-zA-Z0-9_-]{1,64}$; a tool whose name doesn't is left out,
+ * with a warning in Omeka's log. The name should never change once released:
  * clients remember approvals by name. A new ability gets a new tool, never a
  * renamed one.
  *
@@ -14,10 +15,11 @@ namespace McpServer\Mcp\Tool;
  *
  * - This module's tools are <verb>_<resource>, after Omeka's API resource
  *   names: "search_" and the plural for many, "get_" and the singular for one,
- *   e.g. "search_items" and "get_item". Tools that count use "count_", e.g.
- *   "count_values". The overview, "get_overview", is the one exception.
+ *   such as "search_items" and "get_item". Tools that count use "count_",
+ *   such as "count_values". The overview, "get_overview", is the one
+ *   exception.
  *   Names without a module prefix are this module's.
- * - Name tools from other modules <module>_<verb>_<noun>, e.g.
+ * - Name tools from other modules <module>_<verb>_<noun>, such as
  *   "mymodule_search_things".
  * - Don't start a name with "omeka_": clients already show each tool under
  *   the server's name.
@@ -63,7 +65,7 @@ namespace McpServer\Mcp\Tool;
 interface ToolInterface
 {
     /**
-     * Get a short human-readable name, e.g. "Search items".
+     * Get a short human-readable name, such as "Search items".
      */
     public function getTitle(): string;
 
@@ -75,15 +77,20 @@ interface ToolInterface
     /**
      * Get the JSON Schema of the arguments, as a PHP array.
      *
-     * The root must be an object schema: ['type' => 'object', ...].
+     * The root must be an object schema: ['type' => 'object', ...]. With
+     * 'additionalProperties' => false, a call with an argument the schema
+     * doesn't name is refused, so a misspelled argument can't pass unnoticed.
      */
     public function getInputSchema(): array;
 
     /**
-     * Get behavior hints for clients.
+     * Get behavior hints for clients, which use them to decide whether to ask
+     * before calling.
      *
-     * Keys: readOnlyHint, destructiveHint, idempotentHint, openWorldHint.
-     * Clients use these to decide whether to ask before calling.
+     * Return ToolAnnotations::READ_ONLY for a tool that reads only this
+     * installation. Keys: readOnlyHint, destructiveHint, idempotentHint,
+     * openWorldHint. A hint left out takes MCP's default, which assumes the
+     * worst: that the tool changes things and reaches outside.
      */
     public function getAnnotations(): array;
 
@@ -92,11 +99,10 @@ interface ToolInterface
      *
      * @param array $arguments The arguments the client sent, not yet validated;
      *     ArgumentReader helps
-     * @throws ToolException For problems the model
-     *     should see, such as a bad argument. Omeka's API exceptions, such as
-     *     a record that doesn't exist or isn't visible, become error results
-     *     too, so a tool needn't catch them. Anything else is logged, and the
-     *     model sees a generic error.
+     * @throws ToolException For problems the model should see, such as a bad
+     *     argument. Omeka's API exceptions, such as a record that doesn't exist
+     *     or isn't visible, become error results too, so a tool needn't catch
+     *     them. Anything else is logged, and the model sees a generic error.
      */
     public function call(array $arguments, Context $context): ToolResult;
 }
