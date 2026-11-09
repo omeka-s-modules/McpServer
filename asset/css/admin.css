@@ -1,6 +1,10 @@
 /* A tool's or prompt's description, cut to two lines by description-toggle.js
    until its Show more button is pressed. Without the script, it shows in
-   full. */
+   full. Its paragraph breaks are kept. */
+.mcp-server-description {
+    white-space: pre-line;
+}
+
 .mcp-server-description.is-cut {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -98,4 +102,17 @@ button.mcp-server-description-toggle:hover {
 
 .mcp-server-new-key p {
     margin: 6px 0;
+}
+
+/* The panel's Copy address button has the background it has on a white
+   page. Core's button is translucent, so the panel's grey would darken it
+   below the contrast its text needs. */
+.mcp-server-new-key .mcp-server-copy {
+    background-color: #ebebeb;
+}
+
+/* A link in the module's text is underlined, since its color alone stands
+   out too little from the text around it. */
+.mcp-server #content p a {
+    text-decoration: underline;
 }

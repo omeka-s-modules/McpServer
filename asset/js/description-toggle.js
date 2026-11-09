@@ -2,26 +2,27 @@
 // button that shows the rest. The cut is only visual, so screen readers get all
 // of it.
 $(function () {
+    var more = Omeka.jsTranslate('Show more');
+    var less = Omeka.jsTranslate('Show less');
     var descriptions = $('.mcp-server-description').map(function (index) {
         var text = $(this);
         var id = 'mcp-server-description-' + index;
-        var button = $('<button type="button">')
-            .addClass('mcp-server-description-toggle')
-            .attr({'aria-expanded': 'false', 'aria-controls': id})
-            .text(Omeka.jsTranslate('Show more'));
+        var button = $('<button type="button" class="mcp-server-description-toggle" aria-expanded="false">')
+            .attr('aria-controls', id)
+            .text(more);
         text.attr('id', id).after(button);
         button.on('click', function () {
             var expanded = !text.toggleClass('is-cut').hasClass('is-cut');
             button.attr('aria-expanded', expanded ? 'true' : 'false')
-                .text(Omeka.jsTranslate(expanded ? 'Show less' : 'Show more'));
+                .text(expanded ? less : more);
         });
         return {text: text, button: button};
     }).get();
 
-    // Cut what runs past two lines, and show its button. Measured again once
-    // the page has loaded and when the window is resized, since the tables'
-    // layout settles after this script runs. A description the user expanded
-    // stays as it is.
+    // Cut what runs past two lines, and show its button. Measured again
+    // whenever the page's content changes size, such as when the window is
+    // resized or the web font arrives. A description the user expanded stays
+    // as it is.
     var measure = function () {
         descriptions.forEach(function (description) {
             if ('true' === description.button.attr('aria-expanded')) {
@@ -33,6 +34,6 @@ $(function () {
             description.button.prop('hidden', !long);
         });
     };
-    measure();
-    $(window).on('load resize', measure);
+    new ResizeObserver(Omeka.framerateCallback(measure))
+        .observe(document.getElementById('content'));
 });
