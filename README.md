@@ -12,7 +12,7 @@ https://example.org/mcp
 
 - **Read-only.** Assistants can't create, change, or delete anything.
 - **Public content, unless you add a key.** Assistants see your public content. With an
-  MCP key in the address, they see what that key's user may see, and you can require one.
+  MCP key in the address, they see what that key's owner may see, and you can require one.
 - **Nothing for users to install.** Add the address to an assistant and start asking.
 
 ## For site administrators
@@ -22,9 +22,9 @@ Setting the module up, connecting assistants, and what they can see and do.
 ### Requirements
 
 - Omeka S 4.2.1 or later.
-- For assistants that connect from the cloud, such as Claude on the web or desktop, your
-  Omeka installation must be reachable from the internet. An installation on `localhost`
-  works only with assistants running on the same computer, such as Claude Code.
+- For assistants that connect from the cloud, such as Claude on the web or in its desktop
+  app, your Omeka installation must be reachable from the internet. An installation on
+  `localhost` works only with assistants running on the same computer, such as Claude Code.
 
 ### Installation
 
@@ -33,8 +33,8 @@ Setting the module up, connecting assistants, and what they can see and do.
 2. In the Omeka admin, go to **Modules** and click **Install** next to MCP Server.
 
 The endpoint is `/mcp` under your Omeka base URL. **MCP Server > Overview** in the admin
-shows its full address and the tools assistants can use. Use that address exactly, with
-no slash at the end.
+shows its full address, and the prompts and tools it offers. Use that address exactly,
+with no slash at the end.
 
 The module has one optional setting, **Require sign-in**, off by default. See
 [Requiring a key](#requiring-a-key). Uninstalling the module deletes its setting and every
@@ -43,28 +43,35 @@ MCP key.
 ### Connecting an assistant
 
 Add the server to your assistant as a remote MCP server, using your endpoint's address,
-such as `https://example.org/mcp`. It uses Streamable HTTP, and needs no MCP key unless
-you've turned on **Require sign-in**. Each assistant explains where to add a server:
+such as `https://example.org/mcp`. Your assistant's own help explains where. The address
+needs an [MCP key](#mcp-keys) only to see private content, or when you've turned on
+**Require sign-in**.
 
-- [Claude](https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp),
-  on the web or desktop, as a custom connector
-- [Claude Code](https://code.claude.com/docs/en/mcp)
-- [VS Code](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
-- [Cursor](https://cursor.com/docs/context/mcp)
+Once the assistant is connected, ask it about your content in plain language. It can
+describe what your installation holds and how much, find and summarize records on a
+subject or from a period, say which creators or subjects are most common, describe what
+images show, walk through a site's pages as a visitor would see them, and explain what a
+template's fields mean and which records leave them out.
 
-### Example questions
+### Prompts
 
-Once an assistant is connected, ask in plain language. For example:
+In assistants that offer prompts, users can pick one to start a task, which the
+assistant then carries out with the tools. These are meant to be used in order:
 
-- "Give me an overview: what kinds of items are here, and how many?"
-- "Find letters written in the 1700s and summarize what they're about."
-- "Who are the most frequent creators, and what are the most common subjects?"
-- "Look at the photographs of the harbor and describe what they show."
-- "Walk me through this site's exhibits in the order a visitor would see them."
-- "What does each field on the Person records mean, and which records leave out fields
-  their template expects?"
+| Prompt | What it does |
+|---|---|
+| `overview` | Summarizes what's here and how it's organized, and suggests topics to research next |
+| `research` | Takes a topic, and finds what the installation has about it: where it's concentrated, the most relevant records, and what its sites say about it |
+
+How users pick a prompt depends on the assistant;
+[Claude Code](https://code.claude.com/docs/en/mcp#use-mcp-prompts-as-commands), for
+example, offers them as commands. In any assistant, users can also ask for the same
+things in plain words.
 
 ### Tools
+
+Assistants answer questions with these tools, choosing which to use as they go. Users
+don't pick them, though some assistants name a tool and ask before using it:
 
 | Tool | What it does |
 |---|---|
@@ -85,37 +92,18 @@ Once an assistant is connected, ask in plain language. For example:
 Like Omeka, the tools call a record's fields properties, and name each one by its term,
 such as `dcterms:title`.
 
-### Prompts
-
-In assistants that offer prompts, users can pick one to start a task, which the
-assistant then carries out with the tools. These work on any installation, and are meant
-to be used in order:
-
-| Prompt | What it does |
-|---|---|
-| `overview` | Summarizes what's here and how it's organized, and suggests topics to research next |
-| `research` | Takes a topic, and finds what the installation has about it: where it's concentrated, the most relevant records, and what its sites say about it |
-
-How users pick a prompt depends on the assistant;
-[Claude Code](https://code.claude.com/docs/en/mcp#use-mcp-prompts-as-commands), for
-example, offers them as commands. In any assistant, users can also ask for the same
-things in plain words.
-
 ### MCP keys
 
-Without a key, assistants see public content only. To let an assistant see private
-content too, add an MCP key to the address:
+To let an assistant see private content, add an MCP key to the address:
 
 ```
 https://example.org/mcp?key=KEY
 ```
 
-Create the key in the Omeka admin, under **MCP Server > Keys**, which shows the address
-with the key once, when the key is created. Every user can create keys for their own
-account there, and anyone who may manage another user's API keys, such as a Global
-Administrator, can manage that user's MCP keys too.
+Each user can create keys under **MCP Server > Keys**, which shows the address with the
+key once. Omeka API keys don't work at `/mcp`.
 
-The assistant sees what the key's user may see:
+The assistant sees what the key's owner may see:
 
 - **Reviewers, Editors, Supervisors, and Global Administrators** see all private items,
   media, item sets, and values.
@@ -124,77 +112,60 @@ The assistant sees what the key's user may see:
   a user sees them on sites they own or have a role on, and Supervisors and Global
   Administrators see them all.
 
-The assistant can also tell private content from public, and look for private content
-alone.
-
-An MCP key works only at `/mcp`, never for Omeka's REST API, so it can't be used to change
-anything, whatever its user's role. Omeka API keys don't work at `/mcp`.
-
-Treat an address with a key like a password. Anyone who sees it can read what its user
-may see:
-
-- **It appears wherever the address does:** in your web server's access logs, in any
-  proxy in front of it, and in the assistant's connector settings.
-- **Where a connector is shared,** as on some assistants' team plans, everyone using it
-  shares its key. Use an account that sees only what all of them should see.
-- **To revoke access, delete the key** under **MCP Server > Keys**, which also shows when
-  each key was last used. A request with a key that no longer works is refused, rather
-  than answered as if it had none.
+Treat an address with a key like a password: anyone who has it can read what its owner
+may see. It appears in your web server's logs and in the assistant's settings, and
+everyone who uses a shared connector uses its key. To revoke access, delete the key.
 
 #### Requiring a key
 
-By default, anyone with the address can read your public content. To refuse assistants
-without a key, check **Require sign-in** in the module's configuration: on the
-**Modules** page, click **Configure** next to MCP Server. Only a Global Administrator can
-change it. Requests without a key are then refused, with a message saying where to create
-one.
-
-To give public-only access while sign-in is required, create keys for a Researcher
-account that owns nothing; it sees only public content. Each key can then be revoked on
-its own.
+To refuse assistants without a key, a Global Administrator can check **Require sign-in**
+in the module's configuration.
 
 ### Privacy and security
 
-- **Without a key, an assistant sees only public content,** the same as Omeka's REST API
-  shows a visitor. With a key, it sees what the key's user may see, so treat the address
-  like a password; see [MCP keys](#mcp-keys).
-- **Nothing can be changed.** All tools are read-only, and the endpoint refuses writes
-  through Omeka's API, even from another module's tool.
-- **The endpoint is public by default,** like your public site and Omeka's REST API.
-  Anyone who knows the address can read your public content. To limit it to people
-  you've given keys, [require a key](#requiring-a-key). To limit how often it's used,
-  rate-limit it at the web server, as you would any public endpoint.
+- **What assistants see.** Without a key, only public content, the same as Omeka's REST
+  API shows a visitor. With a key, what the key's owner may see. Treat an address with a
+  key like a password; see [MCP keys](#mcp-keys).
+- **Who can connect.** Anyone who knows the address. To allow only people you've given
+  keys, [require a key](#requiring-a-key). To limit how often the endpoint is used,
+  rate-limit `/mcp` at the web server, as you would any public endpoint.
+- **Nothing can be changed.** Assistants can only read, no matter what the key's owner can
+  normally do. A misunderstood request, a leaked key, or prompt injection can never alter
+  or destroy your content.
+- **What an assistant reads leaves your server.** The records, text, and images it reads
+  go to the AI service behind it, like the rest of the conversation, under that service's
+  terms. Weigh that before using a key that sees private content.
+- **The module keeps no record of what's asked.** It sees only what an assistant asks it
+  for, never the conversation. For each key, it stores a hash, never the key itself, and
+  when the key was last used.
 
 ### Troubleshooting
 
-**Results have no links to public pages.** Assistants link only to pages on sites a
-visitor can see. Assign the items and item sets to a public site, and their links appear.
-
-**Searches miss items,** for example after importing directly into the database. Rebuild
-the full-text index: on the admin **Settings** page, check **Index full-text search** and
-save.
-
-**An assistant with a key still sees only public content.** The key's user may not see
-private content. Check their role, and for private site pages their role on the site,
-against [what each role sees](#mcp-keys).
-
-**Requests are refused.** Some assistants show this as a sign-in or registration error,
-since they can't tell it apart from a server that needs signing in. Without a key,
-**Require sign-in** is on: add a key to the address, or turn the setting off in the
-module's configuration. With a key, the key was mistyped, deleted, or belongs to a
-deactivated user: create a new key and update the address.
-
-**Assistants get links but no images.** `get_media` reads thumbnails from Omeka's
-default local file storage. With other file storage, assistants get links to the files
-instead.
-
-**The connection stops working after an upgrade.** While Omeka needs a database
-migration, `/mcp` redirects to the maintenance page like every other public page. Run
-the migration in the admin.
+- **An assistant can't reach the server.** Open the address in a browser: it should say the
+  address is for AI assistants. If it doesn't, copy the address again from
+  **MCP Server > Overview**. If it does, check that Omeka is reachable from the internet,
+  and that no firewall or proxy service in front of it blocks AI assistants.
+- **Requests are refused.** Some assistants show this as a sign-in or registration error.
+  Without a key, **Require sign-in** is on: add a key to the address, or turn the setting
+  off. With a key, the key was mistyped or deleted, or its owner was deactivated: create
+  a new key and update the address.
+- **The assistant answers without using Omeka.** Make sure the server is turned on for
+  the conversation, which some assistants require, and mention your installation by name.
+- **An assistant with a key sees only public content.** Check that the address the
+  assistant uses includes the key. Then check the owner's role, and for private site pages
+  their role on the site, against [what each role sees](#mcp-keys).
+- **Results have no links to public pages.** Assistants link only to pages on sites they
+  can see. Assign the items and item sets to a public site, and their links appear.
+- **Word searches miss items,** for example after importing directly into the database.
+  Rebuild the full-text index: on the admin **Settings** page, check
+  **Index full-text search** and save.
+- **Assistants get links but no images.** They see images through Omeka's thumbnails,
+  read from its default local file storage. Media without thumbnails, or with
+  files stored elsewhere, come with links instead.
 
 ## For developers
 
-How the module works, adding tools to it, and testing it.
+How the module works, adding tools and prompts to it, and testing it.
 
 ### Protocol support
 
@@ -214,17 +185,17 @@ them:
 npx @modelcontextprotocol/inspector --cli https://example.org/mcp --transport http --method tools/list
 ```
 
-In the code, each tool's `getInputSchema()` in `src/Mcp/Tool/Builtin/` defines its
-parameters, and `src/Mcp/Output/OutputLimits.php` sets how much a tool shows, and says
-where the other limits are.
+In the code, each tool's parameters are defined by its `getInputSchema()`, in
+`src/Mcp/Tool/Builtin/`. How much a tool shows is set in `src/Mcp/Output/OutputLimits.php`,
+which also says where the other limits are.
 
 ### Adding tools and prompts from other modules
 
 Other Omeka modules can add their own tools and prompts. A tool implements
 `McpServer\Mcp\Tool\ToolInterface`, whose docblocks give the rules, including how to name
-tools and how to read data so that visibility stays correct. Here is a complete one, which
-picks an item at random, from all of them or from one item set, for exploring by chance,
-something the built-in tools can't do:
+tools and how to read data so that visibility stays correct. Here is a complete one. It
+picks an item at random, from all items or from one item set, which none of the built-in
+tools can do:
 
 ```php
 namespace MyModule\Mcp;
@@ -294,9 +265,8 @@ class GetRandomItem implements ToolInterface
 }
 ```
 
-Its factory builds it with Omeka's API manager, as
-`new GetRandomItem($services->get('Omeka\ApiManager'))`, and your module's
-configuration registers the factory under the `mcp_server` key:
+Its factory returns `new GetRandomItem($services->get('Omeka\ApiManager'))`, and your
+module's configuration registers the factory under the `mcp_server` key:
 
 ```php
 'mcp_server' => [
@@ -308,11 +278,17 @@ configuration registers the factory under the `mcp_server` key:
 ],
 ```
 
-Names from other modules start with the module's name, as above. A tool's name should
-never change once released, because clients remember approvals by name. A tool's title,
-description, schema, and annotations should be the same for every caller, since the tool
-list is shared. When a tool's input schema sets `additionalProperties` to `false`, as above,
-an argument it doesn't name is refused, so a misspelled filter can't pass for one applied.
+The rules that trip people up most:
+
+- **Names** from other modules are `<module>_<verb>_<noun>`, as above, using only letters,
+  digits, underscores, and hyphens, up to 64 characters. Other names are left out, with a
+  warning in Omeka's log. A name should never change once released, because clients
+  remember approvals by name.
+- **A tool's title, description, schema, and annotations** should be the same for every
+  caller, since the tool list is shared.
+- **`additionalProperties: false`**, as above, makes the server refuse an argument the
+  schema doesn't name, so a misspelled filter can't pass for one applied.
+
 This module's own tools, in `src/Mcp/Tool/Builtin/`, are fuller examples, and the module's
 tests check each of them against these rules.
 
@@ -357,13 +333,14 @@ class Compare implements PromptInterface
 }
 ```
 
-Your module's configuration registers it under `prompts`:
+It needs nothing built for it, so your module's configuration can register the class
+itself under `prompts`:
 
 ```php
 'mcp_server' => [
     'prompts' => [
-        'factories' => [
-            'mymodule_compare' => Service\CompareFactory::class,
+        'invokables' => [
+            'mymodule_compare' => Mcp\Compare::class,
         ],
     ],
 ],
@@ -376,8 +353,8 @@ in `src/Mcp/Prompt/Builtin/`.
 These are the parts other modules can rely on. They change in incompatible ways only
 between major versions, and everything else may change in any version:
 
-- **`Context`,** in `McpServer\Mcp`: what a tool or prompt knows about the call, apart from
-  its arguments.
+- In `McpServer\Mcp`:
+  - **`Context`:** what a tool or prompt knows about the call, apart from its arguments.
 - In `McpServer\Mcp\Tool`:
   - **`ToolInterface`:** what a tool implements. Its docblocks give the rules.
   - **`ToolResult`:** what a tool returns.
@@ -392,13 +369,14 @@ between major versions, and everything else may change in any version:
 
 ### Running the tests
 
-The tests are in the repository, not the release packages. They use Omeka's own test
-framework and build their own records, so they run on any development copy of Omeka.
-**Unit tests** need only Omeka's development dependencies (`composer install`).
-**Database tests** check what each role may see, that nothing can be written, and that
-the tools, the endpoint, and the admin pages work as described. They need an empty MySQL
-database set in Omeka's `application/test/config/database.ini`, the one Omeka's own tests
-use, and they drop every table in it.
+The tests are in the repository, not the release zip. They use Omeka's own test framework
+and build their own records, so they run on any development copy of Omeka:
+
+- **Unit tests** need only Omeka's development dependencies (`composer install`).
+- **Database tests** check what each role may see, that nothing can be written, and that
+  the tools, the endpoint, and the admin pages work as described. They need an empty MySQL
+  database set in Omeka's `application/test/config/database.ini`, the one Omeka's own
+  tests use, and they drop every table in it.
 
 From Omeka's root, run all of them, or only the unit tests:
 
